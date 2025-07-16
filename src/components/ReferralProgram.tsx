@@ -307,7 +307,12 @@ const RewardItem = ({
 };
 
 // Social Share Modal Component
-const SocialShareModal = ({ isOpen, onClose, inviteLink, referralCode }) => {
+const SocialShareModal = ({ isOpen, onClose, inviteLink, referralCode }: {
+  isOpen: boolean;
+  onClose: () => void;
+  inviteLink: string | null;
+  referralCode: string | null;
+}) => {
   const [isCopied, setIsCopied] = useState(false);
   const [currentInviteLink, setCurrentInviteLink] = useState(inviteLink);
   
@@ -353,7 +358,7 @@ const SocialShareModal = ({ isOpen, onClose, inviteLink, referralCode }) => {
     }
   };
 
-  const openSocialShare = (shareUrl) => {
+  const openSocialShare = (shareUrl: string | null) => {
     if (!shareUrl) {
       toast.error("No share URL available");
       return;
@@ -361,7 +366,7 @@ const SocialShareModal = ({ isOpen, onClose, inviteLink, referralCode }) => {
     window.open(shareUrl, "_blank", "width=600,height=400");
   };
 
-  const getShareMessage = (platform) => {
+  const getShareMessage = (platform: string) => {
     if (!currentInviteLink) {
       toast.error("No referral link available to share");
       return null;
@@ -504,7 +509,11 @@ const SocialShareModal = ({ isOpen, onClose, inviteLink, referralCode }) => {
 };
 
 // Thank You Dialog Component - Updated for manual process
-const ThankYouDialog = ({ isOpen, onClose, referralCode }) => {
+const ThankYouDialog = ({ isOpen, onClose, referralCode }: {
+  isOpen: boolean;
+  onClose: () => void;
+  referralCode: string;
+}) => {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -558,7 +567,11 @@ const ThankYouDialog = ({ isOpen, onClose, referralCode }) => {
 };
 
 // Error Dialog Component
-const ErrorDialog = ({ isOpen, onClose, message }) => {
+const ErrorDialog = ({ isOpen, onClose, message }: {
+  isOpen: boolean;
+  onClose: () => void;
+  message: string;
+}) => {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -609,7 +622,10 @@ const ErrorDialog = ({ isOpen, onClose, message }) => {
 };
 
 // Sign In Required Dialog Component
-const SignInRequiredDialog = ({ isOpen, onClose }) => {
+const SignInRequiredDialog = ({ isOpen, onClose }: {
+  isOpen: boolean;
+  onClose: () => void;
+}) => {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -655,7 +671,10 @@ const SignInRequiredDialog = ({ isOpen, onClose }) => {
 };
 
 // Add this new component after the other dialog components
-const RewardDialog = ({ isOpen, onClose }) => {
+const RewardDialog = ({ isOpen, onClose }: {
+  isOpen: boolean;
+  onClose: () => void;
+}) => {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -708,13 +727,6 @@ const RewardDialog = ({ isOpen, onClose }) => {
   );
 };
 
-import { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchUserReferrals, fetchReferralRewards, fetchReferralEarnings } from '../store/sessionSlice';
-import { RootState } from '../store/store';
-import { SerializedUserProfile, SerializedReferral, SerializedReferralReward, TierLevel, RewardType } from '../types';
-import { toast } from 'react-toastify';
-
 export const ReferralProgram: React.FC = (): JSX.Element => {
   const [fadeAnimation, setFadeAnimation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -726,12 +738,16 @@ export const ReferralProgram: React.FC = (): JSX.Element => {
   const [referralError, setReferralError] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
   const [showRewardDialog, setShowRewardDialog] = useState(false);
-  const [pendingRewards, setPendingRewards] = useState<SerializedReferralReward[]>([]);
-  const [claimedRewards, setClaimedRewards] = useState<SerializedReferralReward[]>([]);
+  const [pendingRewards, setPendingRewards] = useState(0);
+  const [claimedRewards, setClaimedRewards] = useState(0);
   const [totalReferralEarnings, setTotalReferralEarnings] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [showThankYouDialog, setShowThankYouDialog] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [showSignInRequiredDialog, setShowSignInRequiredDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
-  const dispatch = useDispatch();
-
   const dispatch = useDispatch<AppDispatch>();
   
   const userProfile = useSelector((state: RootState) => {
@@ -796,9 +812,6 @@ export const ReferralProgram: React.FC = (): JSX.Element => {
       };
       return serializedReward;
     }) || [];
-      referral_id: String(reward.referral_id || ''),
-      claimed_at: reward.claimed_at ? String(reward.claimed_at) : null
-    }));
   });
 
   const userReferralCode = userProfile?.referral_code || null;
@@ -1363,7 +1376,7 @@ export const ReferralProgram: React.FC = (): JSX.Element => {
   };
 
   // Handle input change with automatic code extraction
-  const handleReferralInputChange = (e) => {
+  const handleReferralInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     setReferralCode(inputValue);
     setReferralError("");
@@ -1441,18 +1454,18 @@ export const ReferralProgram: React.FC = (): JSX.Element => {
     switch (platform) {
       case "Instagram":
         return `https://www.instagram.com/?url=${encodeURIComponent(
-          referralLink
+          referralLink || ''
         )}`;
       case "Telegram":
         return `https://t.me/share/url?url=${encodeURIComponent(
-          referralLink
+          referralLink || ''
         )}&text=${encodedTelegramMessage}`;
       case "WhatsApp":
         return `https://wa.me/?text=${encodedWhatsappMessage}`;
       case "Twitter":
         return `https://twitter.com/intent/tweet?text=${encodedTwitterMessage}`;
       default:
-        return referralLink;
+        return referralLink || '';
     }
   };
 
@@ -1866,7 +1879,7 @@ export const ReferralProgram: React.FC = (): JSX.Element => {
               <h3 className="text-white font-medium text-sm sm:text-base">
                 All Referrals
               </h3>
-                              <span className="text-[#515194]/80 text-xs sm:text-sm">
+              <span className="text-[#515194]/80 text-xs sm:text-sm">
                 {totalReferrals.toLocaleString()} total
               </span>
             </div>
@@ -1875,16 +1888,15 @@ export const ReferralProgram: React.FC = (): JSX.Element => {
               <div className="flex justify-center items-center py-6">
                 <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />
               </div>
-                          ) : totalReferrals > 0 ? (
-                <div className="h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                  <div className="space-y-2">
-                    {/* Combined list of all referrals across tiers */}
-                    {[...tier1Referrals, ...tier2Referrals, ...tier3Referrals]
-                      .sort((a, b) => new Date(b.referred_at).getTime() - new Date(a.referred_at).getTime())
-                      .map(renderReferralItem)}
-                  </div>
-            
+            ) : totalReferrals > 0 ? (
+              <div className="h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                <div className="space-y-2">
+                  {/* Combined list of all referrals across tiers */}
+                  {[...tier1Referrals, ...tier2Referrals, ...tier3Referrals]
+                    .sort((a, b) => new Date(b.referred_at).getTime() - new Date(a.referred_at).getTime())
+                    .map(renderReferralItem)}
                 </div>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-6 bg-[#090C18]/50 rounded-lg text-center">
                 <Share2 className="w-8 h-8 text-[#515194] mb-2" />
@@ -1911,8 +1923,6 @@ export const ReferralProgram: React.FC = (): JSX.Element => {
               </div>
             ) : referralRewards && referralRewards.length > 0 ? (
               <>
-                
-                  
                 {/* Rewards List */}
                 <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                   {referralRewards.map((reward) => (
