@@ -1,103 +1,154 @@
-import Image from "next/image";
+// app/page.tsx
 
-export default function Home() {
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Header } from "@/components/Header";
+import { NodeControlPanel } from "@/components/NodeControlPanel";
+import { TaskPipeline } from "@/components/TaskPipeline";
+import { EarningsDashboard } from "@/components/EarningsDashboard";
+import { ReferralProgram } from "@/components/ReferralProgram";
+import { GlobalStatistics } from "@/components/GlobalStatistics";
+import { HowItWorks } from "@/components/HowItWorks";
+import { Sidebar } from "@/components/Sidebar";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { updateUsername } from "@/store/slices/sessionSlice";
+import { UsernameDialog } from "@/components/UsernameDialog";
+import { ReferralCodeDialog } from "@/components/ReferralCodeDialog";
+import HelpCenter from "@/components/HelpCenter";
+import Settings from "@/components/Settings";
+import { OnboardingTour } from "@/components/OnboardingTour";
+
+const Dashboard = () => (
+  <div className="flex flex-col gap-6">
+    <NodeControlPanel />
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <TaskPipeline />
+    </div>
+  </div>
+);
+
+export default function HomePage() {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [showUsernameDialog, setShowUsernameDialog] = useState(false);
+  const [showReferralDialog, setShowReferralDialog] = useState(false);
+  const [detectedRefCode, setDetectedRefCode] = useState<string>("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [runTour, setRunTour] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const dispatch = useAppDispatch();
+  const { userProfile } = useAppSelector((state) => state.session);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const hasVisitedBefore = localStorage.getItem("hasVisitedBefore");
+    if (!hasVisitedBefore && isLoaded) {
+      setTimeout(() => {
+        setRunTour(true);
+        localStorage.setItem("hasVisitedBefore", "true");
+      }, 1000);
+    }
+  }, [isLoaded]);
+
+  useEffect(() => {
+    const refCode = searchParams.get("ref");
+    if (refCode) {
+      setDetectedRefCode(refCode);
+      setShowReferralDialog(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (userProfile?.id && userProfile.user_name === null) {
+      setShowUsernameDialog(true);
+    }
+  }, [userProfile]);
+
+  const handleSaveUsername = (username: string) => {
+    setShowUsernameDialog(false);
+    // dispatch(updateUsername(username)) if needed
+  };
+
+  const handleCloseReferralDialog = () => {
+    setShowReferralDialog(false);
+  };
+
+  const handleTourComplete = () => {
+    setRunTour(false);
+    localStorage.setItem("hasVisitedBefore", "true");
+  };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <div className="min-h-screen flex relative overflow-hidden">
+      {/* Background Blur Layers */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute top-0 left-0 w-full h-full"
+          style={{
+            background:
+              "linear-gradient(180deg, #000 0%, #021020 30%, #051a36 60%, #000 100%)",
+            opacity: 1,
+          }}
         />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-6xl max-h-6xl rounded-full bg-blue-900/8 blur-3xl" />
+        <div className="absolute top-0 left-0 w-2/3 h-2/5 bg-blue-900/5 blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-3/5 h-1/3 rounded-full bg-blue-800/7 blur-2xl" />
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      <Sidebar
+        activeSection="dashboard"
+        onSectionChange={() => setSidebarOpen(false)}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        className={`fixed left-0 top-0 h-screen z-30 transition-transform duration-300 ease-in-out md:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      />
+
+      <div className="flex-1 md:ml-64 flex flex-col relative z-10 overflow-x-hidden">
+        <Header
+          className="sticky top-0 md:top-8 z-20"
+          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          sidebarOpen={sidebarOpen}
+        />
+
+        <main className="p-3 md:p-6 flex-1 overflow-auto mt-4 md:mt-8">
+          <div
+            className={`max-w-7xl mx-auto transition-opacity duration-500 ${
+              isLoaded ? "opacity-100" : "opacity-0"
+            }`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            {/* Replace with conditional component if needed */}
+            <Dashboard />
+          </div>
+        </main>
+
+        <HowItWorks />
+      </div>
+
+      <UsernameDialog
+        isOpen={showUsernameDialog}
+        onClose={() => setShowUsernameDialog(false)}
+        onSave={handleSaveUsername}
+        initialUsername={userProfile?.user_name || ""}
+      />
+
+      <ReferralCodeDialog
+        isOpen={showReferralDialog}
+        onClose={handleCloseReferralDialog}
+        referralCode={detectedRefCode}
+      />
+
+      <OnboardingTour run={runTour} onComplete={handleTourComplete} />
     </div>
   );
 }
