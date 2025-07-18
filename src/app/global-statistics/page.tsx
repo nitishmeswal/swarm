@@ -1,4 +1,4 @@
-import { GlobalStatistics } from '@/components/GlobalStatistics';
+import { GlobalStatistics } from "@/components/GlobalStatistics";
 
 export default function GlobalStatisticsPage() {
   return (
