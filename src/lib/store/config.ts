@@ -130,12 +130,12 @@ export const formatUptimeShort = (seconds: number): string => {
 };
 
 export const logger = {
-  log: (message: string, data?: any) => {
+  log: (message: string, data?: unknown) => {
     if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       console.log(`[SwarmNode] ${message}`, data || '');
     }
   },
-  error: (message: string, error?: any) => {
+  error: (message: string, error?: unknown) => {
     if (typeof window !== 'undefined') {
       console.error(`[SwarmNode] ${message}`, error || '');
     }

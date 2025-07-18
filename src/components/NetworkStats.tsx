@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { ArrowUpIcon, ClockIcon } from "@heroicons/react/24/outline";
 import { InfoTooltip } from "./InfoTooltip";
+import { formatNumber } from "@/lib/utils";
 
 type StatCardProps = {
   title: string;
@@ -21,7 +22,7 @@ const StatCard = ({
   info,
   isUptime = false,
 }: StatCardProps) => {
-  let isPlan = title === "Your Plan";
+  const isPlan = title === "Your Plan";
 
   const getColor = () => {
     if (isPlan) {
@@ -99,7 +100,7 @@ export const NetworkStats = () => {
       />
       <StatCard
         title="Total AI Content Generated"
-        value={totalTasks.toLocaleString()}
+        value={formatNumber(totalTasks)}
         unit="tasks"
         changePercentage={7.2}
         info="Total number of tasks processed by the network"

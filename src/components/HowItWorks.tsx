@@ -147,7 +147,7 @@ export const HowItWorks = () => {
               px-6 py-3 h-auto
             "
             >
-              Got it, let's earn some NLOV!
+              Got it, let&apos;s earn some NLOV!
             </Button>
           </div>
         </DialogClose>

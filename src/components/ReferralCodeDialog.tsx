@@ -46,7 +46,7 @@ export function ReferralCodeDialog({
         <DialogHeader>
           <DialogTitle>Referral Code Detected</DialogTitle>
           <DialogDescription>
-            You've visited NeuroSwarm using a referral link.
+            You&apos;ve visited NeuroSwarm using a referral link.
           </DialogDescription>
         </DialogHeader>
 
@@ -57,9 +57,9 @@ export function ReferralCodeDialog({
           
           <ol className="list-decimal list-inside text-sm space-y-2 ml-2">
             <li>Copy this referral code</li>
-            <li>Go to the "Referral" section from the sidebar</li>
-            <li>Enter this code in the "Use Referral Code" section</li>
-            <li>Click "Verify" and then "Join Referral Program"</li>
+            <li>Go to the &quot;Referral&quot; section from the sidebar</li>
+            <li>Enter this code in the &quot;Use Referral Code&quot; section</li>
+            <li>Click &quot;Verify&quot; and then &quot;Join Referral Program&quot;</li>
           </ol>
           
           <div className="flex items-center space-x-2 bg-blue-900/20 p-3 rounded-md border border-blue-500/20">
