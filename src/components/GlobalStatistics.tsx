@@ -22,20 +22,80 @@ const mockStats = {
   totalUsers: 8932,
   activeNodes: 1247,
   networkLoad: 78,
-  totalEarnings: 125000.50
+  totalEarnings: 125000.5,
 };
 
 const mockLeaderboard = [
-  { user_id: "1", username: "CryptoMiner2024", total_earnings: 15420.75, rank: 1, task_count: 892 },
-  { user_id: "2", username: "NodeRunner", total_earnings: 12350.25, rank: 2, task_count: 756 },
-  { user_id: "3", username: "SwarmKing", total_earnings: 10890.50, rank: 3, task_count: 634 },
-  { user_id: "4", username: "TechGuru", total_earnings: 9750.00, rank: 4, task_count: 567 },
-  { user_id: "5", username: "DataCruncher", total_earnings: 8920.25, rank: 5, task_count: 498 },
-  { user_id: "6", username: "AIEnthusiast", total_earnings: 7650.75, rank: 6, task_count: 423 },
-  { user_id: "7", username: "ComputeNode", total_earnings: 6890.50, rank: 7, task_count: 389 },
-  { user_id: "8", username: "BlockchainPro", total_earnings: 6234.25, rank: 8, task_count: 345 },
-  { user_id: "9", username: "NetworkNode", total_earnings: 5678.00, rank: 9, task_count: 312 },
-  { user_id: "10", username: "SwarmWorker", total_earnings: 5123.75, rank: 10, task_count: 287 }
+  {
+    user_id: "1",
+    username: "CryptoMiner2024",
+    total_earnings: 15420.75,
+    rank: 1,
+    task_count: 892,
+  },
+  {
+    user_id: "2",
+    username: "NodeRunner",
+    total_earnings: 12350.25,
+    rank: 2,
+    task_count: 756,
+  },
+  {
+    user_id: "3",
+    username: "SwarmKing",
+    total_earnings: 10890.5,
+    rank: 3,
+    task_count: 634,
+  },
+  {
+    user_id: "4",
+    username: "TechGuru",
+    total_earnings: 9750.0,
+    rank: 4,
+    task_count: 567,
+  },
+  {
+    user_id: "5",
+    username: "DataCruncher",
+    total_earnings: 8920.25,
+    rank: 5,
+    task_count: 498,
+  },
+  {
+    user_id: "6",
+    username: "AIEnthusiast",
+    total_earnings: 7650.75,
+    rank: 6,
+    task_count: 423,
+  },
+  {
+    user_id: "7",
+    username: "ComputeNode",
+    total_earnings: 6890.5,
+    rank: 7,
+    task_count: 389,
+  },
+  {
+    user_id: "8",
+    username: "BlockchainPro",
+    total_earnings: 6234.25,
+    rank: 8,
+    task_count: 345,
+  },
+  {
+    user_id: "9",
+    username: "NetworkNode",
+    total_earnings: 5678.0,
+    rank: 9,
+    task_count: 312,
+  },
+  {
+    user_id: "10",
+    username: "SwarmWorker",
+    total_earnings: 5123.75,
+    rank: 10,
+    task_count: 287,
+  },
 ];
 
 // Interface for leaderboard entry
@@ -49,8 +109,10 @@ interface LeaderboardEntry {
 
 export const GlobalStatistics = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(mockLeaderboard);
-  const [currentUserRank, setCurrentUserRank] = useState<LeaderboardEntry | null>(null);
+  const [leaderboard, setLeaderboard] =
+    useState<LeaderboardEntry[]>(mockLeaderboard);
+  const [currentUserRank, setCurrentUserRank] =
+    useState<LeaderboardEntry | null>(null);
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
   const [totalEarnings, setTotalEarnings] = useState(mockStats.totalEarnings);
   const [stats, setStats] = useState(mockStats);
@@ -61,7 +123,7 @@ export const GlobalStatistics = () => {
   // Fetch network statistics (mock implementation)
   const fetchNetworkStats = async () => {
     // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     return mockStats;
   };
 
@@ -69,22 +131,22 @@ export const GlobalStatistics = () => {
   const fetchLeaderboard = async () => {
     try {
       setIsLeaderboardLoading(true);
-      
+
       // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       setLeaderboard(mockLeaderboard);
       setTotalEarnings(mockStats.totalEarnings);
-      
+
       // Set mock current user rank
       setCurrentUserRank({
         user_id: "user123",
         username: "CurrentUser",
         total_earnings: 3456.78,
         rank: 15,
-        task_count: 234
+        task_count: 234,
       });
-      
+
       setIsLeaderboardLoading(false);
     } catch (error) {
       console.error("Error fetching leaderboard data:", error);
@@ -115,20 +177,17 @@ export const GlobalStatistics = () => {
         console.error("Error during initial data load:", error);
       }
     };
-    
+
     initialLoad();
   }, []);
 
   const handleRefresh = useCallback(async () => {
     try {
       setIsRefreshing(true);
-      
+
       // Fetch all data in parallel
-      await Promise.all([
-        updateStats(),
-        fetchLeaderboard()
-      ]);
-      
+      await Promise.all([updateStats(), fetchLeaderboard()]);
+
       setIsRefreshing(false);
       console.log("Data refreshed successfully");
     } catch (error) {
@@ -139,7 +198,10 @@ export const GlobalStatistics = () => {
 
   // Format currency for display
   const formatCurrency = (amount: number) => {
-    return `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SP`;
+    return `${amount.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} SP`;
   };
 
   // Clean username by removing wallet type information
@@ -167,7 +229,7 @@ export const GlobalStatistics = () => {
   };
 
   return (
-    <div className="stat-card overflow-x-hidden">
+    <div className="stat-card overflow-x-hidden p-4 rounded-lg">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-base sm:text-xl font-semibold text-white">
@@ -192,49 +254,106 @@ export const GlobalStatistics = () => {
       </div>
 
       {/* Global Map Visualization */}
-      <div className="global-map w-full h-[250px] sm:h-[330px] mb-6 border border-blue-900/30 relative bg-gradient-to-br from-blue-900/20 to-slate-900/40 rounded-lg overflow-hidden">
+      <div className="global-map w-full h-[250px] sm:h-[330px] mb-6 border border-blue-900/30 relative">
         <div className="absolute inset-0 bg-grid opacity-[0.15] z-0"></div>
         <img
           src="/images/map.png"
-          alt="Global Network Map"
-          className="absolute inset-0 w-full h-full object-contain z-10 opacity-80"
+          alt={"globalStatistics.map.alt"}
+          className="absolute inset-0 w-full h-full object-contain z-10"
           onError={(e) => {
-            // Fallback to a placeholder if image fails to load
-            e.currentTarget.style.display = 'none';
+            e.currentTarget.src =
+              "https://raw.githubusercontent.com/Neurolov/NeuroSwarm/main/public/images/map.png";
           }}
         />
         <div className="absolute inset-0 z-30 pointer-events-none cursor-pointer"></div>
-        
-        {/* Node Indicators (yellow dots) */}
-        {[
-          { top: "20%", left: "30%" },
-          { top: "30%", left: "58%" },
-          { top: "40%", left: "63%" },
-          { top: "53%", left: "59%" },
-          { top: "65%", left: "50%" },
-          { top: "70%", left: "40%" },
-          { top: "20%", left: "65%" },
-          { top: "30%", left: "35%" },
-          { top: "10%", left: "42%" },
-          { top: "61%", left: "40%" },
-          { top: "50%", left: "48%" },
-          { top: "12%", left: "35%" },
-          { top: "15%", left: "45%" },
-          { top: "40%", left: "59%" },
-          { top: "44%", left: "66%" },
-          { top: "57%", left: "52%" },
-          { top: "39%", left: "33%" },
-          { top: "79%", left: "39%" },
-          { top: "80%", left: "69%" },
-          { top: "28%", left: "52%" },
-          { top: "17%", left: "60%" }
-        ].map((position, index) => (
-          <div
-            key={index}
-            className="node-indicator absolute z-20 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"
-            style={{ top: position.top, left: position.left }}
-          />
-        ))}
+        {/* Hardcoded Node Indicators (yellow dots) - Responsive positions */}
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "20%", left: "30%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "30%", left: "58%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "40%", left: "63%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "53%", left: "59%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "65%", left: "50%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "70%", left: "40%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "20%", left: "65%" }}
+        />
+
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "30%", left: "35%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "10%", left: "42%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "61%", left: "40%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "50%", left: "48%" }}
+        />
+
+        {/* -------------- l--25 to 74% and t --5 to 90  */}
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "12%", left: "35%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "15%", left: "45%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "40%", left: "59%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "44%", left: "66%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "57%", left: "52%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "39%", left: "33%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "79%", left: "39%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "80%", left: "69%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "28%", left: "52%" }}
+        />
+        <div
+          className="node-indicator absolute z-20"
+          style={{ top: "17%", left: "60%" }}
+        />
       </div>
 
       {/* Stats Cards Row */}
@@ -302,9 +421,14 @@ export const GlobalStatistics = () => {
               <Server className="w-6 h-6 sm:w-7 sm:h-7 text-orange-400 relative z-10" />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm text-slate-400">Global Compute Generated</span>
+              <span className="text-sm text-slate-400">
+                Global Compute Generated
+              </span>
               <span className="text-xl font-bold text-white">
-                {stats.activeNodes.toLocaleString(undefined, { maximumFractionDigits: 2 })} TFLOPs
+                {stats.activeNodes.toLocaleString(undefined, {
+                  maximumFractionDigits: 2,
+                })}{" "}
+                TFLOPs
               </span>
             </div>
           </div>

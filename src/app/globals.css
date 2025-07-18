@@ -119,3 +119,75 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+
+.global-map {
+  background-color: #050f2d;
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.8s ease-in-out;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.global-map:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px rgba(3, 97, 218, 0.25);
+  border-color: rgba(3, 97, 218, 0.5);
+}
+
+.global-map::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(3, 97, 218, 0.2),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.global-map:hover::after {
+  opacity: 1;
+}
+
+.global-map img {
+  animation:  7s ease-in-out infinite;
+  transition: transform 0.4s ease;
+}
+
+.global-map:hover img {
+  transform: scale(1.01);
+}
+
+.global-map .bg-grid {
+  transition: opacity 0.6s ease;
+}
+
+.global-map:hover .bg-grid {
+  opacity: 0.25 !important;
+}
+
+.node-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: rgba(255, 215, 0, 0.9);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+  animation: blinkNode 3s ease-in-out infinite;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.global-map:hover .node-indicator {
+  transform: scale(1.3);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 1);
+}
