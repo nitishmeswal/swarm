@@ -10,22 +10,17 @@ import {
   AlertCircle,
   RefreshCw,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 // Mock translation function - replace with actual i18n implementation
 const useTranslation = () => {
@@ -37,10 +32,14 @@ const useTranslation = () => {
       currency_coming_soon: "Coming Soon",
       reset_password: "Reset Password",
       delete_account: "Delete Account",
-      language_description: "Select your preferred language for the application interface.",
-      currency_description: "Select your preferred currency for displaying values.",
-      reset_password_description: "Request a OTP (One Time Password) to your email for reset password.",
-      delete_warning: "This action is permanent and cannot be undone. All your data, earnings, and referrals will be permanently deleted.",
+      language_description:
+        "Select your preferred language for the application interface.",
+      currency_description:
+        "Select your preferred currency for displaying values.",
+      reset_password_description:
+        "Request a OTP (One Time Password) to your email for reset password.",
+      delete_warning:
+        "This action is permanent and cannot be undone. All your data, earnings, and referrals will be permanently deleted.",
       interface_language: "Interface Language",
       display_currency: "Display Currency",
       your_email_address: "Your Email Address",
@@ -49,7 +48,8 @@ const useTranslation = () => {
       sending: "Sending...",
       delete_my_account: "Delete My Account",
       confirm_deletion: "Confirm Deletion",
-      delete_confirmation: 'Type "Delete Account" to confirm permanent deletion.',
+      delete_confirmation:
+        'Type "Delete Account" to confirm permanent deletion.',
       permanently_delete: "Permanently Delete",
       deleting_account: "Deleting Account...",
       cancel: "Cancel",
@@ -61,14 +61,15 @@ const useTranslation = () => {
     };
     return translations[key] || key;
   };
-  
+
   const i18n = {
     language: "en",
     changeLanguage: (lang: string) => {
       console.log(`Language changed to: ${lang}`);
-    }
+      toast.success(`Language changed to ${lang}`);
+    },
   };
-  
+
   return { t, i18n };
 };
 
@@ -84,9 +85,9 @@ const SettingsCard = ({
   children: React.ReactNode;
   className?: string;
 }) => (
-  <div className={`bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50 ${className}`}>
+  <div className={`bg-[#161628] rounded-2xl p-6 ${className}`}>
     <div className="flex items-center gap-3 mb-5">
-      <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-700/50">{icon}</div>
+      <div className="bg-[#0A1A2F] p-3 rounded-lg">{icon}</div>
       <h3 className="text-white font-medium">{title}</h3>
     </div>
     {children}
@@ -114,8 +115,8 @@ const DeleteConfirmModal = ({
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
-      <DialogContent className="bg-slate-900 border border-slate-700 text-white max-w-md">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="bg-[#161628] border border-[#112544] text-white max-w-md">
         <DialogHeader>
           <DialogTitle className="text-red-400 flex items-center gap-2">
             <AlertCircle className="w-5 h-5" />
@@ -136,7 +137,7 @@ const DeleteConfirmModal = ({
             value={deleteConfirmText}
             onChange={(e) => setDeleteConfirmText(e.target.value)}
             placeholder='Type "Delete Account"'
-            className="bg-slate-800 border-red-500/30 text-white"
+            className="bg-[#0A1A2F] border-red-500/30 text-white"
             autoFocus
           />
 
@@ -207,30 +208,30 @@ const PasswordResetModal = ({
       setError("Please enter the OTP sent to your email");
       return;
     }
-    
+
     if (!newPassword.trim()) {
       setError("Please enter a new password");
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-    
+
     if (newPassword.length < 6) {
       setError("Password must be at least 6 characters");
       return;
     }
-    
+
     // Clear any errors and submit
     setError("");
     onSubmit(otp, newPassword);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
-      <DialogContent className="bg-slate-900 border border-slate-700 text-white max-w-md">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="bg-[#161628] border border-[#112544] text-white max-w-md">
         <DialogHeader>
           <DialogTitle className="text-blue-400 flex items-center gap-2">
             <Key className="w-5 h-5" />
@@ -255,13 +256,16 @@ const PasswordResetModal = ({
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 placeholder="Enter OTP from email"
-                className="bg-slate-800 border-slate-700 text-white"
+                className="bg-[#0A1A2F] border-[#112544] text-white"
                 autoFocus
               />
             </div>
 
             <div>
-              <label htmlFor="new-password" className="text-sm text-gray-400 block mb-1">
+              <label
+                htmlFor="new-password"
+                className="text-sm text-gray-400 block mb-1"
+              >
                 {t("new_password")}
               </label>
               <Input
@@ -270,12 +274,15 @@ const PasswordResetModal = ({
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Enter new password"
-                className="bg-slate-800 border-slate-700 text-white"
+                className="bg-[#0A1A2F] border-[#112544] text-white"
               />
             </div>
 
             <div>
-              <label htmlFor="confirm-password" className="text-sm text-gray-400 block mb-1">
+              <label
+                htmlFor="confirm-password"
+                className="text-sm text-gray-400 block mb-1"
+              >
                 {t("confirm_password")}
               </label>
               <Input
@@ -284,7 +291,7 @@ const PasswordResetModal = ({
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"
-                className="bg-slate-800 border-slate-700 text-white"
+                className="bg-[#0A1A2F] border-[#112544] text-white"
               />
             </div>
 
@@ -339,6 +346,11 @@ const Settings: React.FC = () => {
   // i18n translation hook
   const { t, i18n } = useTranslation();
 
+  // Set initial language from i18n
+  useEffect(() => {
+    setLanguage(i18n.language);
+  }, []);
+
   // Language options
   const languages = [
     { code: "en", name: "English" },
@@ -358,62 +370,70 @@ const Settings: React.FC = () => {
   ];
 
   // Handle language change
-  const handleLanguageChange = (newLanguage: string) => {
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLanguage = e.target.value;
     setLanguage(newLanguage);
     i18n.changeLanguage(newLanguage);
     // Save language preference to localStorage
     localStorage.setItem("i18nextLng", newLanguage);
-    console.log(`Language changed to ${languages.find(l => l.code === newLanguage)?.name}`);
+    toast.success(
+      `Language changed to ${e.target.options[e.target.selectedIndex].text}`
+    );
   };
 
   // Handle currency change
-  const handleCurrencyChange = (newCurrency: string) => {
-    setCurrency(newCurrency);
-    console.log(`Currency changed to ${currencies.find(c => c.code === newCurrency)?.name}`);
+  const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCurrency(e.target.value);
+    toast.success(
+      `Currency changed to ${e.target.options[e.target.selectedIndex].text}`
+    );
   };
 
   // Handle reset password
   const handleResetPassword = async () => {
     if (!email.trim()) {
-      console.error("Please enter your email address");
+      toast.error("Please enter your email address");
       return;
     }
 
     try {
       setIsResetPasswordLoading(true);
-      
+
       // Mock API call - replace with actual Supabase call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       // Instead of just showing a success message, open the OTP modal
       setShowPasswordResetModal(true);
-      console.log("OTP sent to your email");
+      toast.success("OTP sent to your email");
     } catch (error) {
       console.error("Password reset error:", error);
-      console.error("Failed to send OTP email");
+      toast.error("Failed to send OTP email");
     } finally {
       setIsResetPasswordLoading(false);
     }
   };
 
   // Handle OTP verification and password reset
-  const handleVerifyOtpAndResetPassword = async (otp: string, newPassword: string) => {
+  const handleVerifyOtpAndResetPassword = async (
+    otp: string,
+    newPassword: string
+  ) => {
     if (!email.trim() || !otp.trim() || !newPassword.trim()) {
-      console.error("Please fill all required fields");
+      toast.error("Please fill all required fields");
       return;
     }
 
     try {
       setIsResetPasswordLoading(true);
-      
-      // Mock API call - replace with actual Supabase calls
-      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      console.log("Password reset successfully");
+      // Mock API call - replace with actual Supabase calls
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      toast.success("Password reset successfully");
       setShowPasswordResetModal(false);
     } catch (error) {
       console.error("OTP verification or password update error:", error);
-      console.error("Failed to verify OTP or reset password");
+      toast.error("Failed to verify OTP or reset password");
     } finally {
       setIsResetPasswordLoading(false);
     }
@@ -422,7 +442,7 @@ const Settings: React.FC = () => {
   // Handle delete account
   const handleDeleteAccount = async () => {
     if (!email) {
-      console.error("User email not found");
+      toast.error("User email not found");
       return;
     }
 
@@ -430,17 +450,17 @@ const Settings: React.FC = () => {
       setIsDeleteAccountLoading(true);
 
       // Mock API call - replace with actual Supabase calls
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      console.log("Account deleted successfully");
+      toast.success("Account deleted successfully");
       localStorage.clear();
-      
+
       // In a real app, you would redirect to login page
       console.log("Redirecting to home page...");
     } catch (error: unknown) {
       console.error("Delete account error:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error(`Failed to delete account: ${errorMessage}`);
+      toast.error(`Failed to delete account: ${errorMessage}`);
     } finally {
       setIsDeleteAccountLoading(false);
       setShowDeleteConfirm(false);
@@ -451,7 +471,7 @@ const Settings: React.FC = () => {
     <div className="space-y-6 p-6 rounded-3xl max-w-7xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <SettingsIcon className="w-6 h-6 text-blue-400" />
-        <h2 className="text-2xl font-bold text-white">{t("settings")}</h2>
+        <h2 className="text-2xl font-bold">{t("settings")}</h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -466,18 +486,23 @@ const Settings: React.FC = () => {
               <label htmlFor="language" className="text-sm text-white">
                 {t("interface_language")}
               </label>
-              <Select value={language} onValueChange={handleLanguageChange}>
-                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                  <SelectValue placeholder="Select language" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700">
+              <div className="relative">
+                <select
+                  id="language"
+                  value={language}
+                  onChange={handleLanguageChange}
+                  className="bg-[#0A1A2F] border border-[#112544] text-white rounded-md p-2 pr-10 w-full appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
                   {languages.map((lang) => (
-                    <SelectItem key={lang.code} value={lang.code} className="text-white hover:bg-slate-700">
+                    <option key={lang.code} value={lang.code}>
                       {lang.name}
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectContent>
-              </Select>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                </div>
+              </div>
             </div>
           </div>
         </SettingsCard>
@@ -500,18 +525,24 @@ const Settings: React.FC = () => {
               <label htmlFor="currency" className="text-sm text-white">
                 {t("display_currency")}
               </label>
-              <Select value={currency} onValueChange={handleCurrencyChange} disabled>
-                <SelectTrigger className="bg-slate-800 border-slate-700 text-white opacity-50">
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700">
+              <div className="relative">
+                <select
+                  id="currency"
+                  value={currency}
+                  onChange={handleCurrencyChange}
+                  className="bg-[#0A1A2F] border border-[#112544] text-white rounded-md p-2 pr-10 w-full appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  disabled
+                >
                   {currencies.map((curr) => (
-                    <SelectItem key={curr.code} value={curr.code} className="text-white hover:bg-slate-700">
+                    <option key={curr.code} value={curr.code}>
                       {curr.name}
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectContent>
-              </Select>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                </div>
+              </div>
             </div>
           </div>
         </SettingsCard>
@@ -536,7 +567,7 @@ const Settings: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t("enter_email")}
-                  className="bg-slate-800 border-slate-700 text-white flex-1"
+                  className="bg-[#0A1A2F] border-[#112544] text-white flex-1"
                 />
                 <Button
                   onClick={handleResetPassword}
