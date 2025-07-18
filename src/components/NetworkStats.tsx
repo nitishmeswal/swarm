@@ -21,7 +21,7 @@ const StatCard = ({
   info,
   isUptime = false,
 }: StatCardProps) => {
-  let isPlan = title === "Your Plan";
+  const isPlan = title === "Your Plan";
 
   const getColor = () => {
     if (isPlan) {

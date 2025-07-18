@@ -437,9 +437,10 @@ const Settings: React.FC = () => {
       
       // In a real app, you would redirect to login page
       console.log("Redirecting to home page...");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Delete account error:", error);
-      console.error(`Failed to delete account: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error(`Failed to delete account: ${errorMessage}`);
     } finally {
       setIsDeleteAccountLoading(false);
       setShowDeleteConfirm(false);

@@ -185,7 +185,9 @@ export function ProfileEditModal({
       
       console.log("Wallet address saved successfully");
       // Refresh the page to update the UI
-      window.location.reload();
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
     } catch (error) {
       console.error("Error saving wallet address:", error);
       console.error("Failed to save wallet address");
@@ -302,9 +304,11 @@ export function ProfileEditModal({
                 {userPlan === "free" && (
                   <div className="mt-2">
                     <Button
-                      onClick={() =>
-                        window.open("https://app.neurolov.ai/", "_blank")
-                      }
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          window.open("https://app.neurolov.ai/", "_blank");
+                        }
+                      }}
                       size="sm"
                       className="w-full mt-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                     >

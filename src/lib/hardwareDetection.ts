@@ -143,7 +143,7 @@ interface HardwareInfo {
 const hasWebGPU = async (): Promise<boolean> => {
   if ('gpu' in navigator) {
     try {
-      const adapter = await (navigator as any).gpu.requestAdapter();
+      const adapter = await (navigator as { gpu: { requestAdapter: () => Promise<unknown> } }).gpu.requestAdapter();
       return !!adapter;
     } catch (e) {
       console.error('WebGPU check failed:', e);
@@ -224,7 +224,7 @@ const detectDeviceGroup = (): DeviceGroup => {
 // Get approximate memory
 const getDeviceMemory = (): number | string => {
   if ('deviceMemory' in navigator) {
-    return (navigator as any).deviceMemory || 'Unknown';
+    return (navigator as { deviceMemory?: number }).deviceMemory || 'Unknown';
   }
   return 'Unknown';
 };
@@ -327,7 +327,7 @@ export const detectHardware = async (): Promise<HardwareInfo> => {
     const isLaptop = 
       /MacBook|Laptop|Notebook|ThinkPad|ZenBook|XPS|Spectre|EliteBook|Inspiron/i.test(navigator.userAgent) ||
       // Check if any battery API is available (will likely be a laptop)
-      ('getBattery' in navigator || 'battery' in navigator || typeof (navigator as any).getBattery === 'function');
+      ('getBattery' in navigator || 'battery' in navigator || typeof (navigator as { getBattery?: () => unknown }).getBattery === 'function');
 
     // For integrated GPUs, go straight to CPU tier
     if (isIntegrated) {

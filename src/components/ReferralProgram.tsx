@@ -106,7 +106,7 @@ export const ReferralProgram = () => {
   const pendingRewards = mockData.pendingRewards;
 
   const userReferralCode = userProfile?.referral_code || null;
-  const referralLink = userReferralCode
+  const referralLink = userReferralCode && typeof window !== 'undefined'
     ? `${window.location.origin}/dashboard?ref=${userReferralCode}`
     : null;
 
