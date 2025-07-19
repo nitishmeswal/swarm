@@ -33,17 +33,17 @@ export function Header({
 }: HeaderProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  
+
   // Effect to handle window resize for responsive design
   useEffect(() => {
     const checkIfMobile = () => setIsMobile(window.innerWidth < 640);
-    
+
     // Set initial value
     checkIfMobile();
-    
+
     // Add event listener for window resize
     window.addEventListener("resize", checkIfMobile);
-    
+
     // Clean up
     return () => window.removeEventListener("resize", checkIfMobile);
   }, []);
@@ -51,14 +51,14 @@ export function Header({
   return (
     <header
       className={cn(
-        "flex justify-between items-center h-[50px] sm:h-[60px] rounded-full border border-[#064C94] hover:shadow-sm transition-all z-50 duration-300 hover:-translate-y-0.5 hover:shadow-[#0874E3]",
+        "flex justify-between items-center h-[50px] sm:h-[60px] rounded-full border border-[#064C94] hover:shadow-sm transition-all z-50 duration-300 hover:-translate-y-0.5 hover:shadow-[#0874E3] mt-5",
         className
       )}
       style={{
         background: "linear-gradient(270deg, #0874E3 7.24%, #010405 57.23%)",
         width: "95%",
         maxWidth: "100%",
-        margin: "8px auto",
+        margin: "35px auto -10px",
       }}
     >
       <div className="flex items-center gap-1 sm:gap-2 md:gap-3 ml-3 sm:ml-4 md:ml-8 mr-2">
@@ -71,7 +71,7 @@ export function Header({
         >
           <Menu className="h-5 w-5" />
         </Button>
-        
+
         <Link href="/">
           <h1
             className="text-xs sm:text-sm md:text-xl font-medium truncate max-w-[120px] sm:max-w-[140px] md:max-w-full"
@@ -85,7 +85,7 @@ export function Header({
             Swarm Node Rewards Hub
           </h1>
         </Link>
-        
+
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger>
@@ -101,7 +101,7 @@ export function Header({
           </Tooltip>
         </TooltipProvider>
       </div>
-      
+
       <div className="flex items-center h-full py-1 sm:py-1.5">
         <div className="bg-[#040404] rounded-full p-1 sm:p-1.5 flex gap-1 sm:gap-2 items-center relative group w-fit">
           {/* Login/User Profile Button */}
@@ -117,11 +117,7 @@ export function Header({
                 ? "bg-gradient-to-r from-[#22c55e] to-[#15803d] text-white border-green-500"
                 : "bg-gradient-to-r from-[#0361DA] to-[#20A5EF] text-white border-[#20A5EF]"
             )}
-            title={
-              isLoggedIn
-                ? `Logged in as ${displayName}`
-                : "Login"
-            }
+            title={isLoggedIn ? `Logged in as ${displayName}` : "Login"}
           >
             {isLoggedIn ? (
               <LogOut
@@ -163,9 +159,7 @@ export function Header({
                   : "bg-[#112544] text-[#0066FF] border-transparent hover:bg-[#0066FF]/10"
               )}
               title={
-                hasWallet
-                  ? `${walletType} Wallet Connected`
-                  : "Connect Wallet"
+                hasWallet ? `${walletType} Wallet Connected` : "Connect Wallet"
               }
             >
               <Wallet
@@ -178,9 +172,7 @@ export function Header({
               />
               {!isCollapsed && !isMobile && (
                 <span className="transition-all duration-300 text-xs sm:text-sm whitespace-nowrap">
-                  {hasWallet
-                    ? `${walletType}`
-                    : "Connect Wallet"}
+                  {hasWallet ? `${walletType}` : "Connect Wallet"}
                 </span>
               )}
             </Button>
@@ -189,4 +181,4 @@ export function Header({
       </div>
     </header>
   );
-} 
+}

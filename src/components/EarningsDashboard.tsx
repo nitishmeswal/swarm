@@ -38,14 +38,14 @@ interface ChartDataPoint {
 const mockTransactions = [
   {
     id: "1",
-    amount: 25.50,
+    amount: 25.5,
     created_at: "2024-01-16T10:30:00Z",
     earning_type: "task",
     transaction_hash: "abc123",
   },
   {
-    id: "2", 
-    amount: 15.00,
+    id: "2",
+    amount: 15.0,
     created_at: "2024-01-15T14:20:00Z",
     earning_type: "task",
     transaction_hash: "def456",
@@ -60,8 +60,8 @@ const mockTransactions = [
 ];
 
 const mockEarnings = {
-  totalEarnings: 6218.00,
-  pendingEarnings: 6218.00,
+  totalEarnings: 6218.0,
+  pendingEarnings: 6218.0,
   completedTasks: 155,
 };
 
@@ -102,7 +102,7 @@ export const EarningsDashboard = () => {
 
       // Generate random earnings for demo
       const earnings = Math.random() * 100 + 20;
-      
+
       labels.push({
         date: dateFormat,
         timestamp: date.getTime(),
@@ -139,7 +139,11 @@ export const EarningsDashboard = () => {
     setCheckInLoading(true);
     setTimeout(() => {
       setCheckInLoading(false);
-      alert(`Day ${streakData.streak + 1} checked in! You earned ${(streakData.streak + 1) * 10} SP!`);
+      alert(
+        `Day ${streakData.streak + 1} checked in! You earned ${
+          (streakData.streak + 1) * 10
+        } SP!`
+      );
     }, 1000);
   };
 
@@ -197,7 +201,7 @@ export const EarningsDashboard = () => {
               <SelectItem value="all-time">All Time</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Button
             variant="outline"
             className="h-8 m-0 bg-slate-700 border-slate-600 rounded-full font-md font-thin text-white hover:bg-slate-600"
@@ -206,7 +210,7 @@ export const EarningsDashboard = () => {
           >
             <BugAntIcon className="h-4 w-4" />
           </Button>
-          
+
           <Button
             variant="outline"
             className="h-8 m-0 bg-slate-700 border-slate-600 rounded-full font-md font-thin text-white hover:bg-slate-600"
@@ -214,7 +218,11 @@ export const EarningsDashboard = () => {
             onClick={handleRefresh}
             disabled={loading}
           >
-            {loading ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : "Refresh"}
+            {loading ? (
+              <ArrowPathIcon className="h-4 w-4 animate-spin" />
+            ) : (
+              "Refresh"
+            )}
           </Button>
         </div>
       </div>
@@ -231,7 +239,11 @@ export const EarningsDashboard = () => {
             <div className="flex flex-col">
               <span className="text-sm text-slate-400">Total Earning</span>
               <span className="text-xl font-bold text-white">
-                {earnings.totalEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SP
+                {earnings.totalEarnings.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{" "}
+                SP
               </span>
             </div>
           </div>
@@ -246,7 +258,11 @@ export const EarningsDashboard = () => {
             <div className="flex flex-col">
               <span className="text-sm text-slate-400">Total Balance</span>
               <span className="text-xl font-bold text-white">
-                {getTotalBalance().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SP
+                {getTotalBalance().toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{" "}
+                SP
               </span>
             </div>
           </div>
@@ -281,7 +297,11 @@ export const EarningsDashboard = () => {
                 <InfoTooltip content="Projected monthly earnings based on your recent performance" />
               </div>
               <span className="text-xl font-bold text-white">
-                {calculateMonthlyExpectedEarnings().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SP
+                {calculateMonthlyExpectedEarnings().toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{" "}
+                SP
               </span>
             </div>
           </div>
@@ -295,7 +315,9 @@ export const EarningsDashboard = () => {
           <div className="flex justify-between items-center mb-6 relative z-10">
             <div className="flex items-center gap-2">
               <ArrowTrendingUpIcon className="w-5 h-5 text-blue-400" />
-              <h3 className="text-lg font-medium text-white">Earning History</h3>
+              <h3 className="text-lg font-medium text-white">
+                Earning History
+              </h3>
             </div>
             <Select value={chartPeriod} onValueChange={handleChartPeriodChange}>
               <SelectTrigger className="w-[100px] bg-slate-700 border-slate-600 rounded-full h-8 text-sm text-white">
@@ -313,7 +335,9 @@ export const EarningsDashboard = () => {
             <div className="text-slate-400 text-center">
               <ArrowTrendingUpIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <p>Chart visualization would go here</p>
-              <p className="text-sm mt-2">Install recharts for full chart functionality</p>
+              <p className="text-sm mt-2">
+                Install recharts for full chart functionality
+              </p>
             </div>
           </div>
         </div>
@@ -346,7 +370,9 @@ export const EarningsDashboard = () => {
             </div>
 
             <div>
-              <div className="text-sm text-slate-400 mb-1">Next Payout Date</div>
+              <div className="text-sm text-slate-400 mb-1">
+                Next Payout Date
+              </div>
               <div className="font-medium text-white">Coming Soon</div>
             </div>
 
@@ -380,7 +406,9 @@ export const EarningsDashboard = () => {
           <div className="flex items-center gap-3">
             {userId && (
               <div className="flex items-center bg-blue-900/20 px-3 py-1 rounded-full">
-                <span className="text-xs text-blue-300 mr-1">Current streak:</span>
+                <span className="text-xs text-blue-300 mr-1">
+                  Current streak:
+                </span>
                 <span className="text-sm font-medium text-blue-400">
                   {streakData.streak.toLocaleString()} days
                 </span>
@@ -418,7 +446,8 @@ export const EarningsDashboard = () => {
           <div className="flex justify-center mt-4">
             <div className="text-xs text-slate-400">
               Last check-in:{" "}
-              {streakData.lastCheckIn === new Date().toISOString().split("T")[0] ? (
+              {streakData.lastCheckIn ===
+              new Date().toISOString().split("T")[0] ? (
                 <span className="text-green-400">Today</span>
               ) : (
                 new Date(streakData.lastCheckIn).toLocaleDateString()
@@ -432,7 +461,9 @@ export const EarningsDashboard = () => {
       <div className="w-full p-4 bg-slate-800 rounded-lg border border-slate-700 mt-6">
         <div className="flex gap-2 items-center mb-4">
           <CalendarIcon className="w-6 h-6 text-blue-400" />
-          <h3 className="text-lg font-medium text-white">Recent Transactions</h3>
+          <h3 className="text-lg font-medium text-white">
+            Recent Transactions
+          </h3>
         </div>
 
         {loading && (
@@ -452,20 +483,30 @@ export const EarningsDashboard = () => {
           <div className="flex flex-col">
             <div className="space-y-2 h-[320px] overflow-y-auto pr-1">
               {transactions.map((tx) => (
-                <div key={tx.id} className="flex justify-between items-center p-3 bg-slate-700 rounded-lg">
+                <div
+                  key={tx.id}
+                  className="flex justify-between items-center p-3 bg-slate-700 rounded-lg"
+                >
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-white">
                       {formatDate(tx.created_at)}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {tx.earning_type === "task" ? "Task completed" : "Referral reward"}
+                      {tx.earning_type === "task"
+                        ? "Task completed"
+                        : "Referral reward"}
                     </span>
                   </div>
 
                   <div className="flex flex-col items-end">
                     <div className="flex items-center">
                       <span className="text-sm font-medium text-green-500">
-                        +{Number(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SP
+                        +
+                        {Number(tx.amount).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        SP
                       </span>
                       {tx.transaction_hash && (
                         <a
@@ -498,7 +539,11 @@ export const EarningsDashboard = () => {
                 Mock Data Status
               </h4>
               <pre className="text-xs bg-slate-900 p-2 rounded overflow-auto max-h-40 text-white">
-                {JSON.stringify({ earnings, transactions: transactions.length, streakData }, null, 2)}
+                {JSON.stringify(
+                  { earnings, transactions: transactions.length, streakData },
+                  null,
+                  2
+                )}
               </pre>
             </div>
           </div>
