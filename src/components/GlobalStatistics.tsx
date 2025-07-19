@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Activity,
   Clock,
@@ -228,6 +228,26 @@ export const GlobalStatistics = () => {
     }
   };
 
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    // Container width fixed 1170px
+    const containerWidth = 1170;
+
+    // Viewport width (scroll container width)
+    const viewportWidth = scrollEl.clientWidth;
+
+    // Calculate scrollLeft to center the container horizontally in viewport
+    const scrollLeft = (containerWidth - viewportWidth) / 1.6;
+
+    if (scrollLeft > 0) {
+      scrollEl.scrollLeft = scrollLeft;
+    }
+  }, []);
+
   return (
     <div className="stat-card overflow-x-hidden p-4 rounded-lg">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4">
@@ -254,114 +274,121 @@ export const GlobalStatistics = () => {
       </div>
 
       {/* Global Map Visualization */}
-      <div className="global-map w-full h-[250px] sm:h-[330px] mb-6 border border-blue-900/30 relative">
-        <div className="absolute inset-0 bg-grid opacity-[0.15] z-0"></div>
-        <img
-          src="/images/map.png"
-          alt={"globalStatistics.map.alt"}
-          className="absolute inset-0 w-full h-full object-contain z-10"
-          onError={(e) => {
-            e.currentTarget.src =
-              "https://raw.githubusercontent.com/Neurolov/NeuroSwarm/main/public/images/map.png";
-          }}
-        />
-        <div className="absolute inset-0 z-30 pointer-events-none cursor-pointer"></div>
-        {/* Hardcoded Node Indicators (yellow dots) - Responsive positions */}
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "20%", left: "30%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "30%", left: "58%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "40%", left: "63%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "53%", left: "59%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "65%", left: "50%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "70%", left: "40%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "20%", left: "65%" }}
-        />
+      <div
+        ref={scrollRef}
+        className="overflow-auto rounded-md"
+        style={{ scrollBehavior: "smooth" }}
+      >
+        <div className="global-map w-[1170px] h-[330px] mb-6 border border-blue-900/30 relative  ">
+          <div className="absolute inset-0 bg-grid opacity-[0.15] z-0"></div>
+          <img
+            src="/images/map.png"
+            alt={"globalStatistics.map.alt"}
+            className="absolute top-0 left-0 w-full h-[330px] object-contain z-10"
+            onError={(e) => {
+              e.currentTarget.src =
+                "https://raw.githubusercontent.com/Neurolov/NeuroSwarm/main/public/images/map.png";
+            }}
+          />
 
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "30%", left: "35%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "10%", left: "42%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "61%", left: "40%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "50%", left: "48%" }}
-        />
+          <div className="absolute inset-0 z-30 pointer-events-none cursor-pointer"></div>
+          {/* Hardcoded Node Indicators (yellow dots) - Responsive positions */}
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "20%", left: "30%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "30%", left: "58%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "40%", left: "63%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "53%", left: "59%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "65%", left: "50%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "70%", left: "40%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "20%", left: "65%" }}
+          />
 
-        {/* -------------- l--25 to 74% and t --5 to 90  */}
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "12%", left: "35%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "15%", left: "45%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "40%", left: "59%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "44%", left: "66%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "57%", left: "52%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "39%", left: "33%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "79%", left: "39%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "80%", left: "69%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "28%", left: "52%" }}
-        />
-        <div
-          className="node-indicator absolute z-20"
-          style={{ top: "17%", left: "60%" }}
-        />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "30%", left: "35%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "10%", left: "42%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "61%", left: "40%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "50%", left: "48%" }}
+          />
+
+          {/* -------------- l--25 to 74% and t --5 to 90  */}
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "12%", left: "35%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "15%", left: "45%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "40%", left: "59%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "44%", left: "66%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "57%", left: "52%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "39%", left: "33%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "79%", left: "39%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "80%", left: "69%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "28%", left: "52%" }}
+          />
+          <div
+            className="node-indicator absolute z-20"
+            style={{ top: "17%", left: "60%" }}
+          />
+        </div>
       </div>
 
       {/* Stats Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="flex flex-col p-4 bg-slate-800/50 rounded-lg border border-slate-700">
           <div className="flex gap-3 items-center">
-            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-1 sm:p-2 bg-blue-500/20">
-              <Goal className="w-6 h-6 sm:w-7 sm:h-7 text-blue-400 relative z-10" />
+            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-1 sm:p-2">
+              <Goal className="w-6 h-6 sm:w-7 sm:h-7 relative z-10" />
             </div>
             <div className="flex flex-col">
               <span className="text-sm text-slate-400">Your rank</span>
@@ -390,7 +417,7 @@ export const GlobalStatistics = () => {
         <div className="flex flex-col p-4 bg-slate-800/50 rounded-lg border border-slate-700">
           <div className="flex gap-3 items-center">
             <div className="icon-bg icon-container flex items-center justify-center rounded-md p-1 sm:p-2 bg-green-500/20">
-              <Activity className="w-6 h-6 sm:w-7 sm:h-7 text-green-400 relative z-10" />
+              <Activity className="w-6 h-6 sm:w-7 sm:h-7  relative z-10" />
             </div>
             <div className="flex flex-col">
               <span className="text-sm text-slate-400">Global SP</span>
@@ -404,7 +431,7 @@ export const GlobalStatistics = () => {
         <div className="flex flex-col p-4 bg-slate-800/50 rounded-lg border border-slate-700">
           <div className="flex gap-3 items-center">
             <div className="icon-bg icon-container flex items-center justify-center rounded-md p-1 sm:p-2 bg-purple-500/20">
-              <Users className="w-6 h-6 sm:w-7 sm:h-7 text-purple-400 relative z-10" />
+              <Users className="w-6 h-6 sm:w-7 sm:h-7  relative z-10" />
             </div>
             <div className="flex flex-col">
               <span className="text-sm text-slate-400">Total Users</span>
@@ -418,7 +445,7 @@ export const GlobalStatistics = () => {
         <div className="flex flex-col p-4 bg-slate-800/50 rounded-lg border border-slate-700">
           <div className="flex gap-3 items-center">
             <div className="icon-bg icon-container flex items-center justify-center rounded-md p-1 sm:p-2 bg-orange-500/20">
-              <Server className="w-6 h-6 sm:w-7 sm:h-7 text-orange-400 relative z-10" />
+              <Server className="w-6 h-6 sm:w-7 sm:h-7  relative z-10" />
             </div>
             <div className="flex flex-col">
               <span className="text-sm text-slate-400">

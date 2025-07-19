@@ -289,19 +289,13 @@
 
   /* Icon background and container - combining both versions */
   .icon-bg {
-    background: radial-gradient(
-      circle at center 0.1%,
-      var(--color-blue-light) 0%,
-      var(--color-blue-primary) 50%,
-      var(--color-card-bg) 90%
-    );
+    
     border: 0.5px solid #1d5ab3;
     border-radius: 0.5rem;
     width: 4rem;
     height: 4rem;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-card-bg) 50%, transparent);
     transition: all 0.3s ease;
   }
 
@@ -318,17 +312,10 @@
       var(--color-blue-primary) 55%,
       var(--color-card-bg) 90%
     );
-    opacity: 0;
+    opacity: 1;
     transition: opacity 0.3s ease;
   }
-
-  .icon-bg:hover {
-    box-shadow: 0 4px 12px rgba(5, 97, 218, 0.4);
-  }
-
-  .icon-bg:hover::before {
-    opacity: 1;
-  }
+  
 
   .icon-container {
     background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
@@ -655,7 +642,7 @@
 }
 
 .global-map img {
-  animation: float 7s ease-in-out infinite;
+  animation: normal 7s ease-in-out infinite;
   transition: transform 0.4s ease;
 }
 
