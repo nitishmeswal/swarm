@@ -459,7 +459,8 @@ const Settings: React.FC = () => {
       console.log("Redirecting to home page...");
     } catch (error: unknown) {
       console.error("Delete account error:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
       toast.error(`Failed to delete account: ${errorMessage}`);
     } finally {
       setIsDeleteAccountLoading(false);
@@ -468,7 +469,7 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6 rounded-3xl max-w-7xl mx-auto">
+    <div className="space-y-6 p-4 rounded-3xl max-w-7xl">
       <div className="flex items-center gap-3 mb-6">
         <SettingsIcon className="w-6 h-6 text-blue-400" />
         <h2 className="text-2xl font-bold">{t("settings")}</h2>
