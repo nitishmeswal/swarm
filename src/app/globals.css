@@ -297,9 +297,6 @@
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease;
-  }
-
-  .icon-bg::before {
     content: "";
     position: absolute;
     top: 0;
@@ -318,7 +315,6 @@
   
 
   .icon-container {
-    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
     border-radius: 0.5rem;
     position: relative;
     overflow: hidden;
