@@ -33,11 +33,11 @@ const mockData = {
   tier3Referrals: 8,
   totalReferralEarnings: 2450.75,
   claimedRewards: 1800.25,
-  pendingRewards: 650.50,
+  pendingRewards: 650.5,
   userProfile: {
     id: "user123",
     referral_code: "SWARM123",
-    email: "user@example.com"
+    email: "user@example.com",
   },
   referrals: [
     {
@@ -47,17 +47,17 @@ const mockData = {
       referred_at: "2024-01-15T10:30:00Z",
       tier_level: "tier_1",
       referred_id: "user456",
-      referrer_id: "user123"
+      referrer_id: "user123",
     },
     {
-      id: "2", 
+      id: "2",
       user_profile: { user_name: "Bob Smith" },
       referred_name: "Bob Smith",
       referred_at: "2024-01-20T14:45:00Z",
       tier_level: "tier_2",
       referred_id: "user789",
-      referrer_id: "user123"
-    }
+      referrer_id: "user123",
+    },
   ],
   referralRewards: [
     {
@@ -69,22 +69,22 @@ const mockData = {
       referral: {
         user_profile: { user_name: "Alice Johnson" },
         referred_name: "Alice Johnson",
-        referred_id: "user456"
-      }
+        referred_id: "user456",
+      },
     },
     {
       id: "reward2",
       reward_amount: 125,
-      reward_type: "task_completion", 
+      reward_type: "task_completion",
       reward_timestamp: "2024-01-20T14:45:00Z",
       claimed: true,
       referral: {
         user_profile: { user_name: "Bob Smith" },
         referred_name: "Bob Smith",
-        referred_id: "user789"
-      }
-    }
-  ]
+        referred_id: "user789",
+      },
+    },
+  ],
 };
 
 export const ReferralProgram = () => {
@@ -106,17 +106,22 @@ export const ReferralProgram = () => {
   const pendingRewards = mockData.pendingRewards;
 
   const userReferralCode = userProfile?.referral_code || null;
-  const referralLink = userReferralCode && typeof window !== 'undefined'
-    ? `${window.location.origin}/dashboard?ref=${userReferralCode}`
-    : null;
+  const referralLink =
+    userReferralCode && typeof window !== "undefined"
+      ? `${window.location.origin}/dashboard?ref=${userReferralCode}`
+      : null;
 
   // Filter referrals by tier
-  const tier1Referrals = referrals?.filter((ref) => ref.tier_level === "tier_1") || [];
-  const tier2Referrals = referrals?.filter((ref) => ref.tier_level === "tier_2") || [];
-  const tier3Referrals = referrals?.filter((ref) => ref.tier_level === "tier_3") || [];
+  const tier1Referrals =
+    referrals?.filter((ref) => ref.tier_level === "tier_1") || [];
+  const tier2Referrals =
+    referrals?.filter((ref) => ref.tier_level === "tier_2") || [];
+  const tier3Referrals =
+    referrals?.filter((ref) => ref.tier_level === "tier_3") || [];
 
   const directReferrals = tier1Referrals.length;
-  const totalReferrals = directReferrals + tier2Referrals.length + tier3Referrals.length;
+  const totalReferrals =
+    directReferrals + tier2Referrals.length + tier3Referrals.length;
 
   const handleCopyReferralLink = async () => {
     if (!referralLink) {
@@ -142,7 +147,7 @@ export const ReferralProgram = () => {
     }
 
     setIsVerifying(true);
-    
+
     // Mock verification
     setTimeout(() => {
       if (referralCode === "INVALID") {
@@ -192,9 +197,14 @@ export const ReferralProgram = () => {
         />
         <ReferralStatCard
           label="Total Referral Rewards"
-          value={isLoading || !dataReady ? 
-            "..." : 
-            `${totalReferralEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SP`}
+          value={
+            isLoading || !dataReady
+              ? "..."
+              : `${totalReferralEarnings.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} SP`
+          }
           backgroundImage={"/images/flower_2.png"}
           highlight
         />
@@ -224,7 +234,8 @@ export const ReferralProgram = () => {
           <Lock className="mx-auto h-10 w-10 text-blue-400 mb-2" />
           <h3 className="text-white font-medium mb-2">Sign In Required</h3>
           <p className="text-sm text-blue-300/80 mb-4">
-            Please sign in or sign up to join the referral program and start earning rewards.
+            Please sign in or sign up to join the referral program and start
+            earning rewards.
           </p>
         </div>
       )}
@@ -280,7 +291,10 @@ export const ReferralProgram = () => {
                 <div className="mt-3 bg-blue-900/20 p-4 rounded-xl border border-blue-500/20">
                   <div className="flex items-center text-green-400 text-sm mb-3">
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    <span>Referral code verified! Click below to join the referral program.</span>
+                    <span>
+                      Referral code verified! Click below to join the referral
+                      program.
+                    </span>
                   </div>
                   <Button
                     onClick={handleSubmitReferral}
@@ -310,7 +324,11 @@ export const ReferralProgram = () => {
                     Claimed Rewards
                   </h3>
                   <span className="text-green-400 font-bold text-sm sm:text-base">
-                    {claimedRewards.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SP
+                    {claimedRewards.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    SP
                   </span>
                 </div>
                 <p className="text-[#515194]/80 text-xs sm:text-sm mt-1">
@@ -331,7 +349,11 @@ export const ReferralProgram = () => {
                     Pending Rewards
                   </h3>
                   <span className="text-amber-400 font-bold text-sm sm:text-base">
-                    {pendingRewards.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SP
+                    {pendingRewards.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    SP
                   </span>
                 </div>
                 <p className="text-[#515194]/80 text-xs sm:text-sm mt-1">
