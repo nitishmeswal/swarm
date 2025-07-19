@@ -2,17 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import { 
-  CpuChipIcon, 
-  ClockIcon, 
-  PlayIcon, 
-  StopIcon,
-  ComputerDesktopIcon,
-  DevicePhoneMobileIcon,
-  DeviceTabletIcon,
-  MagnifyingGlassIcon,
-  TrashIcon,
-  ExclamationTriangleIcon
-} from "@heroicons/react/24/outline";
+  Clock,
+  Laptop,
+  Monitor,
+  Tablet,
+  Smartphone,
+  Scan,
+  Loader2,
+  AlertTriangle,
+  Trash2
+} from "lucide-react";
+import { VscDebugStart } from "react-icons/vsc";
+import { IoStopOutline } from "react-icons/io5";
 import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "./ui/button";
 import { HardwareScanDialog } from "./HardwareScanDialog";
@@ -21,6 +22,21 @@ import { registerDevice, startNode, stopNode, selectCurrentUptime } from "@/lib/
 import { selectTotalEarnings, selectSessionEarnings } from "@/lib/store/slices/earningsSlice";
 import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface NodeInfo {
   id: string;
@@ -45,17 +61,44 @@ export const NodeControlPanel = () => {
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showScanDialog, setShowScanDialog] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanStage, setScanStage] = useState("");
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
+  const [isDeletingNode, setIsDeletingNode] = useState(false);
+  
+  // Demo nodes for the dropdown - in a real implementation, these would come from your data source
+  const [nodes, setNodes] = useState<NodeInfo[]>([
+    {
+      id: "1",
+      name: "My Desktop",
+      type: "desktop",
+      rewardTier: "webgpu",
+      status: "idle",
+      gpuInfo: "NVIDIA GeForce RTX 3080"
+    }
+  ]);
+  
+  // For demo purposes - in a real implementation this would be derived from the selected node ID
+  const selectedNode = nodes.find(node => node.id === selectedNodeId);
+  
+  const handleNodeSelect = (value: string) => {
+    setSelectedNodeId(value);
+    // Additional logic for selecting a node would go here
+  };
 
   const getDeviceIcon = (type: "desktop" | "laptop" | "tablet" | "mobile") => {
     switch (type) {
       case "desktop":
-        return <ComputerDesktopIcon className="w-6 h-6" />;
+        return <Monitor className="w-6 h-6" />;
       case "laptop":
-        return <ComputerDesktopIcon className="w-6 h-6" />;
+        return <Laptop className="w-6 h-6" />;
       case "tablet":
-        return <DeviceTabletIcon className="w-6 h-6" />;
+        return <Tablet className="w-6 h-6" />;
       case "mobile":
-        return <DevicePhoneMobileIcon className="w-6 h-6" />;
+        return <Smartphone className="w-6 h-6" />;
     }
   };
 
@@ -96,173 +139,322 @@ export const NodeControlPanel = () => {
     }
   };
 
+  const startScan = () => {
+    setShowScanDialog(true);
+    setIsScanning(true);
+    setScanProgress(0);
+    setScanStage("Detecting device type...");
+
+    setTimeout(() => {
+      setScanProgress(20);
+      setScanStage("Analyzing system capabilities...");
+      
+      setTimeout(() => {
+        setScanProgress(60);
+        setScanStage("Detecting hardware tier...");
+        
+        setTimeout(() => {
+          setScanProgress(100);
+          setScanStage("Scan complete!");
+          setIsScanning(false);
+        }, 1000);
+      }, 800);
+    }, 1000);
+  };
+
   return (
-    <div className="node-control-panel p-2.5 sm:p-4 md:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 border border-slate-700 overflow-x-hidden">
-      <div className="flex flex-col">
-        <div className="flex flex-row justify-between items-center gap-2 sm:gap-0 mb-3 sm:mb-6">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <h2 className="text-sm sm:text-lg font-medium text-white/90">
-              Node Control Panel
-            </h2>
-            <InfoTooltip content="Manage your computing nodes, start or stop them, and view performance metrics" />
+    <>
+      <div className="node-control-panel p-2.5 sm:p-4 md:p-6 rounded-2xl sm:rounded-3xl stat-card overflow-x-hidden">
+        <div className="flex flex-col">
+          <div className="flex flex-row justify-between items-center gap-2 sm:gap-0 mb-3 sm:mb-6">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <h2 className="text-sm sm:text-lg font-medium text-white/90">
+                Node Control Panel
+              </h2>
+              <InfoTooltip content="Manage your computing nodes, start or stop them, and view performance metrics" />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={startScan}
+              disabled={isScanning}
+              className="gradient-button rounded-full text-[#8BBEFF] text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2"
+            >
+              <Scan className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              Scan Device
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowScanDialog(true)}
-            className="gradient-button rounded-full text-blue-400 text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2 border-slate-600 hover:bg-slate-700"
-          >
-            <MagnifyingGlassIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-            Scan Device
-          </Button>
-        </div>
 
-        <div className="flex flex-row gap-2 sm:gap-4 items-center mb-3 sm:mb-6">
-          <div className="flex-1 bg-slate-700 border-0 rounded-full text-slate-300 text-xs sm:text-sm h-9 sm:h-10 px-3 flex items-center">
-            {node.isRegistered ? (
-              <span className="flex items-center gap-2">
-                {getDeviceIcon(node.hardwareInfo?.deviceType || 'desktop')}
-                {(node.hardwareInfo?.rewardTier || 'cpu').toUpperCase()}
+          <div className="flex flex-row gap-2 sm:gap-4 items-center mb-3 sm:mb-6">
+            <Select
+              value={selectedNodeId}
+              onValueChange={handleNodeSelect}
+              open={isOpen}
+              onOpenChange={setIsOpen}
+            >
+              <SelectTrigger className="w-full bg-[#1D1D33] border-0 rounded-full text-[#515194] text-xs sm:text-sm h-9 sm:h-10">
+                <div className="flex items-center gap-2">
+                  {selectedNode && (
+                    <>
+                      {getDeviceIcon(selectedNode.type)}
+                      <span>{selectedNode.name}</span>
+                    </>
+                  )}
+                  {!selectedNode && <span>Select Node</span>}
+                </div>
+              </SelectTrigger>
+              <SelectContent className="bg-[#0A1A2F] border-[#1E293B]">
+                {nodes.map((node) => (
+                  <div key={node.id} className="relative">
+                    <SelectItem
+                      value={node.id}
+                      className="text-[#515194] hover:bg-[#1D1D33] focus:bg-[#1D1D33] pr-10"
+                    >
+                      <div className="flex items-center gap-2">
+                        {getDeviceIcon(node.type)}
+                        <span>{node.name}</span>
+                      </div>
+                    </SelectItem>
+                    <div
+                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedNodeId(node.id);
+                        setShowDeleteConfirmDialog(true);
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="p-1.5 rounded-full hover:bg-red-500/20 focus:outline-none"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="default"
+              disabled={isStarting || isStopping}
+              onClick={toggleNodeStatus}
+              className={`rounded-full transition-all duration-300 shadow-md hover:shadow-lg text-white text-xs sm:text-sm px-3 py-1 sm:px-4 sm:py-2 h-9 sm:h-10 hover:translate-y-[-0.5px] ${
+                node.isActive
+                  ? "bg-red-600 hover:bg-red-700 hover:shadow-red-500/30 shadow-red-500"
+                  : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
+              }`}
+            >
+              {isStarting && (
+                <>
+                  <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
+                  Starting...
+                </>
+              )}
+              {isStopping && (
+                <>
+                  <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
+                  Stopping...
+                </>
+              )}
+              {!isStarting && !isStopping && (
+                <>
+                  {node.isActive ? "Stop Node" : "Start Node"}
+                  {!node.isActive ? (
+                    <VscDebugStart className="text-white/90 ml-1 sm:ml-2" />
+                  ) : (
+                    <IoStopOutline className="text-white/90 ml-1 sm:ml-2" />
+                  )}
+                </>
+              )}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
+            <div className="p-2 sm:p-4 rounded-xl bg-[#1D1D33] flex flex-col">
+              <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
+                <div className="icon-bg flex items-center justify-center p-1 sm:p-2">
+                  <img
+                    src="/images/coins.png"
+                    alt="Reward Tier"
+                    className="w-5 h-5 sm:w-7 sm:h-7 object-contain z-10"
+                  />
+                </div>
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-[#515194] text-[10px] sm:text-sm whitespace-nowrap">
+                    Reward Tier
+                  </span>
+                  <div className="text-sm sm:text-xl font-medium text-white">
+                    {(node.hardwareInfo?.rewardTier || 'cpu').toUpperCase()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-2 sm:p-4 rounded-xl bg-[#1D1D33] flex flex-col">
+              <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
+                <div className="icon-bg flex items-center justify-center p-1 sm:p-2">
+                  <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white z-10" />
+                </div>
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-[#515194] text-[10px] sm:text-sm whitespace-nowrap">
+                    Node Uptime
+                  </span>
+                  <div className="text-sm sm:text-xl font-medium text-white">
+                    {formatUptime(currentUptime)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
+            <div className="p-2 sm:p-4 rounded-xl bg-[#1D1D33] flex flex-col">
+              <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
+                <div className="icon-bg flex items-center justify-center p-1 sm:p-2">
+                  <img
+                    src="/images/devices.png"
+                    alt="Connected Devices"
+                    className="w-5 h-5 sm:w-7 sm:h-7 object-contain z-10"
+                  />
+                </div>
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-[#515194] text-[10px] sm:text-sm whitespace-nowrap">
+                    Connected Devices
+                  </span>
+                  <div className="text-sm sm:text-xl font-medium text-white">
+                    {node.isRegistered ? '1' : '0'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-2 sm:p-4 rounded-xl bg-[#1D1D33] flex flex-col">
+              <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
+                <div className="icon-bg flex items-center justify-center p-1 sm:p-2">
+                  <img
+                    src="/images/gpu_model.png"
+                    alt="GPU Model"
+                    className="w-5 h-5 sm:w-7 sm:h-7 object-contain z-10"
+                  />
+                </div>
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-[#515194] text-[10px] sm:text-sm whitespace-nowrap">
+                    GPU Model
+                  </span>
+                  <div className="text-sm sm:text-xl font-medium text-white">
+                    {node.hardwareInfo?.gpuInfo || 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div 
+            className="p-4 sm:p-6 flex flex-row items-center justify-between rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#090C18] to-[#14273F] border border-[#1D5AB3] relative overflow-hidden gap-4"
+          >
+            <div className="flex items-center gap-4 z-10">
+              <div className="flex items-center justify-center flex-shrink-0">
+                <img
+                  src="/images/nlov-coin.png"
+                  alt="coin"
+                  className="w-11 h-11 object-contain z-10"
+                />
+              </div>
+              <span className="text-white/90 text-2xl whitespace-nowrap transition-all duration-500">
+                Total Earnings
               </span>
-            ) : (
-              <span className="text-slate-500">No device registered</span>
-            )}
-          </div>
-
-          <Button
-            variant="default"
-            disabled={isStarting || isStopping}
-            onClick={toggleNodeStatus}
-            className={`rounded-full transition-all duration-300 shadow-md hover:shadow-lg text-white text-xs sm:text-sm px-3 py-1 sm:px-4 sm:py-2 h-9 sm:h-10 hover:translate-y-[-0.5px] ${
-              node.isActive
-                ? "bg-red-600 hover:bg-red-700 hover:shadow-red-500/30 shadow-red-500"
-                : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
-            }`}
-          >
-            {isStarting && (
-              <>
-                <div className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                Starting...
-              </>
-            )}
-            {isStopping && (
-              <>
-                <div className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                Stopping...
-              </>
-            )}
-            {!isStarting && !isStopping && (
-              <>
-                {node.isActive ? "Stop Node" : "Start Node"}
-                {!node.isActive ? (
-                  <PlayIcon className="text-white/90 ml-1 sm:ml-2 w-4 h-4" />
-                ) : (
-                  <StopIcon className="text-white/90 ml-1 sm:ml-2 w-4 h-4" />
-                )}
-              </>
-            )}
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
-          <div className="p-2 sm:p-4 rounded-xl bg-slate-700 flex flex-col">
-            <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
-              <div className="icon-bg flex items-center justify-center p-1 sm:p-2 bg-yellow-500/20 rounded-lg">
-                <div className="w-5 h-5 sm:w-7 sm:h-7 bg-yellow-500 rounded-full z-10" />
-              </div>
-              <div className="flex flex-col overflow-hidden">
-                <span className="text-slate-400 text-[10px] sm:text-sm whitespace-nowrap">
-                  Reward Tier
-                </span>
-                <div className={`text-sm sm:text-xl font-medium ${getRewardTierColor(node.hardwareInfo?.rewardTier || 'cpu')}`}>
-                  {(node.hardwareInfo?.rewardTier || 'cpu').toUpperCase()}
-                </div>
-              </div>
             </div>
-          </div>
-
-          <div className="p-2 sm:p-4 rounded-xl bg-slate-700 flex flex-col">
-            <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
-              <div className="icon-bg flex items-center justify-center p-1 sm:p-2 bg-blue-500/20 rounded-lg">
-                <ClockIcon className="w-5 h-5 sm:w-7 sm:h-7 text-blue-500 z-10" />
-              </div>
-              <div className="flex flex-col overflow-hidden">
-                <span className="text-slate-400 text-[10px] sm:text-sm whitespace-nowrap">
-                  Node Uptime
-                </span>
-                <div className="text-sm sm:text-xl font-medium text-white">
-                  {formatUptime(currentUptime)}
-                </div>
-              </div>
+            <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
+              <span className="font-medium lg:text-4xl md:text-3xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-b from-[#20A5EF] to-[#0361DA] leading-none">
+                {totalEarnings.toFixed(2)}
+              </span>
+              <span className="text-white/90 text-sm">NLOV</span>
             </div>
+            <p className="absolute bottom-2 right-4 text-[10px] text-white/50 italic">
+              Session: +{sessionEarnings.toFixed(2)} NLOV
+            </p>
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
-          <div className="p-2 sm:p-4 rounded-xl bg-slate-700 flex flex-col">
-            <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
-              <div className="icon-bg flex items-center justify-center p-1 sm:p-2 bg-green-500/20 rounded-lg">
-                <div className="w-5 h-5 sm:w-7 sm:h-7 bg-green-500 rounded-full z-10" />
-              </div>
-              <div className="flex flex-col overflow-hidden">
-                <span className="text-slate-400 text-[10px] sm:text-sm whitespace-nowrap">
-                  Connected Devices
-                </span>
-                <div className="text-sm sm:text-xl font-medium text-white">
-                  {node.isRegistered ? '1' : '0'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-2 sm:p-4 rounded-xl bg-slate-700 flex flex-col">
-            <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
-              <div className="icon-bg flex items-center justify-center p-1 sm:p-2 bg-purple-500/20 rounded-lg">
-                <CpuChipIcon className="w-5 h-5 sm:w-7 sm:h-7 text-purple-500 z-10" />
-              </div>
-              <div className="flex flex-col overflow-hidden">
-                <span className="text-slate-400 text-[10px] sm:text-sm whitespace-nowrap">
-                  GPU Model
-                </span>
-                <div className="text-sm sm:text-xl font-medium text-white">
-                  {node.hardwareInfo?.gpuInfo || 'N/A'}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div 
-          className="p-4 sm:p-6 flex flex-row items-center justify-between rounded-xl sm:rounded-2xl bg-gradient-to-r from-slate-800 to-slate-700 border border-blue-500/30 relative overflow-hidden gap-4"
-        >
-          <div className="flex items-center gap-4 z-10">
-            <div className="flex items-center justify-center flex-shrink-0">
-              <div className="w-11 h-11 bg-yellow-500 rounded-full flex items-center justify-center">
-                <span className="text-black font-bold text-lg">$</span>
-              </div>
-            </div>
-            <span className="text-white/90 text-2xl whitespace-nowrap transition-all duration-500">
-              Total Earnings
-            </span>
-          </div>
-          <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
-            <span className="font-medium lg:text-4xl md:text-3xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-b from-blue-400 to-blue-600 leading-none">
-              {totalEarnings.toFixed(2)}
-            </span>
-            <span className="text-white/90 text-sm">NLOV</span>
-          </div>
-          <p className="absolute bottom-2 right-4 text-[10px] text-white/50 italic">
-            Session: +{sessionEarnings.toFixed(2)} NLOV
-          </p>
         </div>
       </div>
       
       {/* Hardware Scan Dialog */}
+      <Dialog open={showScanDialog} onOpenChange={setShowScanDialog}>
+        <DialogContent className="sm:max-w-md bg-[#0A1A2F] border-[#112544]">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              Scanning Device Hardware
+            </DialogTitle>
+            <DialogDescription className="text-white/70">
+              Analyzing your device capabilities to determine the optimal reward
+              tier
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <div className="mb-2 text-sm font-medium text-white">
+              {scanStage}
+            </div>
+            <div className="w-full bg-[#112544] rounded-full h-2.5">
+              <div
+                className="bg-[#0066FF] h-2.5 rounded-full transition-all duration-300 ease-in-out"
+                style={{ width: `${scanProgress}%` }}
+              ></div>
+            </div>
+            <div className="mt-4 text-sm text-white/70">
+              {scanProgress < 100
+                ? "Please wait while we analyze your device. Do not close this window."
+                : "Scan completed successfully!"}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+        <DialogContent className="sm:max-w-md bg-[#0A1A2F] border-[#112544]">
+          <DialogHeader>
+            <DialogTitle className="text-white">Delete Node</DialogTitle>
+            <DialogDescription className="text-white/70">
+              Are you sure you want to delete this node? This action cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirmDialog(false)}
+              disabled={isDeletingNode}
+              className="border-[#112544] text-white hover:bg-[#112544]/30"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteConfirmDialog(false)}
+              disabled={isDeletingNode}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeletingNode ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Original Hardware Scan Dialog - kept for functionality */}
       <HardwareScanDialog
-        isOpen={showScanDialog}
+        isOpen={showScanDialog && !isScanning}
         onClose={() => setShowScanDialog(false)}
         onScanComplete={handleScanComplete}
       />
-    </div>
+    </>
   );
 };
