@@ -234,7 +234,7 @@ export default function HelpCenter() {
   };
 
   return (
-    <div className="space-y-6 p-6 rounded-3xl max-w-7xl mx-auto">
+    <div className="space-y-6 p-4 rounded-3xl max-w-7xl ">
       <div className="flex items-center gap-3 mb-6">
         <HelpCircle className="w-6 h-6 text-blue-400" />
         <h2 className="text-2xl font-bold text-white">
