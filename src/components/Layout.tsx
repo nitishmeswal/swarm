@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Header } from "@/components/Header";
+import { Header } from "@/components/ui/Header";
 import { Sidebar } from "@/components/Sidebar";
 
 interface LayoutProps {
@@ -10,12 +10,6 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
-  // Mock data - replace with your actual auth logic
-  const isLoggedIn = false;
-  const displayName = "Guest";
-  const hasWallet = false;
-  const walletType = null;
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
@@ -50,10 +44,6 @@ export function Layout({ children }: LayoutProps) {
         <Header 
           onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
           sidebarOpen={sidebarOpen}
-          isLoggedIn={isLoggedIn}
-          displayName={displayName}
-          hasWallet={hasWallet}
-          walletType={walletType}
         />
 
         {/* Main content area */}

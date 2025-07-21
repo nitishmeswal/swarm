@@ -68,6 +68,12 @@ export const NodeControlPanel = () => {
   const [scanStage, setScanStage] = useState("");
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingNode, setIsDeletingNode] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // Ensure hydration safety
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   
   // Demo nodes for the dropdown - in a real implementation, these would come from your data source
   const [nodes, setNodes] = useState<NodeInfo[]>([
@@ -279,7 +285,7 @@ export const NodeControlPanel = () => {
                   <img src="/images/cpu_usage.png" alt="NLOV" className="w-8 h-8 object-contain" />
                 </div>
                 <div className="text-lg font-medium text-white ml-3 mt-2">
-                  {(node.hardwareInfo?.rewardTier || 'CPU').toUpperCase()}
+                  {isMounted ? (node.hardwareInfo?.rewardTier || 'CPU').toUpperCase() : 'CPU'}
                 </div>
               </div>
             </div>
