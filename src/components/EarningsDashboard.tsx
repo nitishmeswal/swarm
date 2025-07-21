@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import {
-  WalletIcon,
-  ArrowTrendingUpIcon,
-  CalendarIcon,
-  ArrowUpRightIcon,
-  BugAntIcon,
-  CheckIcon,
-  ArrowPathIcon,
-  QuestionMarkCircleIcon,
-  ClockIcon,
-} from "@heroicons/react/24/outline";
+  Wallet,
+  TrendingUp,
+  Calendar,
+  ArrowUpRight,
+  Bug,
+  Check,
+  Loader2,
+  HelpCircle,
+  Clock,
+} from "lucide-react";
 import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "./ui/button";
 import {
@@ -167,19 +167,40 @@ export const EarningsDashboard = () => {
     return (
       <div className="flex flex-col stat-card">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-xl text-white">Earnings Dashboard</h2>
+          <h2 className="text-xl">Earnings Dashboard</h2>
         </div>
 
-        <div className="flex flex-col items-center justify-center h-[400px] p-8 bg-slate-800 rounded-lg">
-          <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center mb-4">
-            <span className="text-black font-bold text-lg">$</span>
-          </div>
+        <div className="flex flex-col items-center justify-center h-[400px] p-8 bg-[#161628] rounded-lg">
+          <img
+            src="/images/nlov-coin.png"
+            alt="NLOV"
+            className="w-16 h-16 mb-4 opacity-50"
+          />
           <h3 className="text-xl font-semibold text-amber-400 mb-2">
             Login Required
           </h3>
           <p className="text-slate-400 text-center mb-6">
             Please log in with your email to view your earnings dashboard.
           </p>
+          <div className="flex items-center justify-center text-blue-400">
+            <svg
+              className="w-6 h-6 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              ></path>
+            </svg>
+            <span className="text-sm font-medium">
+              Log in using your email address
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -188,13 +209,13 @@ export const EarningsDashboard = () => {
   return (
     <div className="flex flex-col stat-card max-w-full overflow-x-hidden">
       <div className="flex justify-between items-center mb-8 flex-wrap gap-2">
-        <h2 className="text-xl text-white">Earnings Dashboard</h2>
+        <h2 className="text-xl">Earnings Dashboard</h2>
         <div className="flex gap-2">
           <Select value={timeRange} onValueChange={handleTimeRangeChange}>
-            <SelectTrigger className="w-[80px] h-8 m-0 bg-slate-700 border-slate-600 rounded-full text-white">
+            <SelectTrigger className="w-[80px] h-8 m-0 bg-[#1D1D33] rounded-full">
               <SelectValue placeholder="Time Range" />
             </SelectTrigger>
-            <SelectContent className="bg-slate-800 border-slate-600">
+            <SelectContent>
               <SelectItem value="daily">Daily</SelectItem>
               <SelectItem value="weekly">Weekly</SelectItem>
               <SelectItem value="monthly">Monthly</SelectItem>
@@ -204,22 +225,22 @@ export const EarningsDashboard = () => {
 
           <Button
             variant="outline"
-            className="h-8 m-0 bg-slate-700 border-slate-600 rounded-full font-md font-thin text-white hover:bg-slate-600"
+            className="h-8 m-0 bg-[#1D1D33] rounded-full font-md font-thin"
             size="sm"
             onClick={() => setDebugMode(!debugMode)}
           >
-            <BugAntIcon className="h-4 w-4" />
+            <Bug className="h-4 w-4" />
           </Button>
 
           <Button
             variant="outline"
-            className="h-8 m-0 bg-slate-700 border-slate-600 rounded-full font-md font-thin text-white hover:bg-slate-600"
+            className="h-8 m-0 bg-[#1D1D33] rounded-full font-md font-thin"
             size="sm"
             onClick={handleRefresh}
             disabled={loading}
           >
             {loading ? (
-              <ArrowPathIcon className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               "Refresh"
             )}
@@ -229,15 +250,17 @@ export const EarningsDashboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         {/* Total Earning Card */}
-        <div className="flex flex-col p-4 bg-slate-800 rounded-lg border border-slate-700">
+        <div className="flex flex-col p-4 earning-cards bg-[#161628] rounded-lg">
           <div className="flex gap-3 items-center">
-            <div className="icon-bg flex items-center justify-center rounded-md p-2 bg-yellow-500/20">
-              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                <span className="text-black font-bold text-sm">$</span>
-              </div>
+            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2">
+              <img
+                src="/images/nlov-coin.png"
+                alt="NLOV"
+                className="w-8 h-8 relative z-10"
+              />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm text-slate-400">Total Earning</span>
+              <span className="text-sm text-[#515194]">Total Earning</span>
               <span className="text-xl font-bold text-white">
                 {earnings.totalEarnings.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
@@ -250,13 +273,17 @@ export const EarningsDashboard = () => {
         </div>
 
         {/* Total Balance Card */}
-        <div className="flex flex-col p-4 bg-slate-800 rounded-lg border border-slate-700">
+        <div className="flex flex-col p-4 earning-cards bg-[#161628] rounded-lg">
           <div className="flex gap-3 items-center">
-            <div className="icon-bg flex items-center justify-center rounded-md p-2 bg-blue-500/20">
-              <WalletIcon className="w-8 h-8 text-blue-500" />
+            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2">
+              <img
+                src="/images/dollar.png"
+                alt="NLOV"
+                className="w-8 h-9 relative z-10"
+              />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm text-slate-400">Total Balance</span>
+              <span className="text-sm text-[#515194]">Total Balance</span>
               <span className="text-xl font-bold text-white">
                 {getTotalBalance().toLocaleString(undefined, {
                   minimumFractionDigits: 2,
@@ -269,15 +296,17 @@ export const EarningsDashboard = () => {
         </div>
 
         {/* Total Tasks Card */}
-        <div className="flex flex-col p-4 bg-slate-800 rounded-lg border border-slate-700">
+        <div className="flex flex-col p-4 earning-cards bg-[#161628] rounded-lg">
           <div className="flex gap-3 items-center">
-            <div className="icon-bg flex items-center justify-center rounded-md p-2 bg-green-500/20">
-              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-sm">#</span>
-              </div>
+            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2">
+              <img
+                src="/images/menu.png"
+                alt="NLOV"
+                className="w-8 h-7 relative z-10"
+              />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm text-slate-400">Total Tasks</span>
+              <span className="text-sm text-[#515194]">Total Tasks</span>
               <span className="text-xl font-bold text-white">
                 {getTaskCount().toLocaleString()}
               </span>
@@ -286,14 +315,18 @@ export const EarningsDashboard = () => {
         </div>
 
         {/* Monthly Expected Card */}
-        <div className="flex flex-col p-4 bg-slate-800 rounded-lg border border-slate-700">
+        <div className="flex flex-col p-4 earning-cards bg-[#161628] rounded-lg">
           <div className="flex gap-3 items-center">
-            <div className="icon-bg flex items-center justify-center rounded-md p-2 bg-purple-500/20">
-              <ArrowTrendingUpIcon className="w-8 h-8 text-purple-500" />
+            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2">
+              <img
+                src="/images/coins.png"
+                alt="NLOV"
+                className="w-8 h-8 relative z-10"
+              />
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1">
-                <span className="text-sm text-slate-400">Monthly Expected</span>
+                <span className="text-sm text-[#515194]">Monthly Expected</span>
                 <InfoTooltip content="Projected monthly earnings based on your recent performance" />
               </div>
               <span className="text-xl font-bold text-white">
@@ -311,19 +344,21 @@ export const EarningsDashboard = () => {
       {/* Chart and Payout sections */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
         {/* Earnings Chart */}
-        <div className="md:col-span-8 p-6 border border-slate-700 bg-gradient-to-br from-blue-900/20 to-slate-800 rounded-lg relative overflow-hidden">
+        <div className="md:col-span-8 p-6 border border-[#1a1a36]/80 bg-[radial-gradient(ellipse_at_top,#0361DA_0%,#090C18_78%)] rounded-lg relative overflow-hidden chart-panel">
           <div className="flex justify-between items-center mb-6 relative z-10">
             <div className="flex items-center gap-2">
-              <ArrowTrendingUpIcon className="w-5 h-5 text-blue-400" />
-              <h3 className="text-lg font-medium text-white">
-                Earning History
-              </h3>
+              <img
+                src="/images/earnings.png"
+                alt="NLOV"
+                className="w-5 h-5 relative z-10"
+              />
+              <h3 className="text-lg font-medium">Earning History</h3>
             </div>
             <Select value={chartPeriod} onValueChange={handleChartPeriodChange}>
-              <SelectTrigger className="w-[100px] bg-slate-700 border-slate-600 rounded-full h-8 text-sm text-white">
+              <SelectTrigger className="w-[100px] gradient-button border-1 border-[#1a1a36] rounded-full h-8 text-sm">
                 <SelectValue placeholder="Period" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-600">
+              <SelectContent>
                 <SelectItem value="daily">Daily</SelectItem>
                 <SelectItem value="weekly">Weekly</SelectItem>
                 <SelectItem value="monthly">Monthly</SelectItem>
@@ -333,25 +368,38 @@ export const EarningsDashboard = () => {
 
           <div className="h-[250px] w-full relative z-10 flex items-center justify-center">
             <div className="text-slate-400 text-center">
-              <ArrowTrendingUpIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <TrendingUp className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <p>Chart visualization would go here</p>
               <p className="text-sm mt-2">
                 Install recharts for full chart functionality
               </p>
             </div>
           </div>
+          
+          {/* Background effect for chart */}
+          <div className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-transparent opacity-30 z-0"></div>
+          <div className="absolute inset-0 bg-grid opacity-10 z-0"></div>
         </div>
 
         {/* Payout Details */}
-        <div className="md:col-span-4 p-4 bg-slate-800 rounded-lg border border-slate-700">
-          <div className="flex gap-2 items-center mb-4">
-            <WalletIcon className="w-6 h-6 text-blue-400" />
-            <h3 className="text-lg font-medium text-white">Payout Details</h3>
+        <div className="md:col-span-4 p-4 bg-[#161628] rounded-lg data-panel">
+          <div className="flex gap-2 items-center">
+            <div className="icon-container">
+              <img
+                src="/images/payout.png"
+                style={{
+                  objectFit: "contain",
+                }}
+                alt="NLOV"
+                className="w-8 h-8 relative z-10 mt-2"
+              />
+            </div>
+            <h3 className="text-lg font-medium">Payout Details</h3>
           </div>
-          <div className="w-full h-[1px] bg-slate-600 my-4" />
+          <div className="w-full h-[1px] bg-[#2C2C53]/80 my-4" />
           <div className="space-y-5 p-4">
             <div>
-              <div className="text-sm text-slate-400 mb-1">Wallet Address</div>
+              <div className="text-sm text-[#515194] mb-1">Wallet Address</div>
               <div className="font-medium text-white">
                 {walletAddress
                   ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
@@ -360,30 +408,36 @@ export const EarningsDashboard = () => {
             </div>
 
             <div>
-              <div className="text-sm text-slate-400 mb-1">Network</div>
+              <div className="text-sm text-[#515194] mb-1">Network</div>
               <div className="font-medium text-white">SOLANA</div>
             </div>
 
             <div>
-              <div className="text-sm text-slate-400 mb-1">Minimum Payout</div>
+              <div className="text-sm text-[#515194] mb-1">Minimum Payout</div>
               <div className="font-medium text-white">10,000 Swarm Point</div>
             </div>
 
             <div>
-              <div className="text-sm text-slate-400 mb-1">
+              <div className="text-sm text-[#515194] mb-1">
                 Next Payout Date
               </div>
               <div className="font-medium text-white">Coming Soon</div>
             </div>
 
             <Button
-              className="w-full mt-6 rounded-full bg-blue-600 hover:bg-blue-700 text-white"
+              className="gradient-button w-full mt-6 rounded-full"
               disabled={true}
               onClick={handleWithdraw}
             >
-              <WalletIcon className="w-5 h-5 mr-2" />
-              Withdraw Earnings
-              <span className="text-white text-[12px] font-thin ml-2">
+              <div className="icon-container">
+                <img
+                  src="/images/withdraw.png"
+                  alt="NLOV"
+                  className="w-5 h-5 relative z-10"
+                />
+              </div>
+              Withdraw Earnings{" "}
+              <span className="text-white text-[12px] font-thin">
                 / Coming Soon
               </span>
             </Button>
@@ -392,14 +446,18 @@ export const EarningsDashboard = () => {
       </div>
 
       {/* Daily Rewards */}
-      <div className="w-full p-4 bg-slate-800 rounded-lg border border-slate-700 mt-6">
+      <div className="w-full p-4 bg-[#161628] rounded-lg data-panel mt-6">
         <div className="flex justify-between items-center mb-6">
           <div className="flex gap-2 items-center">
-            <ClockIcon className="w-5 h-5 text-white" />
+            <div className="icon-container">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            </div>
             <div className="flex items-center">
-              <h3 className="text-lg font-medium text-white">Daily Rewards</h3>
-              <div className="ml-2">
-                <InfoTooltip content="Check in daily to earn rewards! Rewards increase with consecutive days." />
+              <h3 className="text-lg font-medium">Daily Rewards</h3>
+              <div className="ml-2 mt-2">
+                <InfoTooltip 
+                  content="Check in daily to earn rewards! Rewards increase with consecutive days."
+                />
               </div>
             </div>
           </div>
@@ -415,12 +473,12 @@ export const EarningsDashboard = () => {
               </div>
             )}
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full"
+              className="gradient-button rounded-full"
               onClick={handleDailyCheckIn}
               disabled={checkInLoading || !userId}
             >
               {checkInLoading ? (
-                <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : null}
               Check In
             </Button>
@@ -458,12 +516,19 @@ export const EarningsDashboard = () => {
       </div>
 
       {/* Recent Transactions */}
-      <div className="w-full p-4 bg-slate-800 rounded-lg border border-slate-700 mt-6">
+      <div className="w-full p-4 bg-[#161628] rounded-lg data-panel mt-6">
         <div className="flex gap-2 items-center mb-4">
-          <CalendarIcon className="w-6 h-6 text-blue-400" />
-          <h3 className="text-lg font-medium text-white">
-            Recent Transactions
-          </h3>
+          <div className="icon-container">
+            <img
+              src="/images/transactions.png"
+              alt="NLOV"
+              className="w-6 h-6 relative z-10"
+              style={{
+                objectFit: "contain",
+              }}
+            />
+          </div>
+          <h3 className="text-lg font-medium">Recent Transactions</h3>
         </div>
 
         {loading && (
@@ -474,39 +539,32 @@ export const EarningsDashboard = () => {
 
         {!loading && transactions.length === 0 && (
           <div className="flex items-center justify-center h-40 text-slate-400 text-sm">
-            <ClockIcon className="w-16 h-16 text-slate-600 mr-2" />
+            <Clock className="w-16 h-16 text-slate-600 mr-2" />
             <p>No transaction history available yet</p>
           </div>
         )}
 
         {!loading && transactions.length > 0 && (
           <div className="flex flex-col">
-            <div className="space-y-2 h-[320px] overflow-y-auto pr-1">
+            <div className="space-y-2 h-[320px] overflow-y-auto pr-1 custom-scrollbar">
               {transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex justify-between items-center p-3 bg-slate-700 rounded-lg"
-                >
+                <div key={tx.id} className="transaction-item p-3">
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-white">
+                    <span className="text-sm font-medium transaction-date">
                       {formatDate(tx.created_at)}
                     </span>
-                    <span className="text-xs text-slate-400">
-                      {tx.earning_type === "task"
-                        ? "Task completed"
-                        : "Referral reward"}
+                    <span className="text-xs text-[#515194]">
+                      {tx.earning_type === "task" ? "Task completed" : "Referral reward"}
                     </span>
                   </div>
 
                   <div className="flex flex-col items-end">
-                    <div className="flex items-center">
+                    <div className="transaction-amount">
                       <span className="text-sm font-medium text-green-500">
-                        +
-                        {Number(tx.amount).toLocaleString(undefined, {
+                        +{Number(tx.amount).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
-                        })}{" "}
-                        SP
+                        })} SP
                       </span>
                       {tx.transaction_hash && (
                         <a
@@ -515,7 +573,7 @@ export const EarningsDashboard = () => {
                           rel="noopener noreferrer"
                           className="text-blue-400 ml-2"
                         >
-                          <ArrowUpRightIcon className="w-4 h-4" />
+                          <ArrowUpRight className="w-4 h-4" />
                         </a>
                       )}
                     </div>
@@ -529,7 +587,7 @@ export const EarningsDashboard = () => {
 
       {/* Debug section */}
       {debugMode && (
-        <div className="w-full p-4 mt-6 bg-slate-800 rounded-lg border border-slate-700 overflow-auto">
+        <div className="w-full p-4 mt-6 bg-[#161628] rounded-lg overflow-auto">
           <h3 className="text-lg font-medium mb-4 text-red-400">
             Debug Information
           </h3>
@@ -538,7 +596,7 @@ export const EarningsDashboard = () => {
               <h4 className="text-md font-medium mb-2 text-blue-400">
                 Mock Data Status
               </h4>
-              <pre className="text-xs bg-slate-900 p-2 rounded overflow-auto max-h-40 text-white">
+              <pre className="text-xs bg-[#0D0D1A] p-2 rounded overflow-auto max-h-40 text-white">
                 {JSON.stringify(
                   { earnings, transactions: transactions.length, streakData },
                   null,
@@ -580,8 +638,8 @@ const DailyRewardCard = ({
             isActive
               ? "bg-gradient-to-br from-blue-500/20 to-purple-600/20 border-2 border-blue-500/50"
               : isCompleted
-              ? "bg-slate-800 border-2 border-green-500/50"
-              : "bg-gradient-to-br from-slate-700 to-slate-800 border-2 border-slate-600"
+              ? "bg-[#161628] border-2 border-green-500/50"
+              : "bg-gradient-to-br from-[#1a1a36] to-[#090C18] border-2 border-[#1a1a36]"
           }
           hover:scale-105 transition-all duration-300 hover:border-blue-500/50
           hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]
@@ -606,7 +664,7 @@ const DailyRewardCard = ({
         </div>
         {isCompleted && (
           <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-1">
-            <CheckIcon className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
+            <Check className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
           </div>
         )}
       </div>
