@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, Mail, Calendar } from 'lucide-react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
+import { useState, useEffect } from 'react';
 
 interface DashboardClientProps {
   user: SupabaseUser;
@@ -11,6 +12,22 @@ interface DashboardClientProps {
 
 export default function DashboardClient({ user }: DashboardClientProps) {
   const { signOut, loading } = useAuth();
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // Ensure hydration safety for date formatting
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  // Consistent date formatting function
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
 
   const handleSignOut = async () => {
     try {
@@ -44,7 +61,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
           
           <div className="flex items-center gap-3 text-gray-300">
             <Calendar className="h-4 w-4" />
-            <span>Member since: {new Date(user.created_at).toLocaleDateString()}</span>
+            <span>Member since: {isMounted ? formatDate(user.created_at) : 'Loading...'}</span>
           </div>
         </div>
       </div>
