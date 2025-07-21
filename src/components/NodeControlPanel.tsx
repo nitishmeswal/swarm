@@ -272,75 +272,102 @@ export const NodeControlPanel = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
-            <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
-              <div className="text-[#515194] text-xs mb-1">Reward Tier</div>
-              <div className="flex items-center">
-                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/cpu_usage.png" alt="NLOV" className="w-8 h-8 object-contain" />
+            <div className="p-2 sm:p-4 rounded-xl bg-[#1D1D33] flex flex-col">
+              <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
+                <div className="icon-bg flex items-center justify-center p-1 sm:p-2">
+                  <img
+                    src="/images/coins.png"
+                    alt="Reward Tier"
+                    className="w-5 h-5 sm:w-7 sm:h-7 object-contain z-10"
+                  />
                 </div>
-                <div className="text-lg font-medium text-white ml-3 mt-2">
-                  {(node.hardwareInfo?.rewardTier || 'CPU').toUpperCase()}
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-[#515194] text-[10px] sm:text-sm whitespace-nowrap">
+                    Reward Tier
+                  </span>
+                  <div className="text-sm sm:text-xl font-medium text-white">
+                    {(node.hardwareInfo?.rewardTier || 'cpu').toUpperCase()}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
-              <div className="text-[#515194] text-xs mb-1">Node Uptime</div>
-              <div className="flex items-center">
-                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/active_nodes.png" alt="NLOV" className="w-8 h-8 object-contain" />
+            <div className="p-2 sm:p-4 rounded-xl bg-[#1D1D33] flex flex-col">
+              <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
+                <div className="icon-bg flex items-center justify-center p-1 sm:p-2">
+                  <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white z-10" />
                 </div>
-                <div className="text-lg font-medium text-white ml-3 mt-2">
-                  {formatUptime(currentUptime)}
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-[#515194] text-[10px] sm:text-sm whitespace-nowrap">
+                    Node Uptime
+                  </span>
+                  <div className="text-sm sm:text-xl font-medium text-white">
+                    {formatUptime(currentUptime)}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
-            <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
-              <div className="text-[#515194] text-xs mb-1">Connected Devices</div>
-              <div className="flex items-center">
-                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/devices.png" alt="NLOV" className="w-8 h-8 object-contain" />
+            <div className="p-2 sm:p-4 rounded-xl bg-[#1D1D33] flex flex-col">
+              <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
+                <div className="icon-bg flex items-center justify-center p-1 sm:p-2">
+                  <img
+                    src="/images/devices.png"
+                    alt="Connected Devices"
+                    className="w-5 h-5 sm:w-7 sm:h-7 object-contain z-10"
+                  />
                 </div>
-                <div className="text-lg font-medium text-white ml-3 mt-2">
-                  {node.isRegistered ? '1' : '0'}
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-[#515194] text-[10px] sm:text-sm whitespace-nowrap">
+                    Connected Devices
+                  </span>
+                  <div className="text-sm sm:text-xl font-medium text-white">
+                    {node.isRegistered ? '1' : '0'}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
-              <div className="text-[#515194] text-xs mb-1">GPU Model</div>
-              <div className="flex items-start">
-                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/gpu_model.png" alt="NLOV" className="w-8 h-8 object-contain" />
+            <div className="p-2 sm:p-4 rounded-xl bg-[#1D1D33] flex flex-col">
+              <div className="flex items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
+                <div className="icon-bg flex items-center justify-center p-1 sm:p-2">
+                  <img
+                    src="/images/gpu_model.png"
+                    alt="GPU Model"
+                    className="w-5 h-5 sm:w-7 sm:h-7 object-contain z-10"
+                  />
                 </div>
-                <div
-                  className="text-sm text-white ml-3 mt-2 overflow-hidden w-[75%]"
-                  title={node.hardwareInfo?.gpuInfo || 'N/A'}
-                >
-                  {node.hardwareInfo?.gpuInfo || 'N/A'}
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-[#515194] text-[10px] sm:text-sm whitespace-nowrap">
+                    GPU Model
+                  </span>
+                  <div className="text-sm sm:text-xl font-medium text-white">
+                    {node.hardwareInfo?.gpuInfo || 'N/A'}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
           <div 
-            className="p-4 sm:p-6 flex flex-row items-center justify-between rounded-xl sm:rounded-2xl border border-blue-800/30 relative overflow-hidden gap-4 bg-blue-900/10"
+            className="p-4 sm:p-6 flex flex-row items-center justify-between rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#090C18] to-[#14273F] border border-[#1D5AB3] relative overflow-hidden gap-4"
           >
             <div className="flex items-center gap-4 z-10">
-              <img
-                src="/images/nlov-coin.png"
-                alt="coin"
-                className="w-11 h-11 object-contain z-10"
-              />
+              <div className="flex items-center justify-center flex-shrink-0">
+                <img
+                  src="/images/nlov-coin.png"
+                  alt="coin"
+                  className="w-11 h-11 object-contain z-10"
+                />
+              </div>
               <span className="text-white/90 text-2xl whitespace-nowrap transition-all duration-500">
                 Total Earnings
               </span>
             </div>
             <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
-              <span className="font-medium lg:text-4xl md:text-3xl sm:text-2xl text-blue-400 leading-none">
+              <span className="font-medium lg:text-4xl md:text-3xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-b from-[#20A5EF] to-[#0361DA] leading-none">
                 {totalEarnings.toFixed(2)}
               </span>
               <span className="text-white/90 text-sm">NLOV</span>
