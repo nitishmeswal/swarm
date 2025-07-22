@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Clock,
   Laptop,
@@ -24,6 +24,7 @@ import { resetTasks } from "@/lib/store/slices/taskSlice";
 import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
 import { useEarnings } from "@/hooks/useEarnings";
+import { useNodeUptime } from "@/hooks/useNodeuptime";
 import {
   Select,
   SelectContent,
@@ -90,6 +91,19 @@ export const NodeControlPanel = () => {
     resetClaimState 
   } = useEarnings();
   
+  const {
+    initializeDeviceUptime,
+    startDeviceUptime,
+    stopDeviceUptime,
+    addCompletedTask,
+    getCurrentUptime,
+    isDeviceRunning,
+    getCompletedTasks,
+    syncDeviceUptime,
+    isUpdatingUptime,
+    deviceUptimes: deviceUptimeList
+  } = useNodeUptime();
+  
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showScanDialog, setShowScanDialog] = useState(false);
@@ -109,6 +123,8 @@ export const NodeControlPanel = () => {
   const [scanCompleted, setScanCompleted] = useState(false);
   const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
+  const [displayUptime, setDisplayUptime] = useState(0);
+  const initializedDevicesRef = useRef<Set<string>>(new Set());
   
   // Replace static nodes with state
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
@@ -136,6 +152,39 @@ export const NodeControlPanel = () => {
       return () => clearTimeout(timer);
     }
   }, [claimSuccess, resetClaimState]);
+
+  // For demo purposes - in a real implementation this would be derived from the selected node ID
+  const selectedNode = nodes.find(node => node.id === selectedNodeId);
+
+  // Update display uptime every second for the selected device
+  useEffect(() => {
+    if (!selectedNodeId) return;
+
+    const updateDisplayUptime = () => {
+      const currentDeviceUptime = getCurrentUptime(selectedNodeId);
+      setDisplayUptime(currentDeviceUptime);
+    };
+
+    // Update immediately
+    updateDisplayUptime();
+
+    // Update every second
+    const interval = setInterval(updateDisplayUptime, 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedNodeId, getCurrentUptime]);
+
+  // Sync device uptime when selected device changes
+  useEffect(() => {
+    if (selectedNodeId && !isDeviceRunning(selectedNodeId)) {
+      // Only sync once per device selection, not continuously
+      const timeoutId = setTimeout(() => {
+        syncDeviceUptime(selectedNodeId);
+      }, 100); // Small delay to prevent rapid calls
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [selectedNodeId]); // Only depend on selectedNodeId, not the functions
 
   // Fetch user devices from Supabase
   useEffect(() => {
@@ -165,6 +214,15 @@ export const NodeControlPanel = () => {
         
         setNodes(mappedNodes);
         
+        // Initialize device uptimes with server data (only once per device)
+        mappedNodes.forEach(node => {
+          if (!initializedDevicesRef.current.has(node.id)) {
+            const serverUptime = Number(data.find(d => d.id === node.id)?.uptime) || 0;
+            initializeDeviceUptime(node.id, serverUptime);
+            initializedDevicesRef.current.add(node.id);
+          }
+        });
+        
         if (mappedNodes.length > 0 && !selectedNodeId) {
           setSelectedNodeId(mappedNodes[0].id);
         }
@@ -178,14 +236,11 @@ export const NodeControlPanel = () => {
     };
     
     fetchUserDevices();
-  }, [user?.id, hasFetchedDevices]); // Only depend on user ID and fetch flag
-  
-  // For demo purposes - in a real implementation this would be derived from the selected node ID
-  const selectedNode = nodes.find(node => node.id === selectedNodeId);
-  
+  }, [user?.id, hasFetchedDevices]); // Keep minimal dependencies
+
   const handleNodeSelect = (value: string) => {
     setSelectedNodeId(value);
-    // Additional logic for selecting a node would go here
+    // Don't sync immediately here, let the useEffect handle it with a delay
   };
 
   const deleteDevice = async (deviceId: string) => {
@@ -236,8 +291,26 @@ export const NodeControlPanel = () => {
   };
 
   const toggleNodeStatus = async () => {
-    if (node.isActive) {
+    if (!selectedNodeId) return;
+
+    const deviceCurrentlyRunning = isDeviceRunning(selectedNodeId);
+    
+    if (deviceCurrentlyRunning || node.isActive) {
       setIsStopping(true);
+      
+      try {
+        // Stop uptime tracking and update server
+        const result = await stopDeviceUptime(selectedNodeId);
+        
+        if (result.success) {
+          console.log('Node stopped and uptime updated successfully');
+        } else {
+          console.error('Failed to update uptime:', result.error);
+        }
+      } catch (error) {
+        console.error('Error stopping node:', error);
+      }
+      
       setTimeout(() => {
         dispatch(stopNode());
         dispatch(resetTasks()); // Clear all proxy tasks when node stops
@@ -249,6 +322,10 @@ export const NodeControlPanel = () => {
         return;
       }
       setIsStarting(true);
+      
+      // Start uptime tracking
+      startDeviceUptime(selectedNodeId);
+      
       setTimeout(() => {
         dispatch(startNode());
         setIsStarting(false);
@@ -431,6 +508,9 @@ export const NodeControlPanel = () => {
                     <>
                       {getDeviceIcon(selectedNode.type)}
                       <span>{selectedNode.name}</span>
+                      {isDeviceRunning(selectedNodeId) && (
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse ml-1"></div>
+                      )}
                     </>
                   )}
                   {!selectedNode && <span>{isLoadingDevices ? "Loading nodes..." : "No nodes available"}</span>}
@@ -480,18 +560,18 @@ export const NodeControlPanel = () => {
 
             <Button
               variant="default"
-              disabled={isStarting || isStopping || !selectedNodeId}
+              disabled={isStarting || isStopping || isUpdatingUptime || !selectedNodeId}
               onClick={toggleNodeStatus}
               className={`rounded-full transition-all duration-300 shadow-md hover:shadow-lg text-white text-xs sm:text-sm px-3 py-1 sm:px-4 sm:py-2 h-9 sm:h-10 hover:translate-y-[-0.5px] ${
-                node.isActive
+                node.isActive || isDeviceRunning(selectedNodeId)
                   ? "bg-red-600 hover:bg-red-700 hover:shadow-red-500/30 shadow-red-500"
                   : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
               }`}
             >
-              {isStarting && (
+              {(isStarting || isUpdatingUptime) && (
                 <>
                   <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
-                  Starting...
+                  {isUpdatingUptime ? "Updating..." : "Starting..."}
                 </>
               )}
               {isStopping && (
@@ -500,10 +580,10 @@ export const NodeControlPanel = () => {
                   Stopping...
                 </>
               )}
-              {!isStarting && !isStopping && (
+              {!isStarting && !isStopping && !isUpdatingUptime && (
                 <>
-                  {node.isActive ? "Stop Node" : "Start Node"}
-                  {!node.isActive ? (
+                  {node.isActive || isDeviceRunning(selectedNodeId) ? "Stop Node" : "Start Node"}
+                  {!node.isActive && !isDeviceRunning(selectedNodeId) ? (
                     <VscDebugStart className="text-white/90 ml-1 sm:ml-2" />
                   ) : (
                     <IoStopOutline className="text-white/90 ml-1 sm:ml-2" />
@@ -527,13 +607,13 @@ export const NodeControlPanel = () => {
             </div>
 
             <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
-              <div className="text-[#515194] text-xs mb-1">Node Uptime</div>
+              <div className="text-[#515194] text-xs mb-1">Device Uptime</div>
               <div className="flex items-center">
                 <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
                   <img src="/images/active_nodes.png" alt="NLOV" className="w-8 h-8 object-contain" />
                 </div>
                 <div className="text-lg font-medium text-white ml-3 mt-2">
-                  {formatUptime(currentUptime)}
+                  {formatUptime(displayUptime)}
                 </div>
               </div>
             </div>

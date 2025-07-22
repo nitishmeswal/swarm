@@ -45,6 +45,12 @@ export interface TaskPipelineState {
   isGenerating: boolean;
   lastTaskGeneration: string | null;
   autoMode: boolean;
+  completedTasksForStats: {
+    three_d: number;
+    video: number;
+    text: number;
+    image: number;
+  };
 }
 
 export interface EarningsState {
