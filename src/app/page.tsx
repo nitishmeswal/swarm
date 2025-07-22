@@ -1,10 +1,18 @@
 "use client";
 
-import { NetworkStats } from '@/components/NetworkStats';
-import { NodeControlPanel } from '@/components/NodeControlPanel';
-import { TaskPipeline } from '@/components/TaskPipeline';
+import { useEffect } from "react";
+import { NetworkStats } from "@/components/NetworkStats";
+import { NodeControlPanel } from "@/components/NodeControlPanel";
+import { TaskPipeline } from "@/components/TaskPipeline";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 export default function Dashboard() {
+  const { trackPageView } = useAnalytics();
+
+  useEffect(() => {
+    trackPageView("/dashboard");
+  }, [trackPageView]);
+
   return (
     <div className="flex flex-col gap-6">
       {/* Network Stats */}

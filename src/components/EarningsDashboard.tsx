@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 type TimeRange = "daily" | "weekly" | "monthly" | "all-time";
 
@@ -77,6 +78,7 @@ export const EarningsDashboard = () => {
   const [checkInLoading, setCheckInLoading] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [walletAddress] = useState<string>("SOL1234...5678");
+  const { trackEvent } = useAnalytics();
 
   // Mock user session
   const userId = "user123";
@@ -116,19 +118,24 @@ export const EarningsDashboard = () => {
 
   const handleTimeRangeChange = (value: string) => {
     setTimeRange(value as TimeRange);
+    trackEvent("time_range_changed", "earnings", value);
   };
 
   const handleChartPeriodChange = (value: string) => {
     setChartPeriod(value as TimeRange);
+    trackEvent("chart_period_changed", "earnings", value);
   };
 
   const handleWithdraw = () => {
+    // Track withdrawal attempt
+    trackEvent("withdrawal_attempted", "earnings", "mainnet_pending");
     // Mock toast notification
     alert("Withdrawals will be available after mainnet launch");
   };
 
   const handleRefresh = () => {
     setLoading(true);
+    trackEvent("earnings_refresh", "earnings", timeRange);
     setTimeout(() => {
       setLoading(false);
       alert("Earnings data refreshed");
@@ -137,6 +144,7 @@ export const EarningsDashboard = () => {
 
   const handleDailyCheckIn = async () => {
     setCheckInLoading(true);
+    trackEvent("daily_checkin", "earnings", `day_${streakData.streak + 1}`);
     setTimeout(() => {
       setCheckInLoading(false);
       alert(
@@ -239,11 +247,7 @@ export const EarningsDashboard = () => {
             onClick={handleRefresh}
             disabled={loading}
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Refresh"
-            )}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
           </Button>
         </div>
       </div>
@@ -375,7 +379,7 @@ export const EarningsDashboard = () => {
               </p>
             </div>
           </div>
-          
+
           {/* Background effect for chart */}
           <div className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-transparent opacity-30 z-0"></div>
           <div className="absolute inset-0 bg-grid opacity-10 z-0"></div>
@@ -455,9 +459,7 @@ export const EarningsDashboard = () => {
             <div className="flex items-center">
               <h3 className="text-lg font-medium">Daily Rewards</h3>
               <div className="ml-2 mt-2">
-                <InfoTooltip 
-                  content="Check in daily to earn rewards! Rewards increase with consecutive days."
-                />
+                <InfoTooltip content="Check in daily to earn rewards! Rewards increase with consecutive days." />
               </div>
             </div>
           </div>
@@ -554,17 +556,21 @@ export const EarningsDashboard = () => {
                       {formatDate(tx.created_at)}
                     </span>
                     <span className="text-xs text-[#515194]">
-                      {tx.earning_type === "task" ? "Task completed" : "Referral reward"}
+                      {tx.earning_type === "task"
+                        ? "Task completed"
+                        : "Referral reward"}
                     </span>
                   </div>
 
                   <div className="flex flex-col items-end">
                     <div className="transaction-amount">
                       <span className="text-sm font-medium text-green-500">
-                        +{Number(tx.amount).toLocaleString(undefined, {
+                        +
+                        {Number(tx.amount).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
-                        })} SP
+                        })}{" "}
+                        SP
                       </span>
                       {tx.transaction_hash && (
                         <a

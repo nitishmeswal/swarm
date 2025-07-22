@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
+import {
   Clock,
   Laptop,
   Monitor,
@@ -10,7 +10,7 @@ import {
   Scan,
   Loader2,
   AlertTriangle,
-  Trash2
+  Trash2,
 } from "lucide-react";
 import { VscDebugStart } from "react-icons/vsc";
 import { IoStopOutline } from "react-icons/io5";
@@ -19,8 +19,16 @@ import { Button } from "./ui/button";
 import { HardwareScanDialog } from "./HardwareScanDialog";
 import { detectHardware } from "@/lib/hardwareDetection";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
-import { registerDevice, startNode, stopNode, selectCurrentUptime } from "@/lib/store/slices/nodeSlice";
-import { selectTotalEarnings, selectSessionEarnings } from "@/lib/store/slices/earningsSlice";
+import {
+  registerDevice,
+  startNode,
+  stopNode,
+  selectCurrentUptime,
+} from "@/lib/store/slices/nodeSlice";
+import {
+  selectTotalEarnings,
+  selectSessionEarnings,
+} from "@/lib/store/slices/earningsSlice";
 import { resetTasks } from "@/lib/store/slices/taskSlice";
 import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
@@ -43,6 +51,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface NodeInfo {
   id: string;
@@ -74,13 +83,14 @@ interface SupabaseDevice {
 
 export const NodeControlPanel = () => {
   const dispatch = useAppDispatch();
-  const { node, earnings } = useAppSelector(state => state);
+  const { node, earnings } = useAppSelector((state) => state);
   const currentUptime = useAppSelector(selectCurrentUptime);
   const totalEarnings = useAppSelector(selectTotalEarnings);
   const sessionEarnings = useAppSelector(selectSessionEarnings);
   const { user } = useAuth();
   const supabase = createClient();
-  
+  const { trackEvent } = useAnalytics();
+
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showScanDialog, setShowScanDialog] = useState(false);
@@ -95,14 +105,15 @@ export const NodeControlPanel = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasFetchedDevices, setHasFetchedDevices] = useState(false);
   const [customDeviceName, setCustomDeviceName] = useState("");
-  const [scannedHardwareInfo, setScannedHardwareInfo] = useState<HardwareInfo | null>(null);
+  const [scannedHardwareInfo, setScannedHardwareInfo] =
+    useState<HardwareInfo | null>(null);
   const [showNameInputDialog, setShowNameInputDialog] = useState(false);
   const [scanCompleted, setScanCompleted] = useState(false);
   const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
-  
+
   // Replace static nodes with state
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
-  
+
   // Ensure hydration safety
   useEffect(() => {
     setIsMounted(true);
@@ -111,35 +122,45 @@ export const NodeControlPanel = () => {
   // Fetch user devices from Supabase
   useEffect(() => {
     if (!user?.id || hasFetchedDevices) return;
-    
+
     const fetchUserDevices = async () => {
       setIsLoading(true);
       try {
         const { data, error } = await supabase
-          .from('devices')
-          .select('*')
-          .eq('owner', user.id);
-        
+          .from("devices")
+          .select("*")
+          .eq("owner", user.id);
+
         if (error) {
           console.error("Error fetching devices:", error);
           return;
         }
-        
+
         const mappedNodes: NodeInfo[] = data.map((device: SupabaseDevice) => ({
           id: device.id,
-          name: device.device_name || `My ${device.device_type.charAt(0).toUpperCase() + device.device_type.slice(1)}`,
+          name:
+            device.device_name ||
+            `My ${
+              device.device_type.charAt(0).toUpperCase() +
+              device.device_type.slice(1)
+            }`,
           type: device.device_type,
-          rewardTier: device.reward_tier || 'cpu',
-          status: device.status === 'online' ? 'running' : device.status === 'offline' ? 'idle' : 'offline',
-          gpuInfo: device.gpu_model
+          rewardTier: device.reward_tier || "cpu",
+          status:
+            device.status === "online"
+              ? "running"
+              : device.status === "offline"
+              ? "idle"
+              : "offline",
+          gpuInfo: device.gpu_model,
         }));
-        
+
         setNodes(mappedNodes);
-        
+
         if (mappedNodes.length > 0 && !selectedNodeId) {
           setSelectedNodeId(mappedNodes[0].id);
         }
-        
+
         setHasFetchedDevices(true);
       } catch (err) {
         console.error("Exception while fetching devices:", err);
@@ -147,13 +168,13 @@ export const NodeControlPanel = () => {
         setIsLoading(false);
       }
     };
-    
+
     fetchUserDevices();
   }, [user?.id, hasFetchedDevices]); // Only depend on user ID and fetch flag
-  
+
   // For demo purposes - in a real implementation this would be derived from the selected node ID
-  const selectedNode = nodes.find(node => node.id === selectedNodeId);
-  
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+
   const handleNodeSelect = (value: string) => {
     setSelectedNodeId(value);
     // Additional logic for selecting a node would go here
@@ -161,25 +182,35 @@ export const NodeControlPanel = () => {
 
   const deleteDevice = async (deviceId: string) => {
     if (!deviceId || !user?.id) return;
-    
+
     try {
       const { error } = await supabase
-        .from('devices')
+        .from("devices")
         .delete()
-        .eq('id', deviceId)
-        .eq('owner', user.id);
-        
+        .eq("id", deviceId)
+        .eq("owner", user.id);
+
       if (error) {
         console.error("Error deleting device:", error);
         return false;
       } else {
+        // Track device deletion
+        const deletedNode = nodes.find((node) => node.id === deviceId);
+        trackEvent(
+          "device_deleted",
+          "node_control",
+          deletedNode?.rewardTier || "unknown"
+        );
+
         // Remove the node from the list
-        setNodes(prevNodes => prevNodes.filter(node => node.id !== deviceId));
-        
+        setNodes((prevNodes) =>
+          prevNodes.filter((node) => node.id !== deviceId)
+        );
+
         // If we deleted the currently selected node, select another one if available
         if (deviceId === selectedNodeId) {
           if (nodes.length > 1) {
-            const nextNodeId = nodes.find(node => node.id !== deviceId)?.id;
+            const nextNodeId = nodes.find((node) => node.id !== deviceId)?.id;
             setSelectedNodeId(nextNodeId || "");
           } else {
             setSelectedNodeId("");
@@ -209,6 +240,11 @@ export const NodeControlPanel = () => {
   const toggleNodeStatus = async () => {
     if (node.isActive) {
       setIsStopping(true);
+      trackEvent(
+        "node_stop",
+        "node_control",
+        selectedNode?.rewardTier || "unknown"
+      );
       setTimeout(() => {
         dispatch(stopNode());
         dispatch(resetTasks()); // Clear all proxy tasks when node stops
@@ -217,9 +253,19 @@ export const NodeControlPanel = () => {
     } else {
       if (!node.isRegistered) {
         setShowScanDialog(true);
+        trackEvent(
+          "hardware_scan_initiated",
+          "node_control",
+          "unregistered_node"
+        );
         return;
       }
       setIsStarting(true);
+      trackEvent(
+        "node_start",
+        "node_control",
+        selectedNode?.rewardTier || "unknown"
+      );
       setTimeout(() => {
         dispatch(startNode());
         setIsStarting(false);
@@ -230,28 +276,42 @@ export const NodeControlPanel = () => {
   const handleScanComplete = async (hardwareInfo: HardwareInfo) => {
     // Store the hardware info with custom device name
     setScannedHardwareInfo(hardwareInfo);
-    const deviceName = hardwareInfo.customDeviceName || `My ${hardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${hardwareInfo.deviceType?.slice(1) || 'evice'}`;
+    const deviceName =
+      hardwareInfo.customDeviceName ||
+      `My ${hardwareInfo.deviceType?.charAt(0).toUpperCase() || "D"}${
+        hardwareInfo.deviceType?.slice(1) || "evice"
+      }`;
     setCustomDeviceName(deviceName);
     setScanCompleted(true);
     setIsScanning(false);
-    
+
+    // Track hardware scan completion
+    trackEvent(
+      "hardware_scan_completed",
+      "node_control",
+      hardwareInfo.rewardTier
+    );
+
     // Automatically register the device with the provided name
     if (!user?.id) return;
-    
+
     // Register the device in Redux store
     dispatch(registerDevice(hardwareInfo));
-    
+
     // Save the device to Supabase with custom name
     try {
-      const { data, error } = await supabase.from('devices').insert({
-        owner: user.id,
-        gpu_model: hardwareInfo.gpuInfo,
-        device_type: hardwareInfo.deviceType || 'desktop',
-        reward_tier: hardwareInfo.rewardTier,
-        device_name: deviceName.trim(),
-        status: 'offline'
-      }).select();
-      
+      const { data, error } = await supabase
+        .from("devices")
+        .insert({
+          owner: user.id,
+          gpu_model: hardwareInfo.gpuInfo,
+          device_type: hardwareInfo.deviceType || "desktop",
+          reward_tier: hardwareInfo.rewardTier,
+          device_name: deviceName.trim(),
+          status: "offline",
+        })
+        .select();
+
       if (error) {
         console.error("Error saving device to Supabase:", error);
       } else if (data) {
@@ -261,14 +321,14 @@ export const NodeControlPanel = () => {
           id: newDevice.id,
           name: newDevice.device_name || deviceName,
           type: newDevice.device_type,
-          rewardTier: newDevice.reward_tier || 'cpu',
-          status: 'idle',
-          gpuInfo: newDevice.gpu_model
+          rewardTier: newDevice.reward_tier || "cpu",
+          status: "idle",
+          gpuInfo: newDevice.gpu_model,
         };
-        
-        setNodes(prevNodes => [...prevNodes, newNode]);
+
+        setNodes((prevNodes) => [...prevNodes, newNode]);
         setSelectedNodeId(newDevice.id);
-        
+
         // Close the scan dialog after successful registration
         setShowScanDialog(false);
         setScanCompleted(false);
@@ -278,24 +338,31 @@ export const NodeControlPanel = () => {
       console.error("Exception while saving device:", err);
     }
   };
-  
+
   const completeDeviceRegistration = async () => {
     if (!scannedHardwareInfo || !user?.id) return;
-    
+
     // Register the device in Redux store
     dispatch(registerDevice(scannedHardwareInfo));
-    
+
     // Save the device to Supabase with custom name
     try {
-      const { data, error } = await supabase.from('devices').insert({
-        owner: user.id,
-        gpu_model: scannedHardwareInfo.gpuInfo,
-        device_type: scannedHardwareInfo.deviceType || 'desktop',
-        reward_tier: scannedHardwareInfo.rewardTier,
-        device_name: customDeviceName.trim() || `My ${scannedHardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${scannedHardwareInfo.deviceType?.slice(1) || 'evice'}`,
-        status: 'offline'
-      }).select();
-      
+      const { data, error } = await supabase
+        .from("devices")
+        .insert({
+          owner: user.id,
+          gpu_model: scannedHardwareInfo.gpuInfo,
+          device_type: scannedHardwareInfo.deviceType || "desktop",
+          reward_tier: scannedHardwareInfo.rewardTier,
+          device_name:
+            customDeviceName.trim() ||
+            `My ${
+              scannedHardwareInfo.deviceType?.charAt(0).toUpperCase() || "D"
+            }${scannedHardwareInfo.deviceType?.slice(1) || "evice"}`,
+          status: "offline",
+        })
+        .select();
+
       if (error) {
         console.error("Error saving device to Supabase:", error);
       } else if (data) {
@@ -303,14 +370,19 @@ export const NodeControlPanel = () => {
         const newDevice = data[0] as SupabaseDevice;
         const newNode: NodeInfo = {
           id: newDevice.id,
-          name: newDevice.device_name || `My ${newDevice.device_type.charAt(0).toUpperCase() + newDevice.device_type.slice(1)}`,
+          name:
+            newDevice.device_name ||
+            `My ${
+              newDevice.device_type.charAt(0).toUpperCase() +
+              newDevice.device_type.slice(1)
+            }`,
           type: newDevice.device_type,
-          rewardTier: newDevice.reward_tier || 'cpu',
-          status: 'idle',
-          gpuInfo: newDevice.gpu_model
+          rewardTier: newDevice.reward_tier || "cpu",
+          status: "idle",
+          gpuInfo: newDevice.gpu_model,
         };
-        
-        setNodes(prevNodes => [...prevNodes, newNode]);
+
+        setNodes((prevNodes) => [...prevNodes, newNode]);
         setSelectedNodeId(newDevice.id);
       }
     } catch (err) {
@@ -322,10 +394,10 @@ export const NodeControlPanel = () => {
       setScannedHardwareInfo(null);
     }
   };
-  
+
   const deleteSelectedNode = async () => {
     if (!selectedNodeId || !user?.id) return;
-    
+
     setIsDeletingNode(true);
     try {
       const success = await deleteDevice(selectedNodeId);
@@ -338,14 +410,19 @@ export const NodeControlPanel = () => {
       setIsDeletingNode(false);
     }
   };
-  
+
   const getRewardTierColor = (tier: string) => {
     switch (tier) {
-      case 'webgpu': return 'text-purple-400';
-      case 'wasm': return 'text-blue-400';
-      case 'webgl': return 'text-green-400';
-      case 'cpu': return 'text-yellow-400';
-      default: return 'text-gray-400';
+      case "webgpu":
+        return "text-purple-400";
+      case "wasm":
+        return "text-blue-400";
+      case "webgl":
+        return "text-green-400";
+      case "cpu":
+        return "text-yellow-400";
+      default:
+        return "text-gray-400";
     }
   };
 
@@ -401,7 +478,11 @@ export const NodeControlPanel = () => {
                       <span>{selectedNode.name}</span>
                     </>
                   )}
-                  {!selectedNode && <span>{isLoading ? "Loading nodes..." : "No nodes available"}</span>}
+                  {!selectedNode && (
+                    <span>
+                      {isLoading ? "Loading nodes..." : "No nodes available"}
+                    </span>
+                  )}
                 </div>
               </SelectTrigger>
               <SelectContent className="bg-[#0A1A2F] border-[#1E293B]">
@@ -486,10 +567,16 @@ export const NodeControlPanel = () => {
               <div className="text-[#515194] text-xs mb-1">Reward Tier</div>
               <div className="flex items-center">
                 <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/cpu_usage.png" alt="NLOV" className="w-8 h-8 object-contain" />
+                  <img
+                    src="/images/cpu_usage.png"
+                    alt="NLOV"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
                 <div className="text-lg font-medium text-white ml-3 mt-2">
-                  {isMounted ? (selectedNode?.rewardTier || 'CPU').toUpperCase() : 'CPU'}
+                  {isMounted
+                    ? (selectedNode?.rewardTier || "CPU").toUpperCase()
+                    : "CPU"}
                 </div>
               </div>
             </div>
@@ -498,7 +585,11 @@ export const NodeControlPanel = () => {
               <div className="text-[#515194] text-xs mb-1">Node Uptime</div>
               <div className="flex items-center">
                 <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/active_nodes.png" alt="NLOV" className="w-8 h-8 object-contain" />
+                  <img
+                    src="/images/active_nodes.png"
+                    alt="NLOV"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
                 <div className="text-lg font-medium text-white ml-3 mt-2">
                   {formatUptime(currentUptime)}
@@ -509,10 +600,16 @@ export const NodeControlPanel = () => {
 
           <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
             <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
-              <div className="text-[#515194] text-xs mb-1">Connected Devices</div>
+              <div className="text-[#515194] text-xs mb-1">
+                Connected Devices
+              </div>
               <div className="flex items-center">
                 <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/devices.png" alt="NLOV" className="w-8 h-8 object-contain" />
+                  <img
+                    src="/images/devices.png"
+                    alt="NLOV"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
                 <div className="text-lg font-medium text-white ml-3 mt-2">
                   {nodes.length}
@@ -524,21 +621,23 @@ export const NodeControlPanel = () => {
               <div className="text-[#515194] text-xs mb-1">GPU Model</div>
               <div className="flex items-start">
                 <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/gpu_model.png" alt="NLOV" className="w-8 h-8 object-contain" />
+                  <img
+                    src="/images/gpu_model.png"
+                    alt="NLOV"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
                 <div
                   className="text-sm text-white ml-3 mt-2 overflow-hidden w-[75%]"
-                  title={selectedNode?.gpuInfo || 'N/A'}
+                  title={selectedNode?.gpuInfo || "N/A"}
                 >
-                  {selectedNode?.gpuInfo || 'N/A'}
+                  {selectedNode?.gpuInfo || "N/A"}
                 </div>
               </div>
             </div>
           </div>
 
-          <div 
-            className="p-4 sm:p-6 flex flex-row items-center justify-between rounded-xl sm:rounded-2xl border border-blue-800/30 relative overflow-hidden gap-4 bg-blue-900/10"
-          >
+          <div className="p-4 sm:p-6 flex flex-row items-center justify-between rounded-xl sm:rounded-2xl border border-blue-800/30 relative overflow-hidden gap-4 bg-blue-900/10">
             <div className="flex items-center gap-4 z-10">
               <img
                 src="/images/nlov-coin.png"
@@ -561,10 +660,11 @@ export const NodeControlPanel = () => {
           </div>
         </div>
       </div>
-      
 
-
-      <Dialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+      <Dialog
+        open={showDeleteConfirmDialog}
+        onOpenChange={setShowDeleteConfirmDialog}
+      >
         <DialogContent className="sm:max-w-md bg-[#0A1A2F] border-[#112544]">
           <DialogHeader>
             <DialogTitle className="text-white">Delete Node</DialogTitle>
