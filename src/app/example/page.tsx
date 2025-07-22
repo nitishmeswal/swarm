@@ -1,16 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { Button } from '@/components/ui/button';
 import { User, LogOut, LogIn } from 'lucide-react';
 
 export default function ExamplePage() {
-  const { user, session, loading, signOut } = useAuth();
+  const { user, profile, session, isLoading, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0F172A] to-[#1E293B] flex items-center justify-center">
         <div className="text-white">Loading...</div>
@@ -36,13 +36,20 @@ export default function ExamplePage() {
               <div className="space-y-2 text-gray-300">
                 <p><strong>Email:</strong> {user.email}</p>
                 <p><strong>User ID:</strong> {user.id}</p>
-                <p><strong>Username:</strong> {user.user_metadata?.username || 'Not set'}</p>
+                <p><strong>Username:</strong> {profile?.user_name || 'Not set'}</p>
                 <p><strong>Created:</strong> {new Date(user.created_at).toLocaleDateString()}</p>
                 <p><strong>Session expires:</strong> {session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : 'Unknown'}</p>
+                {profile && (
+                  <>
+                    <p><strong>Credits:</strong> {profile.freedom_ai_credits}</p>
+                    <p><strong>Plan:</strong> {profile.plan}</p>
+                    <p><strong>Referral Code:</strong> {profile.referral_code || 'Not set'}</p>
+                  </>
+                )}
               </div>
 
               <Button
-                onClick={signOut}
+                onClick={logout}
                 variant="outline"
                 className="bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30"
               >

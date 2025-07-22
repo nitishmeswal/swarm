@@ -20,107 +20,84 @@ import {
   CheckCircle,
   Copy,
   CreditCard,
+  AlertCircle,
 } from "lucide-react";
-
-// Define extended session type with additional properties
-interface ExtendedSession {
-  userId: string | null;
-  email?: string;
-  username?: string;
-  walletAddress?: string;
-  walletType?: string;
-  createdAt?: string;
-  referralCode?: string;
-  referralCount?: number;
-  plan?: string;
-}
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ProfileEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  session: ExtendedSession;
 }
 
 export function ProfileEditModal({
   isOpen,
   onClose,
-  session,
 }: ProfileEditModalProps) {
+  const { user, profile, updateProfile } = useAuth();
   const [username, setUsername] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
   const [manualWalletAddress, setManualWalletAddress] = useState("");
+  const [walletType, setWalletType] = useState<string>("ethereum");
   const [isSavingWallet, setIsSavingWallet] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Mock user data - replace with actual Redux state
-  const userProfile = {
-    email: session.email || "nitishdummy1@gmail.com",
-  };
-
-  // Get the email from either the session prop or the userProfile
-  const userEmail = session.email || userProfile.email || "Not set";
-
-  // Get the plan from session or use default "free"
-  const userPlan = session.plan || "free";
-
-  // Helper function to clean username by removing wallet type metadata
-  const cleanUsername = (username: string | null): string | null => {
-    if (!username) return null;
-    return username
-      .replace(/\s*\[wallet_type:(phantom|metamask)\]\s*/, "")
-      .trim();
-  };
-
-  // Helper function to extract wallet type from username
-  const extractWalletType = (username: string | null): string | null => {
-    if (!username) return null;
-    const match = username.match(/\[wallet_type:(phantom|metamask)\]/);
-    if (match && match[1]) {
-      return match[1];
-    }
-    return null;
-  };
-
-  // Update username state when session changes
+  // Update username and wallet state when profile changes
   useEffect(() => {
-    if (session.username) {
-      // Clean the username to remove wallet type metadata
-      const cleanedUsername = cleanUsername(session.username);
-      setUsername(cleanedUsername || "");
+    if (profile?.user_name) {
+      setUsername(profile.user_name);
+    } else if (user?.email) {
+      setUsername(user.email.split('@')[0]);
     }
-  }, [session.username]);
+
+    if (profile?.wallet_address) {
+      setManualWalletAddress(profile.wallet_address);
+      if (profile.wallet_type) {
+        setWalletType(profile.wallet_type);
+      }
+    }
+  }, [profile, user]);
+
+  const showMessage = (message: string, isError: boolean) => {
+    if (isError) {
+      setErrorMsg(message);
+      setSuccessMsg(null);
+    } else {
+      setSuccessMsg(message);
+      setErrorMsg(null);
+    }
+    
+    // Clear message after 3 seconds
+    setTimeout(() => {
+      if (isError) {
+        setErrorMsg(null);
+      } else {
+        setSuccessMsg(null);
+      }
+    }, 3000);
+  };
 
   const handleSaveUsername = async () => {
     if (!username.trim() || username.length < 3) {
-      console.error("Username must be at least 3 characters");
+      showMessage("Username must be at least 3 characters", true);
       return;
     }
 
-    if (!session.userId) {
-      console.error("User ID not found");
+    if (!user) {
+      showMessage("You must be logged in", true);
       return;
     }
 
     try {
       setLoading(true);
-      // Preserve wallet type info if it exists
-      let finalUsername = username;
-
-      if (session.username) {
-        const walletType = extractWalletType(session.username);
-        if (walletType) {
-          finalUsername = `${username} [wallet_type:${walletType}]`;
-        }
-      } else if (session.walletType) {
-        finalUsername = `${username} [wallet_type:${session.walletType}]`;
-      }
-
-      // Mock API call - replace with actual Redux dispatch
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log("Username updated successfully");
+      await updateProfile({
+        user_name: username
+      });
+      showMessage("Username updated successfully", false);
     } catch (error) {
-      console.error("Failed to update username");
+      console.error("Failed to update username:", error);
+      showMessage("Failed to update username", true);
     } finally {
       setLoading(false);
     }
@@ -130,28 +107,6 @@ export function ProfileEditModal({
     navigator.clipboard.writeText(text);
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2000);
-  };
-
-  // Helper function to get wallet type display name
-  const getWalletType = (): string => {
-    if (!session.walletAddress) return "Not Connected";
-
-    // First try to get wallet type from session
-    if (session.walletType) {
-      return (
-        session.walletType.charAt(0).toUpperCase() + session.walletType.slice(1)
-      );
-    }
-
-    // If not available, try to extract from username
-    if (session.username) {
-      const extractedType = extractWalletType(session.username);
-      if (extractedType) {
-        return extractedType.charAt(0).toUpperCase() + extractedType.slice(1);
-      }
-    }
-
-    return "Connected"; // Default if we can't determine the type
   };
 
   // Helper function to shorten wallet address
@@ -170,27 +125,31 @@ export function ProfileEditModal({
 
   const handleSaveWallet = async () => {
     if (!manualWalletAddress.trim()) {
-      console.error("Please enter a wallet address");
+      showMessage("Please enter a wallet address", true);
       return;
     }
-    if (!session.userId) {
-      console.error("User ID not found");
+    
+    if (!user) {
+      showMessage("You must be logged in", true);
+      return;
+    }
+
+    // Simple validation for wallet address format
+    if (walletType === "ethereum" && !manualWalletAddress.startsWith("0x")) {
+      showMessage("Ethereum wallet must start with 0x", true);
       return;
     }
 
     setIsSavingWallet(true);
     try {
-      // Mock API call - replace with actual Redux dispatch
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log("Wallet address saved successfully");
-      // Refresh the page to update the UI
-      if (typeof window !== 'undefined') {
-        window.location.reload();
-      }
+      await updateProfile({
+        wallet_address: manualWalletAddress,
+        wallet_type: walletType
+      });
+      showMessage("Wallet address saved successfully", false);
     } catch (error) {
       console.error("Error saving wallet address:", error);
-      console.error("Failed to save wallet address");
+      showMessage("Failed to save wallet address", true);
     } finally {
       setIsSavingWallet(false);
     }
@@ -204,6 +163,21 @@ export function ProfileEditModal({
             Profile Settings
           </DialogTitle>
         </DialogHeader>
+
+        {/* Success/Error Messages */}
+        {successMsg && (
+          <div className="flex items-center gap-2 p-2 rounded bg-green-900/20 border border-green-800 text-green-400 text-sm">
+            <CheckCircle className="h-4 w-4" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="flex items-center gap-2 p-2 rounded bg-red-900/20 border border-red-800 text-red-400 text-sm">
+            <AlertCircle className="h-4 w-4" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         <Tabs defaultValue="user" className="space-y-4">
           <TabsList className="grid grid-cols-2 bg-slate-800/50">
@@ -236,7 +210,7 @@ export function ProfileEditModal({
                 </Label>
                 <div className="flex items-center gap-2 bg-slate-800 p-2 rounded border border-slate-700 text-gray-300">
                   <Mail className="h-4 w-4 text-blue-400" />
-                  <span>{userEmail}</span>
+                  <span>{user?.email || "Not set"}</span>
                 </div>
               </div>
 
@@ -277,9 +251,11 @@ export function ProfileEditModal({
                 <div className="flex items-center gap-2 bg-slate-800 p-2 rounded border border-slate-700 text-gray-300">
                   <Calendar className="h-4 w-4 text-blue-400" />
                   <span>
-                    {session.createdAt
-                      ? new Date(session.createdAt).toLocaleDateString()
-                      : "7/18/2025"}
+                    {profile?.joined_at
+                      ? new Date(profile.joined_at).toLocaleDateString()
+                      : user?.created_at
+                        ? new Date(user.created_at).toLocaleDateString()
+                        : "N/A"}
                   </span>
                 </div>
               </div>
@@ -294,14 +270,14 @@ export function ProfileEditModal({
                 </Label>
                 <div className="flex items-center gap-2 bg-slate-800 p-2 rounded border border-slate-700 text-gray-300">
                   <CreditCard className="h-4 w-4 text-blue-400" />
-                  <span>{formatPlanName(userPlan)}</span>
-                  {userPlan !== "free" && (
+                  <span>{formatPlanName(profile?.plan || "free")}</span>
+                  {profile?.plan !== "free" && (
                     <Badge className="ml-2 bg-green-800 text-green-200">
                       Premium
                     </Badge>
                   )}
                 </div>
-                {userPlan === "free" && (
+                {(!profile?.plan || profile.plan === "free") && (
                   <div className="mt-2">
                     <Button
                       onClick={() => {
@@ -332,7 +308,7 @@ export function ProfileEditModal({
                 <h3 className="text-sm font-medium">Wallet Information</h3>
               </div>
 
-              {session.walletAddress ? (
+              {profile?.wallet_address ? (
                 <>
                   <div className="mb-4">
                     <Label className="text-sm text-gray-400 mb-1 block">
@@ -343,7 +319,9 @@ export function ProfileEditModal({
                         variant="outline"
                         className="bg-blue-900/20 text-blue-400 border-blue-800"
                       >
-                        {getWalletType()}
+                        {profile.wallet_type 
+                          ? profile.wallet_type.charAt(0).toUpperCase() + profile.wallet_type.slice(1) 
+                          : "Ethereum"}
                       </Badge>
                     </div>
                   </div>
@@ -354,10 +332,10 @@ export function ProfileEditModal({
                     </Label>
                     <div className="flex items-center justify-between bg-slate-800 p-2 rounded border border-slate-700 text-gray-300">
                       <span className="text-sm">
-                        {shortenWalletAddress(session.walletAddress)}
+                        {shortenWalletAddress(profile.wallet_address)}
                       </span>
                       <button
-                        onClick={() => copyToClipboard(session.walletAddress || "")}
+                        onClick={() => copyToClipboard(profile.wallet_address || "")}
                         className="text-gray-400 hover:text-white"
                       >
                         {copySuccess ? (
@@ -368,23 +346,71 @@ export function ProfileEditModal({
                       </button>
                     </div>
                   </div>
+
+                  <div className="mt-4">
+                    <Button
+                      onClick={() => {
+                        setManualWalletAddress("");
+                        updateProfile({ wallet_address: null, wallet_type: null });
+                      }}
+                      variant="outline"
+                      className="w-full bg-red-900/20 hover:bg-red-900/40 text-red-400 border-red-800/50"
+                    >
+                      Disconnect Wallet
+                    </Button>
+                  </div>
                 </>
               ) : (
                 <div className="space-y-4 py-4">
                   <p className="text-gray-400 text-center">No wallet connected</p>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="manualWalletAddress">Enter Wallet Address</Label>
-                    <Input
-                      id="manualWalletAddress"
-                      placeholder="0x..."
-                      className="bg-slate-800 border-slate-700"
-                      value={manualWalletAddress}
-                      onChange={(e) => setManualWalletAddress(e.target.value)}
-                    />
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="walletType" className="text-sm text-gray-400 mb-1 block">
+                        Wallet Type
+                      </Label>
+                      <div className="flex gap-2 mt-1">
+                        <Button
+                          type="button"
+                          variant={walletType === "ethereum" ? "default" : "outline"}
+                          className={walletType === "ethereum" 
+                            ? "bg-blue-600 hover:bg-blue-700 flex-1" 
+                            : "bg-slate-800 border-slate-700 hover:bg-slate-700 flex-1"
+                          }
+                          onClick={() => setWalletType("ethereum")}
+                        >
+                          Ethereum
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={walletType === "solana" ? "default" : "outline"}
+                          className={walletType === "solana" 
+                            ? "bg-blue-600 hover:bg-blue-700 flex-1" 
+                            : "bg-slate-800 border-slate-700 hover:bg-slate-700 flex-1"
+                          }
+                          onClick={() => setWalletType("solana")}
+                        >
+                          Solana
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="manualWalletAddress" className="text-sm text-gray-400 mb-1 block">
+                        Wallet Address
+                      </Label>
+                      <Input
+                        id="manualWalletAddress"
+                        placeholder={walletType === "ethereum" ? "0x..." : "..."}
+                        className="bg-slate-800 border-slate-700 text-white"
+                        value={manualWalletAddress}
+                        onChange={(e) => setManualWalletAddress(e.target.value)}
+                      />
+                    </div>
+                    
                     <Button
                       variant="outline"
-                      className="w-full bg-slate-800 border-slate-700 hover:bg-slate-700"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                       onClick={handleSaveWallet}
                       disabled={isSavingWallet}
                     >
@@ -402,10 +428,8 @@ export function ProfileEditModal({
                   </div>
 
                   <Button
-                    onClick={() =>
-                      console.log("Connect wallet functionality")
-                    }
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => showMessage("Wallet connection feature coming soon", true)}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                   >
                     Connect Wallet
                   </Button>

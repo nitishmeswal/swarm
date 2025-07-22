@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mail, Lock, User, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, loading } = useAuth();
+  const { loginWithGoogle, login, signUp, isLoading } = useAuth();
   
   const [activeTab, setActiveTab] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
@@ -47,7 +47,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setIsSubmitting(true);
     
     try {
-      await signInWithEmail(loginEmail, loginPassword);
+      await login(loginEmail, loginPassword);
       onClose();
       resetForm();
     } catch (err) {
@@ -75,7 +75,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setIsSubmitting(true);
     
     try {
-      await signUpWithEmail(signupEmail, signupPassword, signupUsername);
+      await signUp(signupEmail, signupUsername, signupPassword);
       onClose();
       resetForm();
     } catch (err) {
@@ -90,7 +90,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setIsSubmitting(true);
     
     try {
-      await signInWithGoogle();
+      await loginWithGoogle();
       onClose();
       resetForm();
     } catch (err) {

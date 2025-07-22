@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AuthModal } from "@/components/auth/AuthModal";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface HeaderProps {
   className?: string;
@@ -25,16 +25,28 @@ export function Header({
   onMenuToggle,
   sidebarOpen,
 }: HeaderProps) {
-  const { user, session, loading, signOut } = useAuth();
+  const { user, profile, isLoading, logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Derived values from user object
   const isLoggedIn = !!user;
-  const displayName = user?.user_metadata?.username || user?.email?.split('@')[0] || "Guest";
+  const displayName = profile?.user_name || user?.email?.split('@')[0] || "Guest";
   const hasWallet = false; // Wallet functionality can be added later
   const walletType = "Wallet";
+
+  // Log auth state for debugging
+  useEffect(() => {
+    console.log("🔑 Header auth state:", { 
+      isLoggedIn, 
+      userId: user?.id,
+      userEmail: user?.email,
+      displayName,
+      hasProfile: !!profile,
+      isLoading
+    });
+  }, [user, profile, isLoading, isLoggedIn, displayName]);
 
   // Effect to handle window resize for responsive design
   useEffect(() => {
@@ -109,8 +121,8 @@ export function Header({
           {/* Login/User Profile Button */}
           <Button
             variant="outline"
-            onClick={isLoggedIn ? signOut : () => setShowAuthModal(true)}
-            disabled={loading}
+            onClick={isLoggedIn ? logout : () => setShowAuthModal(true)}
+            disabled={isLoading}
             className={cn(
               "login-button",
               "flex items-center gap-1 md:gap-2 font-medium rounded-full h-auto transition-all duration-300 min-w-[36px] sm:min-w-[40px]",

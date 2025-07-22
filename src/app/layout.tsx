@@ -3,7 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Layout } from "@/components/Layout";
 import { ReduxProvider } from "@/components/providers/ReduxProvider";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthDebugger } from "@/components/AuthDebugger";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,11 +19,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className={inter.className}>
         <ReduxProvider>
           <AuthProvider>
             <Layout>{children}</Layout>
+            <AuthDebugger />
           </AuthProvider>
         </ReduxProvider>
       </body>
