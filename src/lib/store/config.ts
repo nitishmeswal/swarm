@@ -23,32 +23,60 @@ export const TASK_CONFIG = {
     webgl: 1.3,
     cpu: 1.0
   },
+
+  // COMPLETION_TIMES: {
+  //   webgpu: {
+  //     image: 30,
+  //     text: 15,
+  //     three_d: 60,
+  //     video: 120
+  //   },
+  //   wasm: {
+  //     image: 45,
+  //     text: 20,
+  //     three_d: 90,
+  //     video: 180
+  //   },
+  //   webgl: {
+  //     image: 60,
+  //     text: 30,
+  //     three_d: 120,
+  //     video: 240
+  //   },
+  //   cpu: {
+  //     image: 90,
+  //     text: 45,
+  //     three_d: 180,
+  //     video: 360
+  //   }
+  // },
+
   
   // Task completion times based on hardware tier (in seconds)
   COMPLETION_TIMES: {
     webgpu: {
-      image: 30,
+      image: 15,
       text: 15,
-      three_d: 60,
-      video: 120
+      three_d: 15,
+      video: 15
     },
     wasm: {
-      image: 45,
-      text: 20,
-      three_d: 90,
-      video: 180
+      image: 15,
+      text: 15,
+      three_d: 15,
+      video: 15
     },
     webgl: {
-      image: 60,
-      text: 30,
-      three_d: 120,
-      video: 240
+      image: 15,
+      text: 15,
+      three_d: 15,
+      video: 15
     },
     cpu: {
-      image: 90,
-      text: 45,
-      three_d: 180,
-      video: 360
+      image: 15,
+      text: 15,
+      three_d: 15,
+      video: 15
     }
   },
   

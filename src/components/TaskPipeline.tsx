@@ -21,6 +21,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/store";
 import { setAutoMode } from "@/lib/store/slices/taskSlice";
 import { selectCurrentUptime } from "@/lib/store/slices/nodeSlice";
 import { selectRecentTasks, selectProcessingTasks, selectTaskProgress } from "@/lib/store/slices/taskSlice";
+import { selectSessionEarnings } from "@/lib/store/slices/earningsSlice";
 import { getTaskEngine } from "@/lib/store/taskEngine";
 import { formatUptimeShort, TASK_CONFIG } from "@/lib/store/config";
 
@@ -31,6 +32,7 @@ export const TaskPipeline = () => {
   const recentTasks = useAppSelector(state => selectRecentTasks(state, 5));
   const processingTasks = useAppSelector(state => selectProcessingTasks(state));
   const pendingTasks = useAppSelector(state => state.tasks.tasks.filter(task => task.status === 'pending'));
+  const sessionEarnings = useAppSelector(selectSessionEarnings);
 
   const getTaskIcon = (type: string) => {
     switch (type) {
@@ -333,6 +335,29 @@ export const TaskPipeline = () => {
           )}
         </div>
       </div>
+      
+      {/* Pending Rewards Section */}
+      {sessionEarnings > 0 && node.isActive && (
+        <div className="mb-4 p-4 rounded-xl bg-blue-900/20 border border-blue-700/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <img
+                src="/images/pending_reward.png"
+                alt="Pending Rewards"
+                className="w-5 h-5 object-contain"
+              />
+              <span className="text-sm text-white/90">Pending Rewards</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="font-medium text-blue-400">+{sessionEarnings.toFixed(2)}</span>
+              <span className="text-xs text-white/70">NLOV</span>
+            </div>
+          </div>
+          <p className="text-xs text-white/50 mt-2">
+            Complete tasks to earn rewards. Claim from the Node Control Panel.
+          </p>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="flex gap-2">
