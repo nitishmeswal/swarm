@@ -17,6 +17,7 @@ import { IoStopOutline } from "react-icons/io5";
 import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "./ui/button";
 import { HardwareScanDialog } from "./HardwareScanDialog";
+import { detectHardware } from "@/lib/hardwareDetection";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
 import { registerDevice, startNode, stopNode, selectCurrentUptime } from "@/lib/store/slices/nodeSlice";
 import { selectTotalEarnings, selectSessionEarnings } from "@/lib/store/slices/earningsSlice";
@@ -97,6 +98,7 @@ export const NodeControlPanel = () => {
   const [scannedHardwareInfo, setScannedHardwareInfo] = useState<HardwareInfo | null>(null);
   const [showNameInputDialog, setShowNameInputDialog] = useState(false);
   const [scanCompleted, setScanCompleted] = useState(false);
+  const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
   
   // Replace static nodes with state
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
@@ -108,7 +110,6 @@ export const NodeControlPanel = () => {
 
   // Fetch user devices from Supabase
   useEffect(() => {
-    // Skip if we've already fetched devices or user is not available
     if (!user?.id || hasFetchedDevices) return;
     
     const fetchUserDevices = async () => {
@@ -124,7 +125,6 @@ export const NodeControlPanel = () => {
           return;
         }
         
-        // Map Supabase devices to NodeInfo format
         const mappedNodes: NodeInfo[] = data.map((device: SupabaseDevice) => ({
           id: device.id,
           name: device.device_name || `My ${device.device_type.charAt(0).toUpperCase() + device.device_type.slice(1)}`,
@@ -136,12 +136,10 @@ export const NodeControlPanel = () => {
         
         setNodes(mappedNodes);
         
-        // If we have devices, select the first one by default
         if (mappedNodes.length > 0 && !selectedNodeId) {
           setSelectedNodeId(mappedNodes[0].id);
         }
         
-        // Mark that we've fetched devices
         setHasFetchedDevices(true);
       } catch (err) {
         console.error("Exception while fetching devices:", err);
@@ -159,6 +157,40 @@ export const NodeControlPanel = () => {
   const handleNodeSelect = (value: string) => {
     setSelectedNodeId(value);
     // Additional logic for selecting a node would go here
+  };
+
+  const deleteDevice = async (deviceId: string) => {
+    if (!deviceId || !user?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('devices')
+        .delete()
+        .eq('id', deviceId)
+        .eq('owner', user.id);
+        
+      if (error) {
+        console.error("Error deleting device:", error);
+        return false;
+      } else {
+        // Remove the node from the list
+        setNodes(prevNodes => prevNodes.filter(node => node.id !== deviceId));
+        
+        // If we deleted the currently selected node, select another one if available
+        if (deviceId === selectedNodeId) {
+          if (nodes.length > 1) {
+            const nextNodeId = nodes.find(node => node.id !== deviceId)?.id;
+            setSelectedNodeId(nextNodeId || "");
+          } else {
+            setSelectedNodeId("");
+          }
+        }
+        return true;
+      }
+    } catch (err) {
+      console.error("Exception while deleting device:", err);
+      return false;
+    }
   };
 
   const getDeviceIcon = (type: "desktop" | "laptop" | "tablet" | "mobile") => {
@@ -196,12 +228,55 @@ export const NodeControlPanel = () => {
   };
 
   const handleScanComplete = async (hardwareInfo: HardwareInfo) => {
-    // Store the hardware info and show name input in the same dialog
+    // Store the hardware info with custom device name
     setScannedHardwareInfo(hardwareInfo);
-    setCustomDeviceName(`My ${hardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${hardwareInfo.deviceType?.slice(1) || 'evice'}`);
+    const deviceName = hardwareInfo.customDeviceName || `My ${hardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${hardwareInfo.deviceType?.slice(1) || 'evice'}`;
+    setCustomDeviceName(deviceName);
     setScanCompleted(true);
     setIsScanning(false);
-    // Don't close the scan dialog, just mark it as completed
+    
+    // Automatically register the device with the provided name
+    if (!user?.id) return;
+    
+    // Register the device in Redux store
+    dispatch(registerDevice(hardwareInfo));
+    
+    // Save the device to Supabase with custom name
+    try {
+      const { data, error } = await supabase.from('devices').insert({
+        owner: user.id,
+        gpu_model: hardwareInfo.gpuInfo,
+        device_type: hardwareInfo.deviceType || 'desktop',
+        reward_tier: hardwareInfo.rewardTier,
+        device_name: deviceName.trim(),
+        status: 'offline'
+      }).select();
+      
+      if (error) {
+        console.error("Error saving device to Supabase:", error);
+      } else if (data) {
+        // Add the new device to the nodes list
+        const newDevice = data[0] as SupabaseDevice;
+        const newNode: NodeInfo = {
+          id: newDevice.id,
+          name: newDevice.device_name || deviceName,
+          type: newDevice.device_type,
+          rewardTier: newDevice.reward_tier || 'cpu',
+          status: 'idle',
+          gpuInfo: newDevice.gpu_model
+        };
+        
+        setNodes(prevNodes => [...prevNodes, newNode]);
+        setSelectedNodeId(newDevice.id);
+        
+        // Close the scan dialog after successful registration
+        setShowScanDialog(false);
+        setScanCompleted(false);
+        setScannedHardwareInfo(null);
+      }
+    } catch (err) {
+      console.error("Exception while saving device:", err);
+    }
   };
   
   const completeDeviceRegistration = async () => {
@@ -253,31 +328,14 @@ export const NodeControlPanel = () => {
     
     setIsDeletingNode(true);
     try {
-      const { error } = await supabase
-        .from('devices')
-        .delete()
-        .eq('id', selectedNodeId)
-        .eq('owner', user.id);
-        
-      if (error) {
-        console.error("Error deleting device:", error);
-      } else {
-        // Remove the node from the list
-        setNodes(prevNodes => prevNodes.filter(node => node.id !== selectedNodeId));
-        
-        // If we still have nodes, select the first one
-        if (nodes.length > 1) {
-          const nextNodeId = nodes.find(node => node.id !== selectedNodeId)?.id;
-          setSelectedNodeId(nextNodeId || "");
-        } else {
-          setSelectedNodeId("");
-        }
+      const success = await deleteDevice(selectedNodeId);
+      if (success) {
+        setShowDeleteConfirmDialog(false);
       }
     } catch (err) {
       console.error("Exception while deleting device:", err);
     } finally {
       setIsDeletingNode(false);
-      setShowDeleteConfirmDialog(false);
     }
   };
   
@@ -303,37 +361,6 @@ export const NodeControlPanel = () => {
   const startScan = () => {
     resetScan();
     setShowScanDialog(true);
-    setIsScanning(true);
-    setScanProgress(0);
-    setScanStage("Detecting device type...");
-
-    setTimeout(() => {
-      setScanProgress(20);
-      setScanStage("Analyzing system capabilities...");
-      
-      setTimeout(() => {
-        setScanProgress(60);
-        setScanStage("Detecting hardware tier...");
-        
-        setTimeout(() => {
-          setScanProgress(100);
-          setScanStage("Scan complete!");
-          setIsScanning(false);
-          setScanCompleted(true);
-          // Simulate scan results for demo purposes - in a real app, this would come from actual hardware detection
-          const mockHardwareInfo: HardwareInfo = {
-            cpuCores: 8,
-            deviceMemory: "8 GB",
-            gpuInfo: "ANGLE (Intel, Intel(R) UHD Graphics, OpenGL 4.6)",
-            deviceGroup: 'desktop_laptop',
-            deviceType: 'laptop',
-            rewardTier: 'cpu'
-          };
-          setScannedHardwareInfo(mockHardwareInfo);
-          setCustomDeviceName(`My ${mockHardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${mockHardwareInfo.deviceType?.slice(1) || 'evice'}`);
-        }, 1000);
-      }, 800);
-    }, 1000);
   };
 
   return (
@@ -394,15 +421,24 @@ export const NodeControlPanel = () => {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        setSelectedNodeId(node.id);
-                        setShowDeleteConfirmDialog(true);
+                        // Set the node as currently deleting
+                        setDeletingNodeId(node.id);
+                        // Delete the device directly
+                        deleteDevice(node.id).finally(() => {
+                          setDeletingNodeId(null);
+                        });
                       }}
                     >
                       <button
                         type="button"
+                        disabled={deletingNodeId === node.id}
                         className="p-1.5 rounded-full hover:bg-red-500/20 focus:outline-none"
                       >
-                        <Trash2 className="w-4 h-4 text-red-500" />
+                        {deletingNodeId === node.id ? (
+                          <Loader2 className="w-4 h-4 text-red-500 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -526,123 +562,7 @@ export const NodeControlPanel = () => {
         </div>
       </div>
       
-      {/* Hardware Scan Dialog */}
-      <Dialog open={showScanDialog} onOpenChange={(open) => {
-        if (!open) {
-          resetScan();
-        }
-        setShowScanDialog(open);
-      }}>
-        <DialogContent className="sm:max-w-lg bg-[#0A1A2F] border-[#112544] p-0 overflow-hidden">
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-white text-xl font-medium">Hardware Scan Results</h2>
-            </div>
 
-            {!scanCompleted && !scannedHardwareInfo && (
-              <div>
-                <div className="mb-2 text-sm font-medium text-white">
-                  {scanStage}
-                </div>
-                <div className="w-full bg-[#112544] rounded-full h-2.5">
-                  <div
-                    className="bg-[#0066FF] h-2.5 rounded-full transition-all duration-300 ease-in-out"
-                    style={{ width: `${scanProgress}%` }}
-                  ></div>
-                </div>
-                <div className="mt-4 text-sm text-white/70">
-                  {scanProgress < 100
-                    ? "Please wait while we analyze your device. Do not close this window."
-                    : "Scan completed successfully!"}
-                </div>
-              </div>
-            )}
-
-            {scanCompleted && scannedHardwareInfo && (
-              <div>
-                {/* Success icon */}
-                <div className="flex justify-center mb-6">
-                  <div className="w-16 h-16 rounded-full bg-green-800/30 flex items-center justify-center">
-                    <div className="text-green-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Device tier heading */}
-                <div className="text-center mb-5">
-                  <h3 className="text-white text-xl">
-                    Your Device Tier: <span className="text-gray-400">{scannedHardwareInfo.rewardTier.toUpperCase()}</span>
-                  </h3>
-                  <p className="text-gray-400 text-sm">
-                    CPU-based processing - Basic rewards
-                  </p>
-                </div>
-                
-                {/* Hardware specs box */}
-                <div className="bg-[#111827] rounded-lg p-4 mb-6">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-gray-400">Device Type:</span>
-                    <span className="text-white text-right">{scannedHardwareInfo.deviceType}</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-gray-400">CPU Cores:</span>
-                    <span className="text-white text-right">{scannedHardwareInfo.cpuCores}</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-gray-400">Memory:</span>
-                    <span className="text-white text-right">{scannedHardwareInfo.deviceMemory}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">GPU:</span>
-                    <span className="text-white text-right truncate max-w-[70%]" title={scannedHardwareInfo.gpuInfo}>
-                      {scannedHardwareInfo.gpuInfo}
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Device name input */}
-                <div className="mb-6">
-                  <Label htmlFor="deviceName" className="text-white mb-2 block">Device Name</Label>
-                  <Input
-                    id="deviceName"
-                    value={customDeviceName}
-                    onChange={(e) => setCustomDeviceName(e.target.value)}
-                    placeholder="Enter a name for your device"
-                    className="bg-[#111827] border-0 text-white w-full focus:ring-1 focus:ring-blue-500 focus-visible:ring-offset-0 py-2"
-                  />
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex gap-3">
-                  <Button
-                    onClick={completeDeviceRegistration}
-                    className="bg-blue-600 hover:bg-blue-700 text-white flex-1 py-2"
-                  >
-                    Register Device
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => resetScan()}
-                    className="border-[#112544] text-white hover:bg-[#112544]/30 py-2"
-                  >
-                    Scan Again
-                  </Button>
-                </div>
-                
-                {/* Form link */}
-                <div className="text-center mt-5 text-xs text-gray-500">
-                  Think this scan result is incorrect?
-                  <br />
-                  <a href="#" className="text-blue-500 hover:underline">Submit Device Validation Form</a>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
         <DialogContent className="sm:max-w-md bg-[#0A1A2F] border-[#112544]">
@@ -682,9 +602,9 @@ export const NodeControlPanel = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Original Hardware Scan Dialog - kept for functionality */}
+      {/* Hardware Scan Dialog */}
       <HardwareScanDialog
-        isOpen={showScanDialog && !isScanning && !scanCompleted}
+        isOpen={showScanDialog}
         onClose={() => setShowScanDialog(false)}
         onScanComplete={handleScanComplete}
       />
