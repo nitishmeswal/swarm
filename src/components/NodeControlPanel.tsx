@@ -23,6 +23,7 @@ import { selectTotalEarnings, selectSessionEarnings } from "@/lib/store/slices/e
 import { resetTasks } from "@/lib/store/slices/taskSlice";
 import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
+import { useEarnings } from "@/hooks/useEarnings";
 import {
   Select,
   SelectContent,
@@ -79,6 +80,15 @@ export const NodeControlPanel = () => {
   const sessionEarnings = useAppSelector(selectSessionEarnings);
   const { user } = useAuth();
   const supabase = createClient();
+  const { 
+    claimTaskRewards, 
+    loadTotalEarnings, 
+    isClaimingReward, 
+    isLoading: isLoadingEarnings, 
+    claimError, 
+    claimSuccess, 
+    resetClaimState 
+  } = useEarnings();
   
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
@@ -91,13 +101,14 @@ export const NodeControlPanel = () => {
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingNode, setIsDeletingNode] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDevices, setIsLoadingDevices] = useState(true);
   const [hasFetchedDevices, setHasFetchedDevices] = useState(false);
   const [customDeviceName, setCustomDeviceName] = useState("");
   const [scannedHardwareInfo, setScannedHardwareInfo] = useState<HardwareInfo | null>(null);
   const [showNameInputDialog, setShowNameInputDialog] = useState(false);
   const [scanCompleted, setScanCompleted] = useState(false);
   const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
+  const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   
   // Replace static nodes with state
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
@@ -107,12 +118,31 @@ export const NodeControlPanel = () => {
     setIsMounted(true);
   }, []);
 
+  // Load user earnings on initial mount
+  useEffect(() => {
+    if (user?.id && isMounted) {
+      loadTotalEarnings();
+    }
+  }, [user?.id, isMounted]);
+
+  // Show claim success message after successful claim
+  useEffect(() => {
+    if (claimSuccess) {
+      setShowClaimSuccess(true);
+      const timer = setTimeout(() => {
+        setShowClaimSuccess(false);
+        resetClaimState();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [claimSuccess, resetClaimState]);
+
   // Fetch user devices from Supabase
   useEffect(() => {
     if (!user?.id || hasFetchedDevices) return;
     
     const fetchUserDevices = async () => {
-      setIsLoading(true);
+      setIsLoadingDevices(true);
       try {
         const { data, error } = await supabase
           .from('devices')
@@ -143,7 +173,7 @@ export const NodeControlPanel = () => {
       } catch (err) {
         console.error("Exception while fetching devices:", err);
       } finally {
-        setIsLoading(false);
+        setIsLoadingDevices(false);
       }
     };
     
@@ -349,6 +379,22 @@ export const NodeControlPanel = () => {
     }, 1000);
   };
 
+  const handleClaimReward = async () => {
+    if (sessionEarnings <= 0) return;
+    await claimTaskRewards(sessionEarnings);
+  };
+
+  useEffect(() => {
+    if (claimSuccess) {
+      setShowClaimSuccess(true);
+      const timer = setTimeout(() => {
+        setShowClaimSuccess(false);
+        resetClaimState();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [claimSuccess, resetClaimState]);
+
   return (
     <>
       <div className="node-control-panel p-2.5 sm:p-4 md:p-6 rounded-2xl sm:rounded-3xl stat-card overflow-x-hidden">
@@ -387,7 +433,7 @@ export const NodeControlPanel = () => {
                       <span>{selectedNode.name}</span>
                     </>
                   )}
-                  {!selectedNode && <span>{isLoading ? "Loading nodes..." : "No nodes available"}</span>}
+                  {!selectedNode && <span>{isLoadingDevices ? "Loading nodes..." : "No nodes available"}</span>}
                 </div>
               </SelectTrigger>
               <SelectContent className="bg-[#0A1A2F] border-[#1E293B]">
@@ -523,27 +569,80 @@ export const NodeControlPanel = () => {
           </div>
 
           <div 
-            className="p-4 sm:p-6 flex flex-row items-center justify-between rounded-xl sm:rounded-2xl border border-blue-800/30 relative overflow-hidden gap-4 bg-blue-900/10"
+            className="p-4 sm:p-6 flex flex-col rounded-xl sm:rounded-2xl border border-blue-800/30 relative overflow-hidden gap-4 bg-blue-900/10"
           >
-            <div className="flex items-center gap-4 z-10">
-              <img
-                src="/images/nlov-coin.png"
-                alt="coin"
-                className="w-11 h-11 object-contain z-10"
-              />
-              <span className="text-white/90 text-2xl whitespace-nowrap transition-all duration-500">
-                Total Earnings
-              </span>
+            <div className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-4 z-10">
+                <img
+                  src="/images/nlov-coin.png"
+                  alt="coin"
+                  className="w-11 h-11 object-contain z-10"
+                />
+                <div className="flex flex-col">
+                  <span className="text-white/90 text-2xl whitespace-nowrap transition-all duration-500">
+                    Total Earnings
+                  </span>
+                  {isLoadingEarnings && (
+                    <span className="text-xs text-white/50">Loading earnings...</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
+                <span className={`font-medium lg:text-4xl md:text-3xl sm:text-2xl ${sessionEarnings > 0 ? 'text-white/50' : 'text-blue-400'} leading-none`}>
+                  {isLoadingEarnings ? "..." : totalEarnings.toFixed(2)}
+                </span>
+                <span className="text-white/90 text-sm">NLOV</span>
+              </div>
             </div>
-            <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
-              <span className="font-medium lg:text-4xl md:text-3xl sm:text-2xl text-blue-400 leading-none">
-                {totalEarnings.toFixed(2)}
-              </span>
-              <span className="text-white/90 text-sm">NLOV</span>
-            </div>
-            <p className="absolute bottom-2 right-4 text-[10px] text-white/50 italic">
-              Session: +{sessionEarnings.toFixed(2)} NLOV
-            </p>
+            
+            {sessionEarnings > 0 && (
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between mt-2 border-t border-blue-800/30 pt-3">
+                  <div className="flex items-center gap-2">
+                    <img
+                      src="/images/pending_reward.png"
+                      alt="Unclaimed"
+                      className="w-5 h-5 object-contain"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-white text-base font-medium">
+                        Unclaimed: <span className="text-blue-400">+{sessionEarnings.toFixed(2)} NLOV</span>
+                      </span>
+                      <span className="text-xs text-white/50">
+                        Saved automatically - will persist until claimed
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  {claimError && <span className="text-red-400 text-xs">{claimError}</span>}
+                  {showClaimSuccess && <span className="text-green-400 text-xs">Reward claimed successfully!</span>}
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleClaimReward}
+                    disabled={isClaimingReward || sessionEarnings <= 0}
+                    className="bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500 rounded-full text-white px-4 py-2 w-full"
+                  >
+                    {isClaimingReward ? (
+                      <div className="flex items-center justify-center">
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Claiming...
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        <img
+                          src="/images/claimed_reward.png"
+                          alt="Claim"
+                          className="w-4 h-4 mr-2 object-contain"
+                        />
+                        Claim Rewards
+                      </div>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
