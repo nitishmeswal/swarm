@@ -2,7 +2,7 @@
 
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 
 // Replace with your actual Google Analytics Measurement ID
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
@@ -13,17 +13,25 @@ declare global {
   }
 }
 
-export function GoogleAnalytics() {
+function GoogleAnalyticsInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (pathname && window.gtag) {
+    if (pathname && window.gtag && GA_MEASUREMENT_ID) {
       window.gtag("config", GA_MEASUREMENT_ID, {
         page_path: pathname + searchParams.toString(),
       });
     }
   }, [pathname, searchParams]);
+
+  return null;
+}
+
+export function GoogleAnalytics() {
+  if (!GA_MEASUREMENT_ID) {
+    return null;
+  }
 
   return (
     <>
@@ -45,6 +53,9 @@ export function GoogleAnalytics() {
           `,
         }}
       />
+      <Suspense fallback={null}>
+        <GoogleAnalyticsInner />
+      </Suspense>
     </>
   );
 }

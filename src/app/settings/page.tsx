@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import Settings from "@/components/Settings";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const { trackPageView } = useAnalytics();
 
   useEffect(() => {
@@ -15,5 +15,13 @@ export default function SettingsPage() {
     <div className="min-h-screen">
       <Settings />
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen">Loading...</div>}>
+      <SettingsPageContent />
+    </Suspense>
   );
 }

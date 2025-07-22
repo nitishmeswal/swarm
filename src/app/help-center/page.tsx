@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import HelpCenter from "@/components/HelpCenter";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
-export default function HelpCenterPage() {
+function HelpCenterPageContent() {
   const { trackPageView } = useAnalytics();
 
   useEffect(() => {
@@ -15,5 +15,13 @@ export default function HelpCenterPage() {
     <div className="min-h-screen ">
       <HelpCenter />
     </div>
+  );
+}
+
+export default function HelpCenterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen">Loading...</div>}>
+      <HelpCenterPageContent />
+    </Suspense>
   );
 }

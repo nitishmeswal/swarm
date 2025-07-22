@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { ReferralProgram } from "@/components/ReferralProgram";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
-export default function Referral() {
+function ReferralContent() {
   const { trackPageView } = useAnalytics();
 
   useEffect(() => {
@@ -15,5 +15,13 @@ export default function Referral() {
     <div className="min-h-screen">
       <ReferralProgram />
     </div>
+  );
+}
+
+export default function Referral() {
+  return (
+    <Suspense fallback={<div className="min-h-screen">Loading...</div>}>
+      <ReferralContent />
+    </Suspense>
   );
 }

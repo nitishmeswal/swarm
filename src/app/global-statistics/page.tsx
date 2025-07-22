@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { GlobalStatistics } from "@/components/GlobalStatistics";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
-export default function GlobalStatisticsPage() {
+function GlobalStatisticsPageContent() {
   const { trackPageView } = useAnalytics();
 
   useEffect(() => {
@@ -15,5 +15,13 @@ export default function GlobalStatisticsPage() {
     <div className="min-h-screen ">
       <GlobalStatistics />
     </div>
+  );
+}
+
+export default function GlobalStatisticsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen">Loading...</div>}>
+      <GlobalStatisticsPageContent />
+    </Suspense>
   );
 }

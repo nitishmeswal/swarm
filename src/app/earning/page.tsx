@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { EarningsDashboard } from "@/components/EarningsDashboard";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
-export default function Earning() {
+function EarningContent() {
   const { trackPageView } = useAnalytics();
 
   useEffect(() => {
@@ -15,5 +15,13 @@ export default function Earning() {
     <div className="min-h-screen">
       <EarningsDashboard />
     </div>
+  );
+}
+
+export default function Earning() {
+  return (
+    <Suspense fallback={<div className="min-h-screen">Loading...</div>}>
+      <EarningContent />
+    </Suspense>
   );
 }
