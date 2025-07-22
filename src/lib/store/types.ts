@@ -6,6 +6,7 @@ export interface HardwareInfo {
   deviceGroup: 'desktop_laptop' | 'mobile_tablet';
   deviceType?: 'desktop' | 'laptop' | 'tablet' | 'mobile';
   rewardTier: 'webgpu' | 'wasm' | 'webgl' | 'cpu';
+  customDeviceName?: string;
 }
 
 export interface NodeState {
