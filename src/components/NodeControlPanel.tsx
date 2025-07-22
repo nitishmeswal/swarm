@@ -20,6 +20,7 @@ import { HardwareScanDialog } from "./HardwareScanDialog";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
 import { registerDevice, startNode, stopNode, selectCurrentUptime } from "@/lib/store/slices/nodeSlice";
 import { selectTotalEarnings, selectSessionEarnings } from "@/lib/store/slices/earningsSlice";
+import { resetTasks } from "@/lib/store/slices/taskSlice";
 import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
 import {
@@ -178,6 +179,7 @@ export const NodeControlPanel = () => {
       setIsStopping(true);
       setTimeout(() => {
         dispatch(stopNode());
+        dispatch(resetTasks()); // Clear all proxy tasks when node stops
         setIsStopping(false);
       }, 2000);
     } else {

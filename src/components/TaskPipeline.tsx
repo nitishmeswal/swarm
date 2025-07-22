@@ -30,6 +30,7 @@ export const TaskPipeline = () => {
   const currentUptime = useAppSelector(selectCurrentUptime);
   const recentTasks = useAppSelector(state => selectRecentTasks(state, 5));
   const processingTasks = useAppSelector(state => selectProcessingTasks(state));
+  const pendingTasks = useAppSelector(state => state.tasks.tasks.filter(task => task.status === 'pending'));
 
   const getTaskIcon = (type: string) => {
     switch (type) {
@@ -259,12 +260,12 @@ export const TaskPipeline = () => {
         </div>
       )}
 
-      {/* Task History */}
+      {/* Tasks in Queue */}
       <div className="mb-4">
-        <h3 className="text-sm font-medium text-white/90 mb-3">Recent Tasks</h3>
+        <h3 className="text-sm font-medium text-white/90 mb-3">Tasks in Queue</h3>
         <div className="space-y-2 max-h-[500px] sm:max-h-[600px] overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
-          {recentTasks.length > 0 ? (
-            recentTasks.map(task => {
+          {pendingTasks.length > 0 ? (
+            pendingTasks.map(task => {
               const timeAgo = task.completed_at 
                 ? Math.floor((Date.now() - new Date(task.completed_at).getTime()) / 1000 / 60)
                 : Math.floor((Date.now() - new Date(task.updated_at).getTime()) / 1000 / 60);
@@ -289,64 +290,16 @@ export const TaskPipeline = () => {
                                 : "3d-model-gen"}
                             </span>
                           </div>
-                          <div>
-                            {task.status === "completed" && (
-                              <div className="border rounded-full border-green-500 bg-green-500/10 text-green-400 text-[10px] sm:text-xs font-medium px-1.5 sm:px-3 py-0.5 sm:py-1">
-                                Completed
-                              </div>
-                            )}
-                            {task.status === "processing" && (
-                              <div className="border rounded-full border-blue-500 bg-blue-500/10 text-blue-400 text-[10px] sm:text-xs font-medium px-1.5 sm:px-3 py-0.5 sm:py-1">
-                                Processing
-                              </div>
-                            )}
-                            {task.status === "pending" && (
-                              <div className="border border-amber-500 bg-amber-500/10 text-amber-400 text-[10px] sm:text-xs font-medium px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-full">
-                                Pending
-                              </div>
-                            )}
-                            {task.status === "failed" && (
-                              <div className="border border-red-500 bg-red-500/10 text-red-400 text-[10px] sm:text-xs font-medium px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-full">
-                                Failed
-                              </div>
-                            )}
+                          <div className="border border-amber-500 bg-amber-500/10 text-amber-400 text-[10px] sm:text-xs font-medium px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-full">
+                            Queued
                           </div>
                         </div>
                         <p className="text-[10px] sm:text-sm text-white/80 mt-1 sm:mt-2 break-all">
                           Task ID: {task.id}
                         </p>
-
-                        {task.status === "completed" && (
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs text-[#515194] mt-1">
-                              Task completed successfully
-                            </p>
-                            <span className="text-xs mt-1 text-stone-50">
-                              {Math.round(task.compute_time || 0)}s
-                            </span>
-                          </div>
-                        )}
-
-                        {task.status === "processing" && (
-                          <>
-                            <p className="text-xs text-white/55 mt-1">
-                              Processing...
-                            </p>
-                            <div className="w-full h-1.5 bg-[#1A1A4C] rounded-full overflow-hidden mt-2">
-                              <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 rounded-full w-1/2 animate-pulse"></div>
-                            </div>
-                          </>
-                        )}
-
-                        {task.status === "pending" && (
-                          <p className="text-xs text-[#515194] mt-1">
-                            Awaiting transaction...
-                          </p>
-                        )}
-
-                        {task.status === "failed" && (
-                          <p className="text-xs text-[#515194] mt-1">Task failed</p>
-                        )}
+                        <p className="text-xs text-amber-400 mt-1">
+                          Waiting in queue...
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -370,9 +323,9 @@ export const TaskPipeline = () => {
                   <div className="w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center rounded-md bg-[#1D1D33]/50 mb-3 sm:mb-6">
                     <Clock className="w-5 h-5 sm:w-8 sm:h-8 text-white/30" />
                   </div>
-                  <p className="text-base sm:text-xl font-medium">No tasks yet</p>
+                  <p className="text-base sm:text-xl font-medium">No tasks in queue</p>
                   <p className="text-[10px] sm:text-sm mt-1 sm:mt-2">
-                    Tasks will appear here once generated
+                    Pending tasks will appear here when generated
                   </p>
                 </div>
               )}

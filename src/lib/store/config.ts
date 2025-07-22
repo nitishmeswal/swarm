@@ -58,7 +58,7 @@ export const TASK_CONFIG = {
     MAX_TASKS: 5,
     GENERATION_INTERVAL: 30000, // 30 seconds between generations
     PROCESSING_INTERVAL: 1000,  // 1 second for processing updates
-    MAX_CONCURRENT_PROCESSING: 2, // Max tasks processing at once
+    MAX_CONCURRENT_PROCESSING: 1, // Max tasks processing at once (only 1 task)
     PENDING_QUEUE_SIZE: 4 // Max pending tasks
   }
 };
