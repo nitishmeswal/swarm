@@ -1,5 +1,5 @@
 import { AppDispatch, store } from './index';
-import { generateTasks, startProcessingTasks, updateProcessingTasks, clearCompletedTasks } from './slices/taskSlice';
+import { generateTasks, startProcessingTasks, updateProcessingTasks, clearCompletedTasks, resetTasks } from './slices/taskSlice';
 import { updateUptime } from './slices/nodeSlice';
 import { addReward } from './slices/earningsSlice';
 import { TASK_CONFIG, generateTaskId, logger } from './config';
@@ -27,12 +27,17 @@ class TaskProcessingEngine {
   }
 
   stop() {
+    if (!this.isRunning) return; // Prevent multiple stops
+    
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
     this.isRunning = false;
-    logger.log('Task processing engine stopped');
+    
+    // Clear all proxy tasks when engine stops (but only once)
+    this.dispatch(resetTasks());
+    logger.log('Task processing engine stopped and all tasks cleared');
   }
 
   private processTaskCycle() {
@@ -158,5 +163,6 @@ export const startTaskEngine = (dispatch: AppDispatch) => {
 export const stopTaskEngine = () => {
   if (taskEngine) {
     taskEngine.stop();
+    taskEngine = null; // Clear reference after stopping
   }
 };
