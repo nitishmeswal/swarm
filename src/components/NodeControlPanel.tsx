@@ -97,6 +97,7 @@ export const NodeControlPanel = () => {
   const [scannedHardwareInfo, setScannedHardwareInfo] = useState<HardwareInfo | null>(null);
   const [showNameInputDialog, setShowNameInputDialog] = useState(false);
   const [scanCompleted, setScanCompleted] = useState(false);
+  const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
   
   // Replace static nodes with state
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
@@ -108,7 +109,6 @@ export const NodeControlPanel = () => {
 
   // Fetch user devices from Supabase
   useEffect(() => {
-    // Skip if we've already fetched devices or user is not available
     if (!user?.id || hasFetchedDevices) return;
     
     const fetchUserDevices = async () => {
@@ -124,7 +124,6 @@ export const NodeControlPanel = () => {
           return;
         }
         
-        // Map Supabase devices to NodeInfo format
         const mappedNodes: NodeInfo[] = data.map((device: SupabaseDevice) => ({
           id: device.id,
           name: device.device_name || `My ${device.device_type.charAt(0).toUpperCase() + device.device_type.slice(1)}`,
@@ -136,12 +135,10 @@ export const NodeControlPanel = () => {
         
         setNodes(mappedNodes);
         
-        // If we have devices, select the first one by default
         if (mappedNodes.length > 0 && !selectedNodeId) {
           setSelectedNodeId(mappedNodes[0].id);
         }
         
-        // Mark that we've fetched devices
         setHasFetchedDevices(true);
       } catch (err) {
         console.error("Exception while fetching devices:", err);
@@ -159,6 +156,40 @@ export const NodeControlPanel = () => {
   const handleNodeSelect = (value: string) => {
     setSelectedNodeId(value);
     // Additional logic for selecting a node would go here
+  };
+
+  const deleteDevice = async (deviceId: string) => {
+    if (!deviceId || !user?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('devices')
+        .delete()
+        .eq('id', deviceId)
+        .eq('owner', user.id);
+        
+      if (error) {
+        console.error("Error deleting device:", error);
+        return false;
+      } else {
+        // Remove the node from the list
+        setNodes(prevNodes => prevNodes.filter(node => node.id !== deviceId));
+        
+        // If we deleted the currently selected node, select another one if available
+        if (deviceId === selectedNodeId) {
+          if (nodes.length > 1) {
+            const nextNodeId = nodes.find(node => node.id !== deviceId)?.id;
+            setSelectedNodeId(nextNodeId || "");
+          } else {
+            setSelectedNodeId("");
+          }
+        }
+        return true;
+      }
+    } catch (err) {
+      console.error("Exception while deleting device:", err);
+      return false;
+    }
   };
 
   const getDeviceIcon = (type: "desktop" | "laptop" | "tablet" | "mobile") => {
@@ -253,31 +284,14 @@ export const NodeControlPanel = () => {
     
     setIsDeletingNode(true);
     try {
-      const { error } = await supabase
-        .from('devices')
-        .delete()
-        .eq('id', selectedNodeId)
-        .eq('owner', user.id);
-        
-      if (error) {
-        console.error("Error deleting device:", error);
-      } else {
-        // Remove the node from the list
-        setNodes(prevNodes => prevNodes.filter(node => node.id !== selectedNodeId));
-        
-        // If we still have nodes, select the first one
-        if (nodes.length > 1) {
-          const nextNodeId = nodes.find(node => node.id !== selectedNodeId)?.id;
-          setSelectedNodeId(nextNodeId || "");
-        } else {
-          setSelectedNodeId("");
-        }
+      const success = await deleteDevice(selectedNodeId);
+      if (success) {
+        setShowDeleteConfirmDialog(false);
       }
     } catch (err) {
       console.error("Exception while deleting device:", err);
     } finally {
       setIsDeletingNode(false);
-      setShowDeleteConfirmDialog(false);
     }
   };
   
@@ -320,7 +334,6 @@ export const NodeControlPanel = () => {
           setScanStage("Scan complete!");
           setIsScanning(false);
           setScanCompleted(true);
-          // Simulate scan results for demo purposes - in a real app, this would come from actual hardware detection
           const mockHardwareInfo: HardwareInfo = {
             cpuCores: 8,
             deviceMemory: "8 GB",
@@ -394,15 +407,24 @@ export const NodeControlPanel = () => {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        setSelectedNodeId(node.id);
-                        setShowDeleteConfirmDialog(true);
+                        // Set the node as currently deleting
+                        setDeletingNodeId(node.id);
+                        // Delete the device directly
+                        deleteDevice(node.id).finally(() => {
+                          setDeletingNodeId(null);
+                        });
                       }}
                     >
                       <button
                         type="button"
+                        disabled={deletingNodeId === node.id}
                         className="p-1.5 rounded-full hover:bg-red-500/20 focus:outline-none"
                       >
-                        <Trash2 className="w-4 h-4 text-red-500" />
+                        {deletingNodeId === node.id ? (
+                          <Loader2 className="w-4 h-4 text-red-500 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        )}
                       </button>
                     </div>
                   </div>

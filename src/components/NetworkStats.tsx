@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { ArrowUpIcon, ClockIcon } from "@heroicons/react/24/outline";
 import { InfoTooltip } from "./InfoTooltip";
 import { formatNumber } from "@/lib/utils";
+
+const token = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 type StatCardProps = {
   title: string;
@@ -12,6 +14,12 @@ type StatCardProps = {
   changePercentage?: number;
   info?: string;
   isUptime?: boolean;
+};
+
+type DashboardStats = {
+  total_users: number;
+  total_compute_generated: number;
+  total_tasks: number;
 };
 
 const StatCard = ({
@@ -77,30 +85,65 @@ const StatCard = ({
 };
 
 export const NetworkStats = () => {
-  const [totalNodes, setTotalNodes] = useState(9561);
-  const [totalActiveNodes, setTotalActiveNodes] = useState(1219);
-  const [totalTasks, setTotalTasks] = useState(2817929);
+  const [stats, setStats] = useState<DashboardStats>({
+    total_users: 0,
+    total_compute_generated: 0,
+    total_tasks: 0
+  });
+  const [loading, setLoading] = useState(true);
   const [subscriptionTier] = useState("Free");
+  const fetchedRef = useRef(false);
+
+  useEffect(() => {
+    const fetchNetworkStats = async () => {
+      try {
+        const response = await fetch(
+          "https://phpaoasgtqsnwohtevwf.supabase.co/functions/v1/dashboard_statistic_data",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch network stats');
+        }
+        
+        const data = await response.json();
+        setStats(data);
+      } catch (error) {
+        console.error("Error fetching network stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token && !fetchedRef.current) {
+      fetchedRef.current = true;
+      fetchNetworkStats();
+    }
+  }, []);
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4 md:mb-10 w-full">
       <StatCard
         title="Active Nodes"
-        value={totalNodes.toLocaleString()}
+        value={loading ? "Loading..." : formatNumber(stats.total_users)}
         unit="users"
         changePercentage={5.8}
         info="Total number of registered users across the Swarm network"
       />
       <StatCard
         title="Compute Usage"
-        value="1,219,666.76"
+        value={loading ? "Loading..." : formatNumber(stats.total_compute_generated)}
         unit="TFLOPs"
         changePercentage={2.3}
         info="Total compute usage across the network"
       />
       <StatCard
         title="Total AI Content Generated"
-        value={formatNumber(totalTasks)}
+        value={loading ? "Loading..." : formatNumber(stats.total_tasks)}
         unit="tasks"
         changePercentage={7.2}
         info="Total number of tasks processed by the network"
