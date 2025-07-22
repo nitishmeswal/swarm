@@ -4,51 +4,36 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Edit } from "lucide-react";
 import { ProfileEditModal } from "./ProfileEditModal";
-
-// Define extended session type with additional properties
-interface ExtendedSession {
-  userId: string | null;
-  email?: string;
-  username?: string;
-  walletAddress?: string;
-  createdAt?: string;
-  referralCode?: string;
-  referralCount?: number;
-  plan?: string;
-}
-
-// Mock session data - replace with actual session hook
-const mockSession: ExtendedSession = {
-  userId: "user123",
-  email: "nitishdummy1@gmail.com",
-  username: "nitishdummy1",
-  walletAddress: undefined, // Set to undefined to show "not connected" state
-  createdAt: "2025-07-18T00:00:00Z",
-  plan: "free",
-};
+import { useAuth } from "@/contexts/AuthContext";
 
 export function ProfileInfo() {
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const { user, profile, isLoading } = useAuth();
 
-  // Mock session - replace with actual useSession hook
-  const session = mockSession;
-  
-  // Cast session to extended type
-  const extendedSession = {
-    ...session,
-    plan: session.plan || "free",
-  } as ExtendedSession;
-
-  const isLoggedIn = extendedSession.userId !== "guest" && extendedSession.userId !== null;
-  const hasWallet = !!extendedSession.walletAddress;
+  const isLoggedIn = !!user;
+  const hasWallet = !!profile?.wallet_address;
   
   // Get user initials for avatar
   const getUserInitials = () => {
-    if (extendedSession.username) {
-      return extendedSession.username.substring(0, 2).toUpperCase();
+    if (profile?.user_name) {
+      return profile.user_name.substring(0, 2).toUpperCase();
+    } else if (user?.email) {
+      return user.email.substring(0, 2).toUpperCase();
     }
-    return "NI";
+    return "GU";
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-3 bg-slate-800/50 p-3 rounded-full animate-pulse">
+        <div className="h-10 w-10 rounded-full bg-slate-700"></div>
+        <div className="flex-1">
+          <div className="h-4 bg-slate-700 rounded w-20 mb-2"></div>
+          <div className="h-3 bg-slate-700 rounded w-16"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -59,7 +44,7 @@ export function ProfileInfo() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center">
             <h2 className="text-sm font-medium text-white truncate mr-2">
-              {extendedSession.username || "Guest User"}
+              {profile?.user_name || user?.email?.split('@')[0] || "Guest User"}
             </h2>
             {isLoggedIn && (
               <button
@@ -72,7 +57,7 @@ export function ProfileInfo() {
             )}
           </div>
           <p className="text-xs text-gray-400">
-            {hasWallet ? "Connected" : "Not Connected"}
+            {hasWallet ? `Wallet Connected` : "Wallet Not Connected"}
           </p>
         </div>
       </div>
@@ -82,7 +67,6 @@ export function ProfileInfo() {
         <ProfileEditModal
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
-          session={extendedSession}
         />
       )}
     </>

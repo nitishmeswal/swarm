@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, Mail, Calendar } from 'lucide-react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
@@ -11,7 +11,7 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({ user }: DashboardClientProps) {
-  const { signOut, loading } = useAuth();
+  const { logout, isLoading, profile } = useAuth();
   const [isMounted, setIsMounted] = useState(false);
   
   // Ensure hydration safety for date formatting
@@ -31,7 +31,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await logout();
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -52,17 +52,28 @@ export default function DashboardClient({ user }: DashboardClientProps) {
             <span>Email: {user.email}</span>
           </div>
           
-          {user.user_metadata?.username && (
+          {profile?.user_name && (
             <div className="flex items-center gap-3 text-gray-300">
               <User className="h-4 w-4" />
-              <span>Username: {user.user_metadata.username}</span>
+              <span>Username: {profile.user_name}</span>
             </div>
           )}
           
           <div className="flex items-center gap-3 text-gray-300">
             <Calendar className="h-4 w-4" />
-            <span>Member since: {isMounted ? formatDate(user.created_at) : 'Loading...'}</span>
+            <span>Member since: {isMounted ? formatDate(profile?.joined_at || user.created_at) : 'Loading...'}</span>
           </div>
+
+          {profile && (
+            <>
+              <div className="flex items-center gap-3 text-gray-300">
+                <span>Plan: {profile.plan}</span>
+              </div>
+              <div className="flex items-center gap-3 text-gray-300">
+                <span>Credits: {profile.freedom_ai_credits}</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -86,10 +97,10 @@ export default function DashboardClient({ user }: DashboardClientProps) {
             onClick={handleSignOut}
             variant="outline"
             className="bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30"
-            disabled={loading}
+            disabled={isLoading}
           >
             <LogOut className="h-4 w-4 mr-2" />
-            {loading ? 'Signing out...' : 'Sign Out'}
+            {isLoading ? 'Signing out...' : 'Sign Out'}
           </Button>
         </div>
       </div>

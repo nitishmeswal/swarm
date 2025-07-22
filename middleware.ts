@@ -11,31 +11,30 @@ export async function middleware(request: NextRequest) {
   const pathname = url.pathname;
 
   // Protected routes that require authentication
-  const protectedRoutes = ['/dashboard', '/profile', '/settings'];
+  const protectedRoutes = [
+    '/dashboard', 
+    '/earning', 
+    '/global-statistics', 
+    '/referral', 
+    '/settings'
+  ];
   
-  // Auth routes that should redirect if already authenticated
-  const authRoutes = ['/login', '/signup'];
+  // Routes that should be accessible without authentication
+  const publicRoutes = [
+    '/',
+    '/auth/callback',
+    '/auth/error'
+  ];
 
   // Check if the current path is protected
   const isProtectedRoute = protectedRoutes.some(route => 
-    pathname.startsWith(route)
+    pathname === route || pathname.startsWith(`${route}/`)
   );
 
-  // Check if the current path is an auth route
-  const isAuthRoute = authRoutes.some(route => 
-    pathname.startsWith(route)
-  );
-
-  // If user is not authenticated and trying to access protected route
+  // If not a public route and user is not authenticated and trying to access protected route
   if (isProtectedRoute && !session) {
-    url.pathname = '/';
-    return NextResponse.redirect(url);
-  }
-
-  // If user is authenticated and trying to access auth routes
-  if (isAuthRoute && session) {
-    url.pathname = '/dashboard';
-    return NextResponse.redirect(url);
+    // Redirect to home page
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return response;
@@ -49,7 +48,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - api routes (API endpoints)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
