@@ -234,30 +234,6 @@ const getCPUCores = (): number => {
   return navigator.hardwareConcurrency || 1;
 };
 
-// Clean up GPU name by removing ANGLE renderer info and other noise
-const cleanGPUName = (rawGPUInfo: string): string => {
-  if (!rawGPUInfo) return 'Unknown GPU';
-  
-  // Remove ANGLE prefix and DirectX/OpenGL suffixes
-  let cleaned = rawGPUInfo
-    .replace(/^ANGLE \(/, '')
-    .replace(/\)$/, '')
-    .replace(/, Direct3D.*$/, '')
-    .replace(/, OpenGL.*$/, '')
-    .replace(/Direct3D.*$/, '')
-    .replace(/OpenGL.*$/, '')
-    .trim();
-  
-  // Extract just the GPU model name (e.g., "NVIDIA GeForce RTX 5070")
-  const gpuMatch = cleaned.match(/(NVIDIA GeForce [^,]+|AMD Radeon [^,]+|Intel [^,]+|Apple [^,]+)/);
-  if (gpuMatch) {
-    return gpuMatch[1].trim();
-  }
-  
-  // If no match, return the cleaned version
-  return cleaned || 'Unknown GPU';
-};
-
 // Detect GPU information
 const getGPUInfo = async (): Promise<string> => {
   // Try WebGL renderer info
@@ -270,8 +246,7 @@ const getGPUInfo = async (): Promise<string> => {
       if (debugInfo) {
         const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
         const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-        const rawGPU = `${vendor} ${renderer}`;
-        return cleanGPUName(rawGPU);
+        return `${vendor} ${renderer}`;
       }
     }
   } catch (e) {

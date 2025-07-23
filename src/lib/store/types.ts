@@ -6,7 +6,6 @@ export interface HardwareInfo {
   deviceGroup: 'desktop_laptop' | 'mobile_tablet';
   deviceType?: 'desktop' | 'laptop' | 'tablet' | 'mobile';
   rewardTier: 'webgpu' | 'wasm' | 'webgl' | 'cpu';
-  customDeviceName?: string;
 }
 
 export interface NodeState {
@@ -46,6 +45,12 @@ export interface TaskPipelineState {
   isGenerating: boolean;
   lastTaskGeneration: string | null;
   autoMode: boolean;
+  completedTasksForStats: {
+    three_d: number;
+    video: number;
+    text: number;
+    image: number;
+  };
 }
 
 export interface EarningsState {
