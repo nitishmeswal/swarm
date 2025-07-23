@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { X, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +25,7 @@ interface HardwareInfo {
 interface HardwareScanDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onScanComplete: (hardwareInfo: HardwareInfo) => void;
+  onScanComplete: (hardwareInfo: HardwareInfo, deviceName: string) => void;
 }
 
 type ScanStep = 'scanning' | 'analyzing' | 'complete';
@@ -36,26 +38,18 @@ const LoadingSpinner = () => (
 
 const ScanningDialog = ({ step, onClose }: { step: ScanStep; onClose: () => void }) => {
   return (
-    <DialogContent className="sm:max-w-[400px] bg-slate-800 border-slate-700 text-white">
+    <DialogContent className="sm:max-w-[400px] bg-[#0A1A2F] border-[#112544] text-white">
       <DialogHeader className="flex flex-row items-center justify-between">
         <DialogTitle className="text-lg font-semibold">
-          {step === 'scanning' ? 'Scanning Device Hardware' : 'Analyzing system capabilities...'}
+          {step === 'scanning' ? 'Analyzing system capabilities...' : 'Analyzing system capabilities...'}
         </DialogTitle>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <X className="h-5 w-5" />
-        </button>
+    
       </DialogHeader>
 
       <div className="py-8 text-center">
         <LoadingSpinner />
         <p className="mt-4 text-sm text-gray-300">
-          {step === 'scanning' 
-            ? 'Analyzing your device capabilities to determine the optimal reward tier. Please wait while we analyze your device. Do not close this window.'
-            : 'Please wait while we analyze your device. Do not close this window.'
-          }
+          Please wait while we analyze your device. Do not close this window.
         </p>
         
         {step === 'analyzing' && (
@@ -81,15 +75,19 @@ const ResultsDialog = ({
 }: { 
   hardwareInfo: HardwareInfo; 
   onClose: () => void;
-  onRegister: () => void;
+  onRegister: (deviceName: string) => void;
   onScanAgain: () => void;
 }) => {
+  const [deviceName, setDeviceName] = useState(
+    `My ${hardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${hardwareInfo.deviceType?.slice(1) || 'evice'}`
+  );
+
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'webgpu': return 'text-green-400';
+      case 'webgpu': return 'text-purple-400';
       case 'wasm': return 'text-blue-400';
-      case 'webgl': return 'text-yellow-400';
-      case 'cpu': return 'text-gray-400';
+      case 'webgl': return 'text-green-400';
+      case 'cpu': return 'text-yellow-400';
       default: return 'text-gray-400';
     }
   };
@@ -104,87 +102,100 @@ const ResultsDialog = ({
     }
   };
 
-  return (
-    <DialogContent className="sm:max-w-[500px] bg-slate-800 border-slate-700 text-white">
-      <DialogHeader className="flex flex-row items-center justify-between">
-        <DialogTitle className="text-lg font-semibold">Hardware Scan Results</DialogTitle>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </DialogHeader>
+  const handleRegister = () => {
+    if (deviceName.trim()) {
+      onRegister(deviceName.trim());
+    }
+  };
 
-      <div className="py-4">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
-            <CheckCircle className="w-8 h-8 text-green-400" />
+  return (
+    <DialogContent className="sm:max-w-lg bg-[#0A1A2F] border-[#112544] text-white p-0 overflow-hidden">
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-white text-xl font-medium">Hardware Scan Results</h2>
+      
+        </div>
+
+        {/* Success icon */}
+        <div className="flex justify-center mb-6">
+          <div className="w-16 h-16 rounded-full bg-green-800/30 flex items-center justify-center">
+            <div className="text-green-500">
+              <CheckCircle className="h-10 w-10" />
+            </div>
           </div>
-          <h3 className="text-xl font-semibold mb-2">
-            Your Device Tier: <span className={`${getTierColor(hardwareInfo.rewardTier)} uppercase`}>
-              {hardwareInfo.rewardTier}
-            </span>
+        </div>
+        
+        {/* Device tier heading */}
+        <div className="text-center mb-5">
+          <h3 className="text-white text-xl">
+            Your Device Tier: <span className={getTierColor(hardwareInfo.rewardTier)}>{hardwareInfo.rewardTier.toUpperCase()}</span>
           </h3>
-          <p className="text-sm text-gray-300">
+          <p className="text-gray-400 text-sm">
             {getTierDescription(hardwareInfo.rewardTier)}
           </p>
         </div>
-
-        <div className="space-y-3 bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-          <div className="flex justify-between">
-            <span className="text-gray-300">Device Type:</span>
-            <span className="font-medium capitalize">{hardwareInfo.deviceType || 'Unknown'}</span>
+        
+        {/* Hardware specs box */}
+        <div className="bg-[#111827] rounded-lg p-4 mb-6 space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400">Device Type:</span>
+            <span className="text-white text-right capitalize">{hardwareInfo.deviceType || 'laptop'}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-300">CPU Cores:</span>
-            <span className="font-medium">{hardwareInfo.cpuCores}</span>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400">CPU Cores:</span>
+            <span className="text-white text-right">{hardwareInfo.cpuCores}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-300">Memory:</span>
-            <span className="font-medium">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400">Memory:</span>
+            <span className="text-white text-right">
               {typeof hardwareInfo.deviceMemory === 'number' 
                 ? `${hardwareInfo.deviceMemory} GB` 
                 : hardwareInfo.deviceMemory}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-300">GPU:</span>
-            <span className="font-medium text-right max-w-[200px] truncate" title={hardwareInfo.gpuInfo}>
+          <div className="flex justify-between items-start">
+            <span className="text-gray-400">GPU:</span>
+            <span className="text-white text-right max-w-[60%] break-words" title={hardwareInfo.gpuInfo}>
               {hardwareInfo.gpuInfo}
             </span>
           </div>
         </div>
+        
+        {/* Device name input */}
+        <div className="mb-6">
+          <Label htmlFor="deviceName" className="text-white mb-2 block text-sm">Device Name</Label>
+          <Input
+            id="deviceName"
+            value={deviceName}
+            onChange={(e) => setDeviceName(e.target.value)}
+            placeholder="Enter a name for your device"
+            className="bg-[#111827] border-[#334155] text-white w-full focus:ring-1 focus:ring-blue-500 focus-visible:ring-offset-0 py-2 px-3 rounded-md"
+          />
+        </div>
 
-        <div className="mt-6 flex gap-3">
+        {/* Action buttons */}
+        <div className="flex gap-3 mb-4">
           <Button
-            onClick={onRegister}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
+            onClick={handleRegister}
+            disabled={!deviceName.trim()}
+            className="bg-blue-600 hover:bg-blue-700 text-white flex-1 py-2 rounded-md"
           >
             Register Device
           </Button>
           <Button
-            onClick={onScanAgain}
             variant="outline"
-            className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            onClick={onScanAgain}
+            className="border-[#334155] text-white hover:bg-[#334155]/30 py-2 px-4 rounded-md bg-transparent"
           >
             Scan Again
           </Button>
         </div>
-
-        <div className="mt-4 text-center">
-          <p className="text-xs text-gray-400">
-            Think this scan result is incorrect?
-          </p>
-          <button 
-            onClick={() => {
-              // Handle validation form submission
-              console.log('Opening validation form...');
-            }}
-            className="text-xs text-blue-400 hover:text-blue-300 underline mt-1"
-          >
-            Submit Device Validation Form
-          </button>
+        
+        {/* Form link */}
+        <div className="text-center text-xs text-gray-500">
+          Think this scan result is incorrect?
+          <br />
+          <a href="#" className="text-blue-400 hover:text-blue-300 underline mt-1">Submit Device Validation Form</a>
         </div>
       </div>
     </DialogContent>
@@ -219,15 +230,24 @@ export const HardwareScanDialog: React.FC<HardwareScanDialogProps> = ({
       
     } catch (error) {
       console.error('Hardware scan failed:', error);
-      // Handle error - could show error dialog
+      // Fallback to basic detection if scan fails
+      setHardwareInfo({
+        cpuCores: navigator.hardwareConcurrency || 4,
+        deviceMemory: 'Unknown',
+        gpuInfo: 'Unknown GPU',
+        deviceGroup: 'desktop_laptop',
+        deviceType: 'laptop',
+        rewardTier: 'cpu'
+      });
+      setScanStep('complete');
     } finally {
       setIsScanning(false);
     }
   };
 
-  const handleRegister = () => {
+  const handleRegister = (deviceName: string) => {
     if (hardwareInfo) {
-      onScanComplete(hardwareInfo);
+      onScanComplete(hardwareInfo, deviceName);
       onClose();
     }
   };

@@ -41,8 +41,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -112,18 +110,11 @@ export const NodeControlPanel = () => {
   const [showScanDialog, setShowScanDialog] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState("");
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanProgress, setScanProgress] = useState(0);
-  const [scanStage, setScanStage] = useState("");
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingNode, setIsDeletingNode] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoadingDevices, setIsLoadingDevices] = useState(true);
   const [hasFetchedDevices, setHasFetchedDevices] = useState(false);
-  const [customDeviceName, setCustomDeviceName] = useState("");
-  const [scannedHardwareInfo, setScannedHardwareInfo] = useState<HardwareInfo | null>(null);
-  const [showNameInputDialog, setShowNameInputDialog] = useState(false);
-  const [scanCompleted, setScanCompleted] = useState(false);
   const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   const [displayUptime, setDisplayUptime] = useState(0);
@@ -336,29 +327,20 @@ export const NodeControlPanel = () => {
     }
   };
 
-  const handleScanComplete = async (hardwareInfo: HardwareInfo) => {
-    // Store the hardware info and show name input in the same dialog
-    setScannedHardwareInfo(hardwareInfo);
-    setCustomDeviceName(`My ${hardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${hardwareInfo.deviceType?.slice(1) || 'evice'}`);
-    setScanCompleted(true);
-    setIsScanning(false);
-    // Don't close the scan dialog, just mark it as completed
-  };
-  
-  const completeDeviceRegistration = async () => {
-    if (!scannedHardwareInfo || !user?.id) return;
+  const handleScanComplete = async (hardwareInfo: HardwareInfo, deviceName: string) => {
+    if (!user?.id) return;
     
     // Register the device in Redux store
-    dispatch(registerDevice(scannedHardwareInfo));
+    dispatch(registerDevice(hardwareInfo));
     
     // Save the device to Supabase with custom name
     try {
       const { data, error } = await supabase.from('devices').insert({
         owner: user.id,
-        gpu_model: scannedHardwareInfo.gpuInfo,
-        device_type: scannedHardwareInfo.deviceType || 'desktop',
-        reward_tier: scannedHardwareInfo.rewardTier,
-        device_name: customDeviceName.trim() || `My ${scannedHardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${scannedHardwareInfo.deviceType?.slice(1) || 'evice'}`,
+        gpu_model: hardwareInfo.gpuInfo,
+        device_type: hardwareInfo.deviceType || 'desktop',
+        reward_tier: hardwareInfo.rewardTier,
+        device_name: deviceName,
         status: 'offline'
       }).select();
       
@@ -381,11 +363,6 @@ export const NodeControlPanel = () => {
       }
     } catch (err) {
       console.error("Exception while saving device:", err);
-    } finally {
-      // Reset scan state and close the dialog
-      setScanCompleted(false);
-      setShowScanDialog(false);
-      setScannedHardwareInfo(null);
     }
   };
   
@@ -413,50 +390,6 @@ export const NodeControlPanel = () => {
       case 'cpu': return 'text-yellow-400';
       default: return 'text-gray-400';
     }
-  };
-
-  const resetScan = () => {
-    // Reset scan state for a new scan
-    setScanCompleted(false);
-    setIsScanning(false);
-    setScannedHardwareInfo(null);
-    setScanProgress(0);
-    setScanStage("");
-  };
-
-  const startScan = () => {
-    resetScan();
-    setShowScanDialog(true);
-    setIsScanning(true);
-    setScanProgress(0);
-    setScanStage("Detecting device type...");
-
-    setTimeout(() => {
-      setScanProgress(20);
-      setScanStage("Analyzing system capabilities...");
-      
-      setTimeout(() => {
-        setScanProgress(60);
-        setScanStage("Detecting hardware tier...");
-        
-        setTimeout(() => {
-          setScanProgress(100);
-          setScanStage("Scan complete!");
-          setIsScanning(false);
-          setScanCompleted(true);
-          const mockHardwareInfo: HardwareInfo = {
-            cpuCores: 8,
-            deviceMemory: "8 GB",
-            gpuInfo: "ANGLE (Intel, Intel(R) UHD Graphics, OpenGL 4.6)",
-            deviceGroup: 'desktop_laptop',
-            deviceType: 'laptop',
-            rewardTier: 'cpu'
-          };
-          setScannedHardwareInfo(mockHardwareInfo);
-          setCustomDeviceName(`My ${mockHardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${mockHardwareInfo.deviceType?.slice(1) || 'evice'}`);
-        }, 1000);
-      }, 800);
-    }, 1000);
   };
 
   const handleClaimReward = async () => {
@@ -504,8 +437,7 @@ export const NodeControlPanel = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={startScan}
-              disabled={isScanning}
+              onClick={() => setShowScanDialog(true)}
               className="gradient-button rounded-full text-[#8BBEFF] text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2"
             >
               <Scan className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
@@ -746,122 +678,11 @@ export const NodeControlPanel = () => {
       </div>
       
       {/* Hardware Scan Dialog */}
-      <Dialog open={showScanDialog} onOpenChange={(open) => {
-        if (!open) {
-          resetScan();
-        }
-        setShowScanDialog(open);
-      }}>
-        <DialogContent className="sm:max-w-lg bg-[#0A1A2F] border-[#112544] p-0 overflow-hidden">
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-white text-xl font-medium">Hardware Scan Results</h2>
-            </div>
-
-            {!scanCompleted && !scannedHardwareInfo && (
-              <div>
-                <div className="mb-2 text-sm font-medium text-white">
-                  {scanStage}
-                </div>
-                <div className="w-full bg-[#112544] rounded-full h-2.5">
-                  <div
-                    className="bg-[#0066FF] h-2.5 rounded-full transition-all duration-300 ease-in-out"
-                    style={{ width: `${scanProgress}%` }}
-                  ></div>
-                </div>
-                <div className="mt-4 text-sm text-white/70">
-                  {scanProgress < 100
-                    ? "Please wait while we analyze your device. Do not close this window."
-                    : "Scan completed successfully!"}
-                </div>
-              </div>
-            )}
-
-            {scanCompleted && scannedHardwareInfo && (
-              <div>
-                {/* Success icon */}
-                <div className="flex justify-center mb-6">
-                  <div className="w-16 h-16 rounded-full bg-green-800/30 flex items-center justify-center">
-                    <div className="text-green-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Device tier heading */}
-                <div className="text-center mb-5">
-                  <h3 className="text-white text-xl">
-                    Your Device Tier: <span className="text-gray-400">{scannedHardwareInfo.rewardTier.toUpperCase()}</span>
-                  </h3>
-                  <p className="text-gray-400 text-sm">
-                    CPU-based processing - Basic rewards
-                  </p>
-                </div>
-                
-                {/* Hardware specs box */}
-                <div className="bg-[#111827] rounded-lg p-4 mb-6">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-gray-400">Device Type:</span>
-                    <span className="text-white text-right">{scannedHardwareInfo.deviceType}</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-gray-400">CPU Cores:</span>
-                    <span className="text-white text-right">{scannedHardwareInfo.cpuCores}</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-gray-400">Memory:</span>
-                    <span className="text-white text-right">{scannedHardwareInfo.deviceMemory}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">GPU:</span>
-                    <span className="text-white text-right truncate max-w-[70%]" title={scannedHardwareInfo.gpuInfo}>
-                      {scannedHardwareInfo.gpuInfo}
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Device name input */}
-                <div className="mb-6">
-                  <Label htmlFor="deviceName" className="text-white mb-2 block">Device Name</Label>
-                  <Input
-                    id="deviceName"
-                    value={customDeviceName}
-                    onChange={(e) => setCustomDeviceName(e.target.value)}
-                    placeholder="Enter a name for your device"
-                    className="bg-[#111827] border-0 text-white w-full focus:ring-1 focus:ring-blue-500 focus-visible:ring-offset-0 py-2"
-                  />
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex gap-3">
-                  <Button
-                    onClick={completeDeviceRegistration}
-                    className="bg-blue-600 hover:bg-blue-700 text-white flex-1 py-2"
-                  >
-                    Register Device
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => resetScan()}
-                    className="border-[#112544] text-white hover:bg-[#112544]/30 py-2"
-                  >
-                    Scan Again
-                  </Button>
-                </div>
-                
-                {/* Form link */}
-                <div className="text-center mt-5 text-xs text-gray-500">
-                  Think this scan result is incorrect?
-                  <br />
-                  <a href="#" className="text-blue-500 hover:underline">Submit Device Validation Form</a>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <HardwareScanDialog
+        isOpen={showScanDialog}
+        onClose={() => setShowScanDialog(false)}
+        onScanComplete={handleScanComplete}
+      />
 
       <Dialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
         <DialogContent className="sm:max-w-md bg-[#0A1A2F] border-[#112544]">
@@ -900,13 +721,6 @@ export const NodeControlPanel = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Original Hardware Scan Dialog - kept for functionality */}
-      <HardwareScanDialog
-        isOpen={showScanDialog && !isScanning && !scanCompleted}
-        onClose={() => setShowScanDialog(false)}
-        onScanComplete={handleScanComplete}
-      />
     </>
   );
 };
