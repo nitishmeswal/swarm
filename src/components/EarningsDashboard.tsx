@@ -66,10 +66,14 @@ const mockEarnings = {
   completedTasks: 155,
 };
 
-const mockStreakData = {
-  streak: 3,
-  lastCheckIn: "2024-01-16",
-};
+interface StreakData {
+  currentStreak: number;
+  lastCheckinDate: string | null;
+  totalCompletedCycles: number;
+  canCheckIn: boolean;
+  nextReward: number;
+  hasCheckedInToday: boolean;
+}
 
 export const EarningsDashboard = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>("daily");
@@ -80,6 +84,8 @@ export const EarningsDashboard = () => {
   const [walletAddress] = useState<string>("SOL1234...5678");
   const [taskCompleted, setTaskCompleted] = useState<number>(0);
   const [isLoadingTaskStats, setIsLoadingTaskStats] = useState<boolean>(true);
+  const [streakData, setStreakData] = useState<StreakData | null>(null);
+  const [isLoadingStreak, setIsLoadingStreak] = useState<boolean>(true);
 
   // Get user from auth context
   const { user } = useAuth();
@@ -89,7 +95,6 @@ export const EarningsDashboard = () => {
   // Mock earnings data
   const earnings = mockEarnings;
   const transactions = mockTransactions;
-  const streakData = mockStreakData;
 
   // Process transactions into chart data based on selected period
   const chartData = useMemo<ChartDataPoint[]>(() => {
@@ -136,6 +141,7 @@ export const EarningsDashboard = () => {
     // Refetch task stats along with other data
     if (userId) {
       fetchTaskStats();
+      fetchStreakData();
     }
     setTimeout(() => {
       setLoading(false);
@@ -144,15 +150,33 @@ export const EarningsDashboard = () => {
   };
 
   const handleDailyCheckIn = async () => {
+    if (!streakData || !userId) return;
+    
     setCheckInLoading(true);
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/daily-checkins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(result.message);
+        // Refresh streak data and task stats
+        fetchStreakData();
+        fetchTaskStats();
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to check in');
+      }
+    } catch (error) {
+      console.error('Error during check-in:', error);
+      alert('Failed to check in. Please try again.');
+    } finally {
       setCheckInLoading(false);
-      alert(
-        `Day ${streakData.streak + 1} checked in! You earned ${
-          (streakData.streak + 1) * 10
-        } SP!`
-      );
-    }, 1000);
+    }
   };
 
   const calculateMonthlyExpectedEarnings = () => {
@@ -197,10 +221,37 @@ export const EarningsDashboard = () => {
     }
   };
 
-  // Load task stats on component mount and when userId changes
+  // Fetch streak data from API
+  const fetchStreakData = async () => {
+    try {
+      setIsLoadingStreak(true);
+      const response = await fetch('/api/daily-checkins', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStreakData(data);
+      } else {
+        console.error('Failed to fetch streak data:', response.status);
+        setStreakData(null);
+      }
+    } catch (error) {
+      console.error('Error fetching streak data:', error);
+      setStreakData(null);
+    } finally {
+      setIsLoadingStreak(false);
+    }
+  };
+
+  // Load task stats and streak data on component mount and when userId changes
   useEffect(() => {
     if (userId) {
       fetchTaskStats();
+      fetchStreakData();
     }
   }, [userId]);
 
@@ -510,25 +561,26 @@ export const EarningsDashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {userId && (
+            {userId && streakData && (
               <div className="flex items-center bg-blue-900/20 px-3 py-1 rounded-full">
                 <span className="text-xs text-blue-300 mr-1">
                   Current streak:
                 </span>
                 <span className="text-sm font-medium text-blue-400">
-                  {streakData.streak.toLocaleString()} days
+                  {streakData.currentStreak.toLocaleString()} days
                 </span>
               </div>
             )}
             <Button
               className="gradient-button rounded-full"
               onClick={handleDailyCheckIn}
-              disabled={checkInLoading || !userId}
+              disabled={checkInLoading || !userId || !streakData?.canCheckIn || isLoadingStreak}
             >
               {checkInLoading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : null}
-              Check In
+              {isLoadingStreak ? "Loading..." : 
+               streakData?.hasCheckedInToday ? "Checked In" : "Check In"}
             </Button>
           </div>
         </div>
@@ -540,23 +592,23 @@ export const EarningsDashboard = () => {
               key={day}
               day={day}
               points={day * 10}
-              isActive={streakData.streak === day - 1}
-              isCompleted={streakData.streak >= day}
+              isActive={streakData ? !streakData.hasCheckedInToday && ((streakData.currentStreak % 7) + 1) === day : false}
+              isCompleted={streakData ? (streakData.currentStreak % 7) >= day : false}
               description="Earn instantly"
             />
           ))}
         </div>
 
         {/* Last check-in info */}
-        {streakData.lastCheckIn && (
+        {streakData?.lastCheckinDate && (
           <div className="flex justify-center mt-4">
             <div className="text-xs text-slate-400">
               Last check-in:{" "}
-              {streakData.lastCheckIn ===
+              {streakData.lastCheckinDate ===
               new Date().toISOString().split("T")[0] ? (
                 <span className="text-green-400">Today</span>
               ) : (
-                new Date(streakData.lastCheckIn).toLocaleDateString()
+                new Date(streakData.lastCheckinDate).toLocaleDateString()
               )}
             </div>
           </div>
@@ -651,7 +703,8 @@ export const EarningsDashboard = () => {
                     transactions: transactions.length, 
                     streakData,
                     taskCompleted,
-                    isLoadingTaskStats 
+                    isLoadingTaskStats,
+                    isLoadingStreak
                   },
                   null,
                   2
