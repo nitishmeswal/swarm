@@ -18,20 +18,20 @@ import {
 import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "./ui/button";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
-import { setAutoMode } from "@/lib/store/slices/taskSlice";
-import { selectCurrentUptime } from "@/lib/store/slices/nodeSlice";
-import { selectRecentTasks, selectProcessingTasks, selectTaskProgress } from "@/lib/store/slices/taskSlice";
+import { setAutoMode, selectTasks, selectRecentTasks, selectProcessingTasks, selectPendingTasks, selectTaskProgress } from "@/lib/store/slices/taskSlice";
+import { selectCurrentUptime, selectNode } from "@/lib/store/slices/nodeSlice";
 import { selectSessionEarnings } from "@/lib/store/slices/earningsSlice";
 import { getTaskEngine } from "@/lib/store/taskEngine";
 import { formatUptimeShort, TASK_CONFIG } from "@/lib/store/config";
 
 export const TaskPipeline = () => {
   const dispatch = useAppDispatch();
-  const { node, tasks } = useAppSelector(state => state);
+  const node = useAppSelector(selectNode);
+  const tasks = useAppSelector(selectTasks);
   const currentUptime = useAppSelector(selectCurrentUptime);
   const recentTasks = useAppSelector(state => selectRecentTasks(state, 5));
-  const processingTasks = useAppSelector(state => selectProcessingTasks(state));
-  const pendingTasks = useAppSelector(state => state.tasks.tasks.filter(task => task.status === 'pending'));
+  const processingTasks = useAppSelector(selectProcessingTasks);
+  const pendingTasks = useAppSelector(selectPendingTasks);
   const sessionEarnings = useAppSelector(selectSessionEarnings);
 
   const getTaskIcon = (type: string) => {

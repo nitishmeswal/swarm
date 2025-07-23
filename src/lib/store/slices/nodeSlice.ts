@@ -144,4 +144,9 @@ export const selectCurrentUptime = (state: { node: NodeState }): number => {
   return node.totalUptime + sessionUptime;
 };
 
+export const selectNode = (state: { node: NodeState }) => state.node;
+export const selectNodeIsActive = (state: { node: NodeState }) => state.node.isActive;
+export const selectNodeIsRegistered = (state: { node: NodeState }) => state.node.isRegistered;
+export const selectNodeHardwareInfo = (state: { node: NodeState }) => state.node.hardwareInfo;
+
 export default nodeSlice.reducer;

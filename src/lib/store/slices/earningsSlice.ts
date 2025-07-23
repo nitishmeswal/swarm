@@ -203,6 +203,8 @@ const earningsSlice = createSlice({
 export const { addReward, claimRewards, resetSessionEarnings, updateTotalEarnings, resetEarnings } = earningsSlice.actions;
 
 // Selectors
+export const selectEarnings = (state: { earnings: EarningsState }) => state.earnings;
+
 export const selectTotalEarnings = (state: { earnings: EarningsState }) => {
   return state.earnings.totalEarned;
 };
