@@ -23,16 +23,19 @@ import {
   startNode,
   stopNode,
   selectCurrentUptime,
+  selectNode,
 } from "@/lib/store/slices/nodeSlice";
 import {
   selectTotalEarnings,
   selectSessionEarnings,
+  selectEarnings,
 } from "@/lib/store/slices/earningsSlice";
 import { resetTasks } from "@/lib/store/slices/taskSlice";
 import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
 import { useEarnings } from "@/hooks/useEarnings";
 import { useNodeUptime } from "@/hooks/useNodeuptime";
+import { useReferrals } from "@/hooks/useRefferals";
 import {
   Select,
   SelectContent,
@@ -84,7 +87,8 @@ interface SupabaseDevice {
 
 export const NodeControlPanel = () => {
   const dispatch = useAppDispatch();
-  const { node, earnings } = useAppSelector((state) => state);
+  const node = useAppSelector(selectNode);
+  const earnings = useAppSelector(selectEarnings);
   const currentUptime = useAppSelector(selectCurrentUptime);
   const totalEarnings = useAppSelector(selectTotalEarnings);
   const sessionEarnings = useAppSelector(selectSessionEarnings);
@@ -113,6 +117,7 @@ export const NodeControlPanel = () => {
     deviceUptimes: deviceUptimeList,
   } = useNodeUptime();
 
+  const { processReferralRewards } = useReferrals();
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showScanDialog, setShowScanDialog] = useState(false);
@@ -535,7 +540,25 @@ export const NodeControlPanel = () => {
 
   const handleClaimReward = async () => {
     if (sessionEarnings <= 0) return;
-    await claimTaskRewards(sessionEarnings);
+
+    try {
+      // First claim the rewards
+      const result = await claimTaskRewards(sessionEarnings);
+
+      if (result) {
+        // After successful claim, process referral rewards
+        const { error } = await processReferralRewards(
+          user!.id,
+          sessionEarnings
+        );
+
+        if (error) {
+          console.error("Error processing referral rewards:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error in reward claiming process:", error);
+    }
   };
 
   return (
