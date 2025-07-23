@@ -90,7 +90,7 @@ export const ReferralProgram = () => {
 
       if (response.ok) {
         const referralApiData = await response.json();
-        setReferralRewards(referralApiData.rewards || []);
+        setReferralRewards(referralApiData.unclaimedRewards || []);
         setTotalReferralEarnings(referralApiData.totalReferralEarnings || 0);
         setClaimedRewards(referralApiData.claimedRewards || 0);
         setPendingRewards(referralApiData.pendingRewards || 0);
@@ -209,19 +209,14 @@ export const ReferralProgram = () => {
     
     setIsClaimingReward(true);
     try {
-      // This will be handled by the earnings API when claiming rewards
-      // No need for direct database updates
-
-      // Make API call to add earnings
-      const response = await fetch('/api/earnings', {
+      // Use the new referrals API to claim rewards
+      const response = await fetch('/api/referrals', {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          reward_type: "referral", // Specify referral type
-          amount: amount,
-          user_id: user!.id
+          reward_id: rewardId
         })
       });
 
@@ -233,7 +228,7 @@ export const ReferralProgram = () => {
         // Reload data to update UI
         await loadReferralData();
       } else {
-        throw new Error(apiResult.error || "Failed to add referral earnings");
+        throw new Error(apiResult.error || "Failed to claim referral reward");
       }
     } catch (error) {
       console.error('Error claiming reward:', error);
@@ -656,9 +651,9 @@ export const ReferralProgram = () => {
                   <p className="text-[#515194]/80 text-xs sm:text-sm mt-1">
                     Available rewards ready to claim
                   </p>
-                  {pendingRewards > 0 && (
+                  {pendingRewards > 0 && referralRewards.length > 0 && (
                     <Button
-                      onClick={() => handleClaimReward(referralRewards.find(r => !r.claimed)?.id, pendingRewards)}
+                      onClick={() => handleClaimReward(referralRewards[0]?.id, pendingRewards)}
                       disabled={isClaimingReward}
                       className="mt-3 w-full bg-amber-500 hover:bg-amber-600 text-white"
                     >

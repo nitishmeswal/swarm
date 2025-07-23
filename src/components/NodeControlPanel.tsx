@@ -118,10 +118,80 @@ export const NodeControlPanel = () => {
   const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   const [displayUptime, setDisplayUptime] = useState(0);
+  const [dbUnclaimedRewards, setDbUnclaimedRewards] = useState(0);
+  const [isLoadingUnclaimedRewards, setIsLoadingUnclaimedRewards] = useState(true);
   const initializedDevicesRef = useRef<Set<string>>(new Set());
   
   // Replace static nodes with state
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
+
+  // Functions to handle unclaimed rewards in database
+  const fetchUnclaimedRewards = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setIsLoadingUnclaimedRewards(true);
+      const response = await fetch('/api/unclaimed-rewards', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const { unclaimed_reward } = await response.json();
+        setDbUnclaimedRewards(unclaimed_reward || 0);
+      } else {
+        console.error('Failed to fetch unclaimed rewards:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching unclaimed rewards:', error);
+    } finally {
+      setIsLoadingUnclaimedRewards(false);
+    }
+  };
+
+  const saveUnclaimedRewards = async (amount: number) => {
+    if (!user?.id || amount <= 0) return;
+    
+    try {
+      const response = await fetch('/api/unclaimed-rewards', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount }),
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to save unclaimed rewards:', response.status);
+      }
+    } catch (error) {
+      console.error('Error saving unclaimed rewards:', error);
+    }
+  };
+
+  const resetUnclaimedRewards = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const response = await fetch('/api/unclaimed-rewards', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount: 0 }),
+      });
+      
+      if (response.ok) {
+        setDbUnclaimedRewards(0);
+      } else {
+        console.error('Failed to reset unclaimed rewards:', response.status);
+      }
+    } catch (error) {
+      console.error('Error resetting unclaimed rewards:', error);
+    }
+  };
   
   // Ensure hydration safety
   useEffect(() => {
@@ -132,6 +202,7 @@ export const NodeControlPanel = () => {
   useEffect(() => {
     if (user?.id && isMounted) {
       loadTotalEarnings();
+      fetchUnclaimedRewards();
     }
   }, [user?.id, isMounted]);
 
@@ -146,6 +217,36 @@ export const NodeControlPanel = () => {
       return () => clearTimeout(timer);
     }
   }, [claimSuccess, resetClaimState]);
+
+  // Save unclaimed rewards before page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const totalUnclaimed = sessionEarnings + dbUnclaimedRewards;
+      if (totalUnclaimed > 0) {
+        // Use sendBeacon with Blob for JSON data
+        const data = JSON.stringify({ amount: totalUnclaimed });
+        const blob = new Blob([data], { type: 'application/json' });
+        navigator.sendBeacon('/api/unclaimed-rewards', blob);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        const totalUnclaimed = sessionEarnings + dbUnclaimedRewards;
+        if (totalUnclaimed > 0) {
+          saveUnclaimedRewards(totalUnclaimed);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [sessionEarnings, dbUnclaimedRewards, user?.id]);
 
   // For demo purposes - in a real implementation this would be derived from the selected node ID
   const selectedNode = nodes.find(node => node.id === selectedNodeId);
@@ -298,6 +399,13 @@ export const NodeControlPanel = () => {
       setIsStopping(true);
       
       try {
+        // Save unclaimed rewards before stopping the node
+        const totalUnclaimed = sessionEarnings + dbUnclaimedRewards;
+        if (totalUnclaimed > 0) {
+          await saveUnclaimedRewards(totalUnclaimed);
+          setDbUnclaimedRewards(totalUnclaimed);
+        }
+
         // Stop uptime tracking and update server
         const result = await stopDeviceUptime(selectedNodeId);
         
@@ -402,15 +510,19 @@ export const NodeControlPanel = () => {
   };
 
   const handleClaimReward = async () => {
-    if (sessionEarnings <= 0) return;
+    const totalUnclaimedRewards = sessionEarnings + dbUnclaimedRewards;
+    if (totalUnclaimedRewards <= 0) return;
     
     try {
-      // First claim the rewards
-      const result = await claimTaskRewards(sessionEarnings);
+      // First claim the rewards (using total unclaimed rewards)
+      const result = await claimTaskRewards(totalUnclaimedRewards);
       
       if (result) {
-        // After successful claim, process referral rewards
-        const { error } = await processReferralRewards(user!.id, sessionEarnings);
+        // After successful claim, reset database unclaimed rewards
+        await resetUnclaimedRewards();
+        
+        // Process referral rewards
+        const { error } = await processReferralRewards(user!.id, totalUnclaimedRewards);
         
         if (error) {
           console.error('Error processing referral rewards:', error);
@@ -627,14 +739,14 @@ export const NodeControlPanel = () => {
                 </div>
               </div>
               <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
-                <span className={`font-medium lg:text-4xl md:text-3xl sm:text-2xl ${sessionEarnings > 0 ? 'text-white/50' : 'text-blue-400'} leading-none`}>
+                <span className={`font-medium lg:text-4xl md:text-3xl sm:text-2xl ${(sessionEarnings + dbUnclaimedRewards) > 0 ? 'text-white/50' : 'text-blue-400'} leading-none`}>
                   {isLoadingEarnings ? "..." : totalEarnings.toFixed(2)}
                 </span>
                 <span className="text-white/90 text-sm">NLOV</span>
               </div>
             </div>
             
-            {sessionEarnings > 0 && (
+            {(sessionEarnings + dbUnclaimedRewards) > 0 && (
               <div className="flex flex-col">
                 <div className="flex items-center justify-between mt-2 border-t border-blue-800/30 pt-3">
                   <div className="flex items-center gap-2">
@@ -645,10 +757,10 @@ export const NodeControlPanel = () => {
                     />
                     <div className="flex flex-col">
                       <span className="text-white text-base font-medium">
-                        Unclaimed: <span className="text-blue-400">+{sessionEarnings.toFixed(2)} NLOV</span>
+                        Unclaimed: <span className="text-blue-400">+{(sessionEarnings + dbUnclaimedRewards).toFixed(2)} NLOV</span>
                       </span>
                       <span className="text-xs text-white/50">
-                        Saved automatically - will persist until claimed
+                        {isLoadingUnclaimedRewards ? "Loading..." : "Saved automatically - will persist until claimed"}
                       </span>
                     </div>
                   </div>
@@ -660,7 +772,7 @@ export const NodeControlPanel = () => {
                     variant="default"
                     size="sm"
                     onClick={handleClaimReward}
-                    disabled={isClaimingReward || sessionEarnings <= 0}
+                    disabled={isClaimingReward || (sessionEarnings + dbUnclaimedRewards) <= 0 || isLoadingUnclaimedRewards}
                     className="bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500 rounded-full text-white px-4 py-2 w-full"
                   >
                     {isClaimingReward ? (

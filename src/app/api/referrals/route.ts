@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
-// GET - Fetch user referral data
+// GET - Fetch referral rewards and earnings stats
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -17,85 +17,93 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
-    // Fetch all referral data in parallel for better performance
+    // Fetch data in parallel for better performance
     const [
-      { data: referrals, error: referralsError },
-      { data: allRewards, error: allRewardsError },
-      { data: claimedEarnings, error: claimedEarningsError }
+      { data: unclaimedRewards, error: rewardsError },
+      { data: referralEarnings, error: earningsError },
+      { data: referralsCount, error: countError }
     ] = await Promise.all([
-      // Get user's referrals
-      supabase
-        .from('referrals')
-        .select('*')
-        .eq('referrer_id', userId)
-        .order('created_at', { ascending: false }),
-      
-      // Get all referral rewards (both claimed and unclaimed)
+      // Get unclaimed referral rewards
       supabase
         .from('referral_rewards')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false }),
+        .select(`
+          id,
+          reward_type,
+          reward_amount,
+          reward_timestamp,
+          referral_id,
+          referrals!inner(
+            id,
+            referred_id,
+            referred_name,
+            tier_level,
+            referred_at
+          )
+        `)
+        .eq('referrals.referrer_id', userId)
+        .eq('claimed', false)
+        .order('reward_timestamp', { ascending: false }),
       
-      // Get total claimed earnings from earnings table
+      // Get total referral earnings from earnings table
       supabase
-        .from('earnings_history')
-        .select('total_amount')
+        .from('earnings')
+        .select('amount')
         .eq('user_id', userId)
-        .eq('earning_type', 'referral')
-        .order('timestamp', { ascending: false })
-        .limit(1)
+        .eq('earning_type', 'referral'),
+      
+      // Get referrals count for stats
+      supabase
+        .from('referrals')
+        .select('id, tier_level', { count: 'exact' })
+        .eq('referrer_id', userId)
     ]);
 
-    if (referralsError) {
-      console.error('Error fetching referrals:', referralsError);
-      return NextResponse.json(
-        { error: 'Failed to fetch referrals' },
-        { status: 500 }
-      );
-    }
-
-    if (allRewardsError) {
-      console.error('Error fetching referral rewards:', allRewardsError);
+    if (rewardsError) {
+      console.error('Error fetching referral rewards:', rewardsError);
       return NextResponse.json(
         { error: 'Failed to fetch referral rewards' },
         { status: 500 }
       );
     }
 
+    if (earningsError) {
+      console.error('Error fetching referral earnings:', earningsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch referral earnings' },
+        { status: 500 }
+      );
+    }
+
     // Calculate totals
-    const pendingRewards = (allRewards || [])
-      .filter(reward => !reward.claimed)
-      .reduce((sum, reward) => sum + reward.reward_amount, 0);
+    const pendingRewards = (unclaimedRewards || [])
+      .reduce((sum, reward) => sum + Number(reward.reward_amount), 0);
     
-    const claimedFromRewards = (allRewards || [])
-      .filter(reward => reward.claimed)
-      .reduce((sum, reward) => sum + reward.reward_amount, 0);
+    const totalClaimedRewards = (referralEarnings || [])
+      .reduce((sum, earning) => sum + Number(earning.amount), 0);
     
-    const claimedFromEarnings = claimedEarnings && claimedEarnings.length > 0 
-      ? Number(claimedEarnings[0].total_amount) 
-      : 0;
-    
-    const totalClaimedRewards = Math.max(claimedFromRewards, claimedFromEarnings);
     const totalReferralEarnings = pendingRewards + totalClaimedRewards;
 
-    return NextResponse.json(
-      { 
-        referrals: referrals || [],
-        rewards: (allRewards || []).filter(reward => !reward.claimed), // Only return pending rewards
-        totalReferralEarnings,
-        pendingRewards,
-        claimedRewards: totalClaimedRewards
+    // Calculate tier-wise referral counts
+    const tierCounts = (referralsCount || []).reduce((acc: Record<string, number>, referral: any) => {
+      acc[referral.tier_level] = (acc[referral.tier_level] || 0) + 1;
+      return acc;
+    }, {});
+
+    return NextResponse.json({
+      unclaimedRewards: unclaimedRewards || [],
+      totalReferrals: referralsCount?.length || 0,
+      tierCounts,
+      pendingRewards,
+      claimedRewards: totalClaimedRewards,
+      totalReferralEarnings
+    }, {
+      headers: {
+        'Cache-Control': 'private, s-maxage=30, stale-while-revalidate=60',
       },
-      {
-        headers: {
-          'Cache-Control': 'private, s-maxage=30, stale-while-revalidate=60',
-        },
-      }
-    );
+    });
     
   } catch (error) {
-    console.error('Referrals GET API error:', error);
+    console.error('Referral rewards GET API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -103,7 +111,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create referral relationship
+// POST - Claim referral rewards
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -118,72 +126,122 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { referrer_id, tier_level = 'tier_1' } = body;
+    const { reward_id } = body;
 
-    if (!referrer_id) {
+    if (!reward_id) {
       return NextResponse.json(
-        { error: 'Referrer ID is required' },
+        { error: 'Reward ID is required' },
         { status: 400 }
       );
     }
 
-    // Check if user is already referred
-    const { data: existingReferral, error: checkError } = await supabase
-      .from('referrals')
-      .select('id')
-      .eq('referred_id', session.user.id)
+    // First, get the reward details and verify ownership
+    const { data: reward, error: fetchError } = await supabase
+      .from('referral_rewards')
+      .select(`
+        id,
+        reward_amount,
+        referral_id,
+        claimed,
+        referrals!inner(referrer_id)
+      `)
+      .eq('id', reward_id)
+      .eq('referrals.referrer_id', session.user.id)
+      .eq('claimed', false)
       .single();
 
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking existing referral:', checkError);
+    if (fetchError) {
+      console.error('Error fetching reward:', fetchError);
       return NextResponse.json(
-        { error: 'Failed to verify referral status' },
-        { status: 500 }
+        { error: 'Reward not found or already claimed' },
+        { status: 404 }
       );
     }
 
-    if (existingReferral) {
-      return NextResponse.json(
-        { error: 'User is already referred' },
-        { status: 400 }
-      );
-    }
+    const rewardAmount = Number(reward.reward_amount);
 
-    // Create referral relationship
-    const { data, error } = await supabase
-      .from('referrals')
-      .insert({
-        referrer_id,
-        referred_id: session.user.id,
-        tier_level,
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+    // Use a transaction to ensure data consistency
+    const { data, error } = await supabase.rpc('claim_referral_reward', {
+      p_reward_id: reward_id,
+      p_user_id: session.user.id,
+      p_reward_amount: rewardAmount
+    });
 
     if (error) {
-      console.error('Error creating referral:', error);
-      return NextResponse.json(
-        { error: 'Failed to create referral relationship' },
-        { status: 500 }
-      );
+      // If RPC function doesn't exist, do it manually with error handling
+      console.log('RPC function not found, handling manually...');
+      
+      // Start transaction-like operations
+      try {
+        // 1. Update referral_rewards table
+        const { error: updateError } = await supabase
+          .from('referral_rewards')
+          .update({
+            claimed: true,
+            reward_amount: 0,
+            claimed_at: new Date().toISOString()
+          })
+          .eq('id', reward_id)
+          .eq('claimed', false); // Double-check it's still unclaimed
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        // 2. Add entry to earnings table
+        const { error: earningsError } = await supabase
+          .from('earnings')
+          .insert({
+            user_id: session.user.id,
+            amount: rewardAmount,
+            earning_type: 'referral'
+          });
+
+        if (earningsError) {
+          // Try to rollback the referral_rewards update
+          await supabase
+            .from('referral_rewards')
+            .update({
+              claimed: false,
+              reward_amount: rewardAmount,
+              claimed_at: null
+            })
+            .eq('id', reward_id);
+          
+          throw earningsError;
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: 'Referral reward claimed successfully',
+          claimedAmount: rewardAmount
+        }, {
+          headers: {
+            'Cache-Control': 'private, no-cache',
+          },
+        });
+
+      } catch (manualError) {
+        console.error('Error in manual transaction:', manualError);
+        return NextResponse.json(
+          { error: 'Failed to claim reward. Please try again.' },
+          { status: 500 }
+        );
+      }
     }
 
-    return NextResponse.json(
-      { 
-        success: true,
-        referral: data,
-        message: 'Referral relationship created successfully'
+    return NextResponse.json({
+      success: true,
+      message: 'Referral reward claimed successfully',
+      claimedAmount: rewardAmount
+    }, {
+      headers: {
+        'Cache-Control': 'private, no-cache',
       },
-      {
-        headers: {
-          'Cache-Control': 'private, no-cache',
-        },
-      }
-    );
+    });
     
   } catch (error) {
-    console.error('Referrals POST API error:', error);
+    console.error('Referral rewards POST API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
