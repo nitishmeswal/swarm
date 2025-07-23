@@ -13,6 +13,7 @@ export async function middleware(request: NextRequest) {
   // Protected routes that require authentication
   const protectedRoutes = [
     '/earning', 
+    '/global-statistics', 
     '/referral', 
     '/settings'
   ];
@@ -20,8 +21,6 @@ export async function middleware(request: NextRequest) {
   // Routes that should be accessible without authentication
   const publicRoutes = [
     '/',
-    '/global-statistics',
-    '/help-center',
     '/auth/callback',
     '/auth/error'
   ];

@@ -36,17 +36,6 @@ export function Header({
   const hasWallet = false; // Wallet functionality can be added later
   const walletType = "Wallet";
 
-  // Error-safe logout handler
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Header logout error:", error);
-      // Force page refresh if logout fails
-      window.location.href = '/';
-    }
-  };
-
   // Log auth state for debugging
   useEffect(() => {
     console.log("🔑 Header auth state:", { 
@@ -132,7 +121,7 @@ export function Header({
           {/* Login/User Profile Button */}
           <Button
             variant="outline"
-            onClick={isLoggedIn ? handleLogout : () => setShowAuthModal(true)}
+            onClick={isLoggedIn ? logout : () => setShowAuthModal(true)}
             disabled={isLoading}
             className={cn(
               "login-button",

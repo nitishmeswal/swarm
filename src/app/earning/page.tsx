@@ -1,12 +1,27 @@
-import { EarningsDashboard } from "@/components/EarningsDashboard";
-import { AuthGuard } from '@/components/AuthGuard';
+"use client";
 
-export default function EarningPage() {
+import { useEffect, Suspense } from "react";
+import { EarningsDashboard } from "@/components/EarningsDashboard";
+import { useAnalytics } from "@/hooks/useAnalytics";
+
+function EarningContent() {
+  const { trackPageView } = useAnalytics();
+
+  useEffect(() => {
+    trackPageView("/earning");
+  }, [trackPageView]);
+
   return (
-    <AuthGuard requireAuth={true}>
-      <div className="min-h-screen">
-        <EarningsDashboard />
-      </div>
-    </AuthGuard>
+    <div className="min-h-screen">
+      <EarningsDashboard />
+    </div>
+  );
+}
+
+export default function Earning() {
+  return (
+    <Suspense fallback={<div className="min-h-screen">Loading...</div>}>
+      <EarningContent />
+    </Suspense>
   );
 }

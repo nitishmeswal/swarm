@@ -1,38 +1,43 @@
 "use client";
 
-import { NetworkStats } from '@/components/NetworkStats';
-import { NodeControlPanel } from '@/components/NodeControlPanel';
-import { TaskPipeline } from '@/components/TaskPipeline';
-import { AuthGuard } from '@/components/AuthGuard';
-import { HowItWorks } from '@/components/HowItWorks';
+import { useEffect, Suspense } from "react";
+import { NetworkStats } from "@/components/NetworkStats";
+import { NodeControlPanel } from "@/components/NodeControlPanel";
+import { TaskPipeline } from "@/components/TaskPipeline";
+import { useAnalytics } from "@/hooks/useAnalytics";
+
+function DashboardContent() {
+  const { trackPageView } = useAnalytics();
+
+  useEffect(() => {
+    trackPageView("/dashboard");
+  }, [trackPageView]);
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Network Stats */}
+      <NetworkStats />
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Node Control Panel */}
+        <div>
+          <NodeControlPanel />
+        </div>
+
+        {/* Task Pipeline */}
+        <div>
+          <TaskPipeline />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   return (
-    <div className="flex flex-col gap-6">
-      {/* Public Network Stats - Always visible */}
-      <NetworkStats />
-
-      {/* Protected Dashboard Components */}
-      <AuthGuard 
-        requireAuth={true}
-        fallback={
-          <div className="text-center py-12">
-            <HowItWorks />
-          </div>
-        }
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Node Control Panel - Protected */}
-          <div>
-            <NodeControlPanel />
-          </div>
-
-          {/* Task Pipeline - Protected */}
-          <div>
-            <TaskPipeline />
-          </div>
-        </div>
-      </AuthGuard>
-    </div>
+    <Suspense fallback={<div className="flex flex-col gap-6">Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }

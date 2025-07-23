@@ -30,9 +30,9 @@ export function Layout({ children }: LayoutProps) {
       </div>
 
       {/* Sidebar */}
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)} 
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
         className={`fixed left-0 top-0 h-screen z-30 transition-transform duration-300 ease-in-out md:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -41,7 +41,7 @@ export function Layout({ children }: LayoutProps) {
       {/* Main content wrapper */}
       <div className="flex-1 md:ml-[266px] flex flex-col relative z-10 overflow-x-hidden">
         {/* Header */}
-        <Header 
+        <Header
           onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
           sidebarOpen={sidebarOpen}
         />

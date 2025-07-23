@@ -23,10 +23,8 @@ import { selectCurrentUptime, selectNode } from "@/lib/store/slices/nodeSlice";
 import { selectSessionEarnings } from "@/lib/store/slices/earningsSlice";
 import { getTaskEngine } from "@/lib/store/taskEngine";
 import { formatUptimeShort, TASK_CONFIG } from "@/lib/store/config";
-import { useAuth } from "@/contexts/AuthContext";
 
 export const TaskPipeline = () => {
-  const { user, isLoggedIn, isLoading } = useAuth();
   const dispatch = useAppDispatch();
   const node = useAppSelector(selectNode);
   const tasks = useAppSelector(selectTasks);
@@ -35,23 +33,6 @@ export const TaskPipeline = () => {
   const processingTasks = useAppSelector(selectProcessingTasks);
   const pendingTasks = useAppSelector(selectPendingTasks);
   const sessionEarnings = useAppSelector(selectSessionEarnings);
-
-  // Early return if not authenticated (extra safety)
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (!isLoggedIn || !user) {
-    return (
-      <div className="p-6 text-center text-gray-400">
-        <p>Please log in to access the Task Pipeline</p>
-      </div>
-    );
-  }
 
   const getTaskIcon = (type: string) => {
     switch (type) {

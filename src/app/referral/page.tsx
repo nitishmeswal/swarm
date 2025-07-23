@@ -1,12 +1,27 @@
-import { ReferralProgram } from "@/components/ReferralProgram";
-import { AuthGuard } from '@/components/AuthGuard';
+"use client";
 
-export default function ReferralPage() {
+import { useEffect, Suspense } from "react";
+import { ReferralProgram } from "@/components/ReferralProgram";
+import { useAnalytics } from "@/hooks/useAnalytics";
+
+function ReferralContent() {
+  const { trackPageView } = useAnalytics();
+
+  useEffect(() => {
+    trackPageView("/referral");
+  }, [trackPageView]);
+
   return (
-    <AuthGuard requireAuth={true}>
-      <div className="min-h-screen">
-        <ReferralProgram />
-      </div>
-    </AuthGuard>
+    <div className="min-h-screen">
+      <ReferralProgram />
+    </div>
+  );
+}
+
+export default function Referral() {
+  return (
+    <Suspense fallback={<div className="min-h-screen">Loading...</div>}>
+      <ReferralContent />
+    </Suspense>
   );
 }

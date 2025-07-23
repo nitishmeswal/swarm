@@ -1,14 +1,15 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
+  const type = requestUrl.searchParams.get('type');
   const origin = requestUrl.origin;
 
   console.log("🔑 Auth callback triggered", { 
     hasCode: !!code,
+    type,
     url: requestUrl.toString(),
     origin 
   });
@@ -28,11 +29,18 @@ export async function GET(request: NextRequest) {
       console.log("✅ Session established successfully", {
         userId: data?.session?.user?.id,
         email: data?.session?.user?.email,
-        hasSession: !!data?.session
+        hasSession: !!data?.session,
+        type
       });
 
-      // Check if user has a profile, create one if not
-      if (data?.session?.user) {
+      // Handle password recovery flow
+      if (type === 'recovery') {
+        console.log("🔄 Password recovery flow detected, redirecting to reset-password");
+        return NextResponse.redirect(`${origin}/reset-password`);
+      }
+
+      // Check if user has a profile for regular auth, create one if not
+      if (data?.session?.user && type !== 'recovery') {
         const { data: profileData, error: profileError } = await supabase
           .from('user_profiles')
           .select('id')
@@ -41,7 +49,6 @@ export async function GET(request: NextRequest) {
         
         if (profileError || !profileData) {
           console.log("⚠️ No profile found for user, creating one");
-          // Create a new profile for the user
           const email = data.session.user.email || '';
           const username = data.session.user.user_metadata?.username || email.split('@')[0];
           
@@ -80,7 +87,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Redirect to dashboard or intended page after successful authentication
+  // Redirect based on type
+  if (type === 'recovery') {
+    return NextResponse.redirect(`${origin}/reset-password`);
+  }
+
+  // Default redirect to dashboard for regular auth
   return NextResponse.redirect(`${origin}/dashboard`);
 }
 

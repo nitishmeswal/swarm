@@ -10,7 +10,6 @@ import {
   AlertCircle,
   RefreshCw,
   ChevronDown,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +20,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { createClient } from "@/utils/supabase/client";
 
-// Mock translation function - replace with actual i18n implementation
+// Mock translation function
 const useTranslation = () => {
   const t = (key: string) => {
     const translations: { [key: string]: string } = {
@@ -37,14 +37,14 @@ const useTranslation = () => {
       currency_description:
         "Select your preferred currency for displaying values.",
       reset_password_description:
-        "Request a OTP (One Time Password) to your email for reset password.",
+        "Send a secure reset link to your email address.",
       delete_warning:
         "This action is permanent and cannot be undone. All your data, earnings, and referrals will be permanently deleted.",
       interface_language: "Interface Language",
       display_currency: "Display Currency",
       your_email_address: "Your Email Address",
       enter_email: "Enter your email",
-      send_otp: "Send OTP",
+      send_reset_link: "Send Reset Link",
       sending: "Sending...",
       delete_my_account: "Delete My Account",
       confirm_deletion: "Confirm Deletion",
@@ -53,11 +53,7 @@ const useTranslation = () => {
       permanently_delete: "Permanently Delete",
       deleting_account: "Deleting Account...",
       cancel: "Cancel",
-      otp_sent_to: "OTP sent to",
-      enter_otp: "Enter OTP",
-      new_password: "New Password",
-      confirm_password: "Confirm Password",
-      resetting_password: "Resetting Password...",
+      reset_link_sent: "Password reset link sent to your email!",
     };
     return translations[key] || key;
   };
@@ -109,7 +105,6 @@ const DeleteConfirmModal = ({
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const { t } = useTranslation();
 
-  // Reset text when modal closes
   useEffect(() => {
     if (!isOpen) setDeleteConfirmText("");
   }, [isOpen]);
@@ -172,186 +167,52 @@ const DeleteConfirmModal = ({
   );
 };
 
-// Password Reset Modal with OTP verification
-const PasswordResetModal = ({
-  isOpen,
-  onClose,
-  email,
-  isLoading,
-  onSubmit,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  email: string;
-  isLoading: boolean;
-  onSubmit: (otp: string, newPassword: string) => void;
-}) => {
-  const [otp, setOtp] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const { t } = useTranslation();
-
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setOtp("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setError("");
-    }
-  }, [isOpen]);
-
-  const handleSubmit = () => {
-    // Validate inputs
-    if (!otp.trim()) {
-      setError("Please enter the OTP sent to your email");
-      return;
-    }
-
-    if (!newPassword.trim()) {
-      setError("Please enter a new password");
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
-
-    // Clear any errors and submit
-    setError("");
-    onSubmit(otp, newPassword);
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-[#161628] border border-[#112544] text-white max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-blue-400 flex items-center gap-2">
-            <Key className="w-5 h-5" />
-            {t("reset_password")}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="bg-blue-900/20 p-3 rounded-lg border border-blue-500/20">
-            <p className="text-sm text-blue-300">
-              {t("otp_sent_to")} <span className="font-medium">{email}</span>
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <label htmlFor="otp" className="text-sm text-gray-400 block mb-1">
-                {t("enter_otp")}
-              </label>
-              <Input
-                id="otp"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="Enter OTP from email"
-                className="bg-[#0A1A2F] border-[#112544] text-white"
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="new-password"
-                className="text-sm text-gray-400 block mb-1"
-              >
-                {t("new_password")}
-              </label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password"
-                className="bg-[#0A1A2F] border-[#112544] text-white"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="confirm-password"
-                className="text-sm text-gray-400 block mb-1"
-              >
-                {t("confirm_password")}
-              </label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password"
-                className="bg-[#0A1A2F] border-[#112544] text-white"
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-900/20 p-2 rounded-lg border border-red-500/20">
-                <p className="text-sm text-red-300">{error}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Button
-              onClick={handleSubmit}
-              className="bg-blue-600 hover:bg-blue-700 text-white w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  {t("resetting_password")}
-                </>
-              ) : (
-                t("reset_password")
-              )}
-            </Button>
-
-            <Button
-              onClick={onClose}
-              variant="outline"
-              className="text-gray-400 hover:text-gray-300 border-gray-600 w-full"
-              disabled={isLoading}
-            >
-              {t("cancel")}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
 const Settings: React.FC = () => {
-  // State
   const [language, setLanguage] = useState("en");
   const [currency, setCurrency] = useState("usd");
-  const [email, setEmail] = useState("user@example.com");
+  const [email, setEmail] = useState("");
   const [isResetPasswordLoading, setIsResetPasswordLoading] = useState(false);
   const [isDeleteAccountLoading, setIsDeleteAccountLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
 
-  // i18n translation hook
   const { t, i18n } = useTranslation();
+  const supabase = createClient();
 
-  // Set initial language from i18n
   useEffect(() => {
     setLanguage(i18n.language);
   }, []);
 
-  // Language options
+  useEffect(() => {
+    const fetchUserEmail = async () => {
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error) {
+          console.error("Error fetching user:", error);
+          toast.error("Failed to fetch user information");
+          return;
+        }
+
+        if (user?.email) {
+          setEmail(user.email);
+        } else {
+          toast.error("No user email found");
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        toast.error("Failed to fetch user information");
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+
+    fetchUserEmail();
+  }, [supabase]);
+
   const languages = [
     { code: "en", name: "English" },
     { code: "hi", name: "Hindi" },
@@ -361,7 +222,6 @@ const Settings: React.FC = () => {
     { code: "zh", name: "Chinese" },
   ];
 
-  // Currency options (for future use)
   const currencies = [
     { code: "usd", name: "USD ($)" },
     { code: "eur", name: "EUR (€)" },
@@ -369,19 +229,16 @@ const Settings: React.FC = () => {
     { code: "jpy", name: "JPY (¥)" },
   ];
 
-  // Handle language change
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLanguage = e.target.value;
     setLanguage(newLanguage);
     i18n.changeLanguage(newLanguage);
-    // Save language preference to localStorage
     localStorage.setItem("i18nextLng", newLanguage);
     toast.success(
       `Language changed to ${e.target.options[e.target.selectedIndex].text}`
     );
   };
 
-  // Handle currency change
   const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setCurrency(e.target.value);
     toast.success(
@@ -389,7 +246,7 @@ const Settings: React.FC = () => {
     );
   };
 
-  // Handle reset password
+  // Updated reset password function - sends link instead of OTP
   const handleResetPassword = async () => {
     if (!email.trim()) {
       toast.error("Please enter your email address");
@@ -399,47 +256,26 @@ const Settings: React.FC = () => {
     try {
       setIsResetPasswordLoading(true);
 
-      // Mock API call - replace with actual Supabase call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Send password reset email with link to reset-password page
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
 
-      // Instead of just showing a success message, open the OTP modal
-      setShowPasswordResetModal(true);
-      toast.success("OTP sent to your email");
+      if (error) {
+        console.error("Password reset error:", error);
+        toast.error(`Failed to send reset email: ${error.message}`);
+        return;
+      }
+
+      toast.success(t("reset_link_sent"));
     } catch (error) {
       console.error("Password reset error:", error);
-      toast.error("Failed to send OTP email");
+      toast.error("Failed to send reset email");
     } finally {
       setIsResetPasswordLoading(false);
     }
   };
 
-  // Handle OTP verification and password reset
-  const handleVerifyOtpAndResetPassword = async (
-    otp: string,
-    newPassword: string
-  ) => {
-    if (!email.trim() || !otp.trim() || !newPassword.trim()) {
-      toast.error("Please fill all required fields");
-      return;
-    }
-
-    try {
-      setIsResetPasswordLoading(true);
-
-      // Mock API call - replace with actual Supabase calls
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      toast.success("Password reset successfully");
-      setShowPasswordResetModal(false);
-    } catch (error) {
-      console.error("OTP verification or password update error:", error);
-      toast.error("Failed to verify OTP or reset password");
-    } finally {
-      setIsResetPasswordLoading(false);
-    }
-  };
-
-  // Handle delete account
   const handleDeleteAccount = async () => {
     if (!email) {
       toast.error("User email not found");
@@ -449,14 +285,33 @@ const Settings: React.FC = () => {
     try {
       setIsDeleteAccountLoading(true);
 
-      // Mock API call - replace with actual Supabase calls
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.id) {
+        toast.error("User not found");
+        return;
+      }
+
+      // Note: For user deletion, you'll need to implement this on your backend
+      // as admin.deleteUser() requires service key
+      const response = await fetch("/api/auth/delete-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete account");
+      }
 
       toast.success("Account deleted successfully");
       localStorage.clear();
-
-      // In a real app, you would redirect to login page
-      console.log("Redirecting to home page...");
+      await supabase.auth.signOut();
+      window.location.href = "/";
     } catch (error: unknown) {
       console.error("Delete account error:", error);
       const errorMessage =
@@ -467,6 +322,15 @@ const Settings: React.FC = () => {
       setShowDeleteConfirm(false);
     }
   };
+
+  if (isLoadingUser) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="w-6 h-6 animate-spin text-blue-400" />
+        <span className="ml-2 text-gray-400">Loading user information...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-4 rounded-3xl max-w-7xl">
@@ -569,11 +433,12 @@ const Settings: React.FC = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t("enter_email")}
                   className="bg-[#0A1A2F] border-[#112544] text-white flex-1"
+                  disabled={isLoadingUser}
                 />
                 <Button
                   onClick={handleResetPassword}
                   className="bg-yellow-600 hover:bg-yellow-700 text-white whitespace-nowrap"
-                  disabled={isResetPasswordLoading}
+                  disabled={isResetPasswordLoading || isLoadingUser}
                 >
                   {isResetPasswordLoading ? (
                     <>
@@ -581,7 +446,7 @@ const Settings: React.FC = () => {
                       {t("sending")}
                     </>
                   ) : (
-                    t("send_otp")
+                    t("send_reset_link")
                   )}
                 </Button>
               </div>
@@ -612,7 +477,6 @@ const Settings: React.FC = () => {
               {t("delete_my_account")}
             </Button>
 
-            {/* Delete Confirmation Modal */}
             <DeleteConfirmModal
               isOpen={showDeleteConfirm}
               onClose={() => setShowDeleteConfirm(false)}
@@ -622,15 +486,6 @@ const Settings: React.FC = () => {
           </div>
         </SettingsCard>
       </div>
-
-      {/* Password Reset Modal */}
-      <PasswordResetModal
-        isOpen={showPasswordResetModal}
-        onClose={() => setShowPasswordResetModal(false)}
-        email={email}
-        isLoading={isResetPasswordLoading}
-        onSubmit={handleVerifyOtpAndResetPassword}
-      />
     </div>
   );
 };
