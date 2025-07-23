@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Clock,
   Laptop,
@@ -17,7 +17,6 @@ import { IoStopOutline } from "react-icons/io5";
 import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "./ui/button";
 import { HardwareScanDialog } from "./HardwareScanDialog";
-import { detectHardware } from "@/lib/hardwareDetection";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
 import {
   registerDevice,
@@ -32,6 +31,8 @@ import {
 import { resetTasks } from "@/lib/store/slices/taskSlice";
 import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
+import { useEarnings } from "@/hooks/useEarnings";
+import { useNodeUptime } from "@/hooks/useNodeuptime";
 import {
   Select,
   SelectContent,
@@ -90,6 +91,27 @@ export const NodeControlPanel = () => {
   const { user } = useAuth();
   const supabase = createClient();
   const { trackEvent } = useAnalytics();
+  const {
+    claimTaskRewards,
+    loadTotalEarnings,
+    isClaimingReward,
+    isLoading: isLoadingEarnings,
+    claimError,
+    claimSuccess,
+    resetClaimState,
+  } = useEarnings();
+
+  const {
+    initializeDeviceUptime,
+    startDeviceUptime,
+    stopDeviceUptime,
+    getCurrentUptime,
+    isDeviceRunning,
+    getCompletedTasks,
+    syncDeviceUptime,
+    isUpdatingUptime,
+    deviceUptimes: deviceUptimeList,
+  } = useNodeUptime();
 
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
@@ -102,7 +124,7 @@ export const NodeControlPanel = () => {
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingNode, setIsDeletingNode] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDevices, setIsLoadingDevices] = useState(true);
   const [hasFetchedDevices, setHasFetchedDevices] = useState(false);
   const [customDeviceName, setCustomDeviceName] = useState("");
   const [scannedHardwareInfo, setScannedHardwareInfo] =
@@ -110,6 +132,9 @@ export const NodeControlPanel = () => {
   const [showNameInputDialog, setShowNameInputDialog] = useState(false);
   const [scanCompleted, setScanCompleted] = useState(false);
   const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
+  const [showClaimSuccess, setShowClaimSuccess] = useState(false);
+  const [displayUptime, setDisplayUptime] = useState(0);
+  const initializedDevicesRef = useRef<Set<string>>(new Set());
 
   // Replace static nodes with state
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
@@ -119,12 +144,64 @@ export const NodeControlPanel = () => {
     setIsMounted(true);
   }, []);
 
+  // Load user earnings on initial mount
+  useEffect(() => {
+    if (user?.id && isMounted) {
+      loadTotalEarnings();
+    }
+  }, [user?.id, isMounted]);
+
+  // Show claim success message after successful claim
+  useEffect(() => {
+    if (claimSuccess) {
+      setShowClaimSuccess(true);
+      const timer = setTimeout(() => {
+        setShowClaimSuccess(false);
+        resetClaimState();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [claimSuccess, resetClaimState]);
+
+  // For demo purposes - in a real implementation this would be derived from the selected node ID
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+
+  // Update display uptime every second for the selected device
+  useEffect(() => {
+    if (!selectedNodeId) return;
+
+    const updateDisplayUptime = () => {
+      const currentDeviceUptime = getCurrentUptime(selectedNodeId);
+      setDisplayUptime(currentDeviceUptime);
+    };
+
+    // Update immediately
+    updateDisplayUptime();
+
+    // Update every second
+    const interval = setInterval(updateDisplayUptime, 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedNodeId, getCurrentUptime]);
+
+  // Sync device uptime when selected device changes
+  useEffect(() => {
+    if (selectedNodeId && !isDeviceRunning(selectedNodeId)) {
+      // Only sync once per device selection, not continuously
+      const timeoutId = setTimeout(() => {
+        syncDeviceUptime(selectedNodeId);
+      }, 100); // Small delay to prevent rapid calls
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [selectedNodeId]); // Only depend on selectedNodeId, not the functions
+
   // Fetch user devices from Supabase
   useEffect(() => {
     if (!user?.id || hasFetchedDevices) return;
 
     const fetchUserDevices = async () => {
-      setIsLoading(true);
+      setIsLoadingDevices(true);
       try {
         const { data, error } = await supabase
           .from("devices")
@@ -157,6 +234,16 @@ export const NodeControlPanel = () => {
 
         setNodes(mappedNodes);
 
+        // Initialize device uptimes with server data (only once per device)
+        mappedNodes.forEach((node) => {
+          if (!initializedDevicesRef.current.has(node.id)) {
+            const serverUptime =
+              Number(data.find((d) => d.id === node.id)?.uptime) || 0;
+            initializeDeviceUptime(node.id, serverUptime);
+            initializedDevicesRef.current.add(node.id);
+          }
+        });
+
         if (mappedNodes.length > 0 && !selectedNodeId) {
           setSelectedNodeId(mappedNodes[0].id);
         }
@@ -165,19 +252,16 @@ export const NodeControlPanel = () => {
       } catch (err) {
         console.error("Exception while fetching devices:", err);
       } finally {
-        setIsLoading(false);
+        setIsLoadingDevices(false);
       }
     };
 
     fetchUserDevices();
-  }, [user?.id, hasFetchedDevices]); // Only depend on user ID and fetch flag
-
-  // For demo purposes - in a real implementation this would be derived from the selected node ID
-  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+  }, [user?.id, hasFetchedDevices]); // Keep minimal dependencies
 
   const handleNodeSelect = (value: string) => {
     setSelectedNodeId(value);
-    // Additional logic for selecting a node would go here
+    // Don't sync immediately here, let the useEffect handle it with a delay
   };
 
   const deleteDevice = async (deviceId: string) => {
@@ -238,13 +322,31 @@ export const NodeControlPanel = () => {
   };
 
   const toggleNodeStatus = async () => {
-    if (node.isActive) {
+    if (!selectedNodeId) return;
+
+    const deviceCurrentlyRunning = isDeviceRunning(selectedNodeId);
+
+    if (deviceCurrentlyRunning || node.isActive) {
       setIsStopping(true);
       trackEvent(
         "node_stop",
         "node_control",
         selectedNode?.rewardTier || "unknown"
       );
+
+      try {
+        // Stop uptime tracking and update server
+        const result = await stopDeviceUptime(selectedNodeId);
+
+        if (result.success) {
+          console.log("Node stopped and uptime updated successfully");
+        } else {
+          console.error("Failed to update uptime:", result.error);
+        }
+      } catch (error) {
+        console.error("Error stopping node:", error);
+      }
+
       setTimeout(() => {
         dispatch(stopNode());
         dispatch(resetTasks()); // Clear all proxy tasks when node stops
@@ -266,6 +368,10 @@ export const NodeControlPanel = () => {
         "node_control",
         selectedNode?.rewardTier || "unknown"
       );
+
+      // Start uptime tracking
+      startDeviceUptime(selectedNodeId);
+
       setTimeout(() => {
         dispatch(startNode());
         setIsStarting(false);
@@ -274,14 +380,13 @@ export const NodeControlPanel = () => {
   };
 
   const handleScanComplete = async (hardwareInfo: HardwareInfo) => {
-    // Store the hardware info with custom device name
+    // Store the hardware info and show name input in the same dialog
     setScannedHardwareInfo(hardwareInfo);
-    const deviceName =
-      hardwareInfo.customDeviceName ||
+    setCustomDeviceName(
       `My ${hardwareInfo.deviceType?.charAt(0).toUpperCase() || "D"}${
         hardwareInfo.deviceType?.slice(1) || "evice"
-      }`;
-    setCustomDeviceName(deviceName);
+      }`
+    );
     setScanCompleted(true);
     setIsScanning(false);
 
@@ -291,52 +396,6 @@ export const NodeControlPanel = () => {
       "node_control",
       hardwareInfo.rewardTier
     );
-
-    // Automatically register the device with the provided name
-    if (!user?.id) return;
-
-    // Register the device in Redux store
-    dispatch(registerDevice(hardwareInfo));
-
-    // Save the device to Supabase with custom name
-    try {
-      const { data, error } = await supabase
-        .from("devices")
-        .insert({
-          owner: user.id,
-          gpu_model: hardwareInfo.gpuInfo,
-          device_type: hardwareInfo.deviceType || "desktop",
-          reward_tier: hardwareInfo.rewardTier,
-          device_name: deviceName.trim(),
-          status: "offline",
-        })
-        .select();
-
-      if (error) {
-        console.error("Error saving device to Supabase:", error);
-      } else if (data) {
-        // Add the new device to the nodes list
-        const newDevice = data[0] as SupabaseDevice;
-        const newNode: NodeInfo = {
-          id: newDevice.id,
-          name: newDevice.device_name || deviceName,
-          type: newDevice.device_type,
-          rewardTier: newDevice.reward_tier || "cpu",
-          status: "idle",
-          gpuInfo: newDevice.gpu_model,
-        };
-
-        setNodes((prevNodes) => [...prevNodes, newNode]);
-        setSelectedNodeId(newDevice.id);
-
-        // Close the scan dialog after successful registration
-        setShowScanDialog(false);
-        setScanCompleted(false);
-        setScannedHardwareInfo(null);
-      }
-    } catch (err) {
-      console.error("Exception while saving device:", err);
-    }
   };
 
   const completeDeviceRegistration = async () => {
@@ -438,6 +497,45 @@ export const NodeControlPanel = () => {
   const startScan = () => {
     resetScan();
     setShowScanDialog(true);
+    setIsScanning(true);
+    setScanProgress(0);
+    setScanStage("Detecting device type...");
+
+    setTimeout(() => {
+      setScanProgress(20);
+      setScanStage("Analyzing system capabilities...");
+
+      setTimeout(() => {
+        setScanProgress(60);
+        setScanStage("Detecting hardware tier...");
+
+        setTimeout(() => {
+          setScanProgress(100);
+          setScanStage("Scan complete!");
+          setIsScanning(false);
+          setScanCompleted(true);
+          const mockHardwareInfo: HardwareInfo = {
+            cpuCores: 8,
+            deviceMemory: "8 GB",
+            gpuInfo: "ANGLE (Intel, Intel(R) UHD Graphics, OpenGL 4.6)",
+            deviceGroup: "desktop_laptop",
+            deviceType: "laptop",
+            rewardTier: "cpu",
+          };
+          setScannedHardwareInfo(mockHardwareInfo);
+          setCustomDeviceName(
+            `My ${mockHardwareInfo.deviceType?.charAt(0).toUpperCase() || "D"}${
+              mockHardwareInfo.deviceType?.slice(1) || "evice"
+            }`
+          );
+        }, 1000);
+      }, 800);
+    }, 1000);
+  };
+
+  const handleClaimReward = async () => {
+    if (sessionEarnings <= 0) return;
+    await claimTaskRewards(sessionEarnings);
   };
 
   return (
@@ -476,11 +574,16 @@ export const NodeControlPanel = () => {
                     <>
                       {getDeviceIcon(selectedNode.type)}
                       <span>{selectedNode.name}</span>
+                      {isDeviceRunning(selectedNodeId) && (
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse ml-1"></div>
+                      )}
                     </>
                   )}
                   {!selectedNode && (
                     <span>
-                      {isLoading ? "Loading nodes..." : "No nodes available"}
+                      {isLoadingDevices
+                        ? "Loading nodes..."
+                        : "No nodes available"}
                     </span>
                   )}
                 </div>
@@ -529,18 +632,20 @@ export const NodeControlPanel = () => {
 
             <Button
               variant="default"
-              disabled={isStarting || isStopping || !selectedNodeId}
+              disabled={
+                isStarting || isStopping || isUpdatingUptime || !selectedNodeId
+              }
               onClick={toggleNodeStatus}
               className={`rounded-full transition-all duration-300 shadow-md hover:shadow-lg text-white text-xs sm:text-sm px-3 py-1 sm:px-4 sm:py-2 h-9 sm:h-10 hover:translate-y-[-0.5px] ${
-                node.isActive
+                node.isActive || isDeviceRunning(selectedNodeId)
                   ? "bg-red-600 hover:bg-red-700 hover:shadow-red-500/30 shadow-red-500"
                   : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
               }`}
             >
-              {isStarting && (
+              {(isStarting || isUpdatingUptime) && (
                 <>
                   <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
-                  Starting...
+                  {isUpdatingUptime ? "Updating..." : "Starting..."}
                 </>
               )}
               {isStopping && (
@@ -549,10 +654,12 @@ export const NodeControlPanel = () => {
                   Stopping...
                 </>
               )}
-              {!isStarting && !isStopping && (
+              {!isStarting && !isStopping && !isUpdatingUptime && (
                 <>
-                  {node.isActive ? "Stop Node" : "Start Node"}
-                  {!node.isActive ? (
+                  {node.isActive || isDeviceRunning(selectedNodeId)
+                    ? "Stop Node"
+                    : "Start Node"}
+                  {!node.isActive && !isDeviceRunning(selectedNodeId) ? (
                     <VscDebugStart className="text-white/90 ml-1 sm:ml-2" />
                   ) : (
                     <IoStopOutline className="text-white/90 ml-1 sm:ml-2" />
@@ -582,7 +689,7 @@ export const NodeControlPanel = () => {
             </div>
 
             <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
-              <div className="text-[#515194] text-xs mb-1">Node Uptime</div>
+              <div className="text-[#515194] text-xs mb-1">Device Uptime</div>
               <div className="flex items-center">
                 <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
                   <img
@@ -592,7 +699,7 @@ export const NodeControlPanel = () => {
                   />
                 </div>
                 <div className="text-lg font-medium text-white ml-3 mt-2">
-                  {formatUptime(currentUptime)}
+                  {formatUptime(displayUptime)}
                 </div>
               </div>
             </div>
@@ -637,29 +744,245 @@ export const NodeControlPanel = () => {
             </div>
           </div>
 
-          <div className="p-4 sm:p-6 flex flex-row items-center justify-between rounded-xl sm:rounded-2xl border border-blue-800/30 relative overflow-hidden gap-4 bg-blue-900/10">
-            <div className="flex items-center gap-4 z-10">
-              <img
-                src="/images/nlov-coin.png"
-                alt="coin"
-                className="w-11 h-11 object-contain z-10"
-              />
-              <span className="text-white/90 text-2xl whitespace-nowrap transition-all duration-500">
-                Total Earnings
-              </span>
+          <div className="p-4 sm:p-6 flex flex-col rounded-xl sm:rounded-2xl border border-blue-800/30 relative overflow-hidden gap-4 bg-blue-900/10">
+            <div className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-4 z-10">
+                <img
+                  src="/images/nlov-coin.png"
+                  alt="coin"
+                  className="w-11 h-11 object-contain z-10"
+                />
+                <div className="flex flex-col">
+                  <span className="text-white/90 text-2xl whitespace-nowrap transition-all duration-500">
+                    Total Earnings
+                  </span>
+                  {isLoadingEarnings && (
+                    <span className="text-xs text-white/50">
+                      Loading earnings...
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
+                <span
+                  className={`font-medium lg:text-4xl md:text-3xl sm:text-2xl ${
+                    sessionEarnings > 0 ? "text-white/50" : "text-blue-400"
+                  } leading-none`}
+                >
+                  {isLoadingEarnings ? "..." : totalEarnings.toFixed(2)}
+                </span>
+                <span className="text-white/90 text-sm">NLOV</span>
+              </div>
             </div>
-            <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
-              <span className="font-medium lg:text-4xl md:text-3xl sm:text-2xl text-blue-400 leading-none">
-                {totalEarnings.toFixed(2)}
-              </span>
-              <span className="text-white/90 text-sm">NLOV</span>
-            </div>
-            <p className="absolute bottom-2 right-4 text-[10px] text-white/50 italic">
-              Session: +{sessionEarnings.toFixed(2)} NLOV
-            </p>
+
+            {sessionEarnings > 0 && (
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between mt-2 border-t border-blue-800/30 pt-3">
+                  <div className="flex items-center gap-2">
+                    <img
+                      src="/images/pending_reward.png"
+                      alt="Unclaimed"
+                      className="w-5 h-5 object-contain"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-white text-base font-medium">
+                        Unclaimed:{" "}
+                        <span className="text-blue-400">
+                          +{sessionEarnings.toFixed(2)} NLOV
+                        </span>
+                      </span>
+                      <span className="text-xs text-white/50">
+                        Saved automatically - will persist until claimed
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  {claimError && (
+                    <span className="text-red-400 text-xs">{claimError}</span>
+                  )}
+                  {showClaimSuccess && (
+                    <span className="text-green-400 text-xs">
+                      Reward claimed successfully!
+                    </span>
+                  )}
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleClaimReward}
+                    disabled={isClaimingReward || sessionEarnings <= 0}
+                    className="bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500 rounded-full text-white px-4 py-2 w-full"
+                  >
+                    {isClaimingReward ? (
+                      <div className="flex items-center justify-center">
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Claiming...
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        <img
+                          src="/images/claimed_reward.png"
+                          alt="Claim"
+                          className="w-4 h-4 mr-2 object-contain"
+                        />
+                        Claim Rewards
+                      </div>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Hardware Scan Dialog */}
+      <Dialog
+        open={showScanDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetScan();
+          }
+          setShowScanDialog(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg bg-[#0A1A2F] border-[#112544] p-0 overflow-hidden">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-white text-xl font-medium">
+                Hardware Scan Results
+              </h2>
+            </div>
+
+            {!scanCompleted && !scannedHardwareInfo && (
+              <div>
+                <div className="mb-2 text-sm font-medium text-white">
+                  {scanStage}
+                </div>
+                <div className="w-full bg-[#112544] rounded-full h-2.5">
+                  <div
+                    className="bg-[#0066FF] h-2.5 rounded-full transition-all duration-300 ease-in-out"
+                    style={{ width: `${scanProgress}%` }}
+                  ></div>
+                </div>
+                <div className="mt-4 text-sm text-white/70">
+                  {scanProgress < 100
+                    ? "Please wait while we analyze your device. Do not close this window."
+                    : "Scan completed successfully!"}
+                </div>
+              </div>
+            )}
+
+            {scanCompleted && scannedHardwareInfo && (
+              <div>
+                {/* Success icon */}
+                <div className="flex justify-center mb-6">
+                  <div className="w-16 h-16 rounded-full bg-green-800/30 flex items-center justify-center">
+                    <div className="text-green-500">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-10 w-10"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Device tier heading */}
+                <div className="text-center mb-5">
+                  <h3 className="text-white text-xl">
+                    Your Device Tier:{" "}
+                    <span className="text-gray-400">
+                      {scannedHardwareInfo.rewardTier.toUpperCase()}
+                    </span>
+                  </h3>
+                  <p className="text-gray-400 text-sm">
+                    CPU-based processing - Basic rewards
+                  </p>
+                </div>
+
+                {/* Hardware specs box */}
+                <div className="bg-[#111827] rounded-lg p-4 mb-6">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-gray-400">Device Type:</span>
+                    <span className="text-white text-right">
+                      {scannedHardwareInfo.deviceType}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-gray-400">CPU Cores:</span>
+                    <span className="text-white text-right">
+                      {scannedHardwareInfo.cpuCores}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-gray-400">Memory:</span>
+                    <span className="text-white text-right">
+                      {scannedHardwareInfo.deviceMemory}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">GPU:</span>
+                    <span
+                      className="text-white text-right truncate max-w-[70%]"
+                      title={scannedHardwareInfo.gpuInfo}
+                    >
+                      {scannedHardwareInfo.gpuInfo}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Device name input */}
+                <div className="mb-6">
+                  <Label htmlFor="deviceName" className="text-white mb-2 block">
+                    Device Name
+                  </Label>
+                  <Input
+                    id="deviceName"
+                    value={customDeviceName}
+                    onChange={(e) => setCustomDeviceName(e.target.value)}
+                    placeholder="Enter a name for your device"
+                    className="bg-[#111827] border-0 text-white w-full focus:ring-1 focus:ring-blue-500 focus-visible:ring-offset-0 py-2"
+                  />
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-3">
+                  <Button
+                    onClick={completeDeviceRegistration}
+                    className="bg-blue-600 hover:bg-blue-700 text-white flex-1 py-2"
+                  >
+                    Register Device
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => resetScan()}
+                    className="border-[#112544] text-white hover:bg-[#112544]/30 py-2"
+                  >
+                    Scan Again
+                  </Button>
+                </div>
+
+                {/* Form link */}
+                <div className="text-center mt-5 text-xs text-gray-500">
+                  Think this scan result is incorrect?
+                  <br />
+                  <a href="#" className="text-blue-500 hover:underline">
+                    Submit Device Validation Form
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={showDeleteConfirmDialog}
@@ -702,9 +1025,9 @@ export const NodeControlPanel = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Hardware Scan Dialog */}
+      {/* Original Hardware Scan Dialog - kept for functionality */}
       <HardwareScanDialog
-        isOpen={showScanDialog}
+        isOpen={showScanDialog && !isScanning && !scanCompleted}
         onClose={() => setShowScanDialog(false)}
         onScanComplete={handleScanComplete}
       />

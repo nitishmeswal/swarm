@@ -14,6 +14,13 @@ const initialState: TaskPipelineState = {
   isGenerating: false,
   lastTaskGeneration: null,
   autoMode: true,
+  // Add completed tasks tracking for global stats
+  completedTasksForStats: {
+    three_d: 0,
+    video: 0,
+    text: 0,
+    image: 0,
+  },
 };
 
 // Load state from localStorage
@@ -39,7 +46,14 @@ const loadTaskState = (): TaskPipelineState => {
       
       return {
         ...parsed,
-        stats
+        stats,
+        // Ensure completedTasksForStats exists
+        completedTasksForStats: parsed.completedTasksForStats || {
+          three_d: 0,
+          video: 0,
+          text: 0,
+          image: 0,
+        }
       };
     }
   } catch (error) {
@@ -177,8 +191,8 @@ const taskSlice = createSlice({
           state.stats.processing--;
           state.stats.completed++;
           
-          // Dispatch reward (will be handled by earnings slice)
-          // This is a side effect that should be handled by middleware or thunk
+          // Increment completed tasks for global stats
+          state.completedTasksForStats[task.type as keyof typeof state.completedTasksForStats]++;
         }
       });
       
@@ -203,6 +217,17 @@ const taskSlice = createSlice({
       }
     },
     
+    // Add action to reset completed tasks for stats (after successful backend update)
+    resetCompletedTasksForStats: (state) => {
+      state.completedTasksForStats = {
+        three_d: 0,
+        video: 0,
+        text: 0,
+        image: 0,
+      };
+      saveTaskState(state);
+    },
+    
     resetTasks: (state) => {
       Object.assign(state, initialState);
       if (typeof window !== 'undefined') {
@@ -224,7 +249,8 @@ export const {
   updateProcessingTasks, 
   clearCompletedTasks, 
   resetTasks, 
-  setAutoMode 
+  setAutoMode,
+  resetCompletedTasksForStats
 } = taskSlice.actions;
 
 // Selectors
@@ -245,6 +271,11 @@ export const selectTaskProgress = (task: ProxyTask, hardwareTier: 'webgpu' | 'wa
   const completionTime = TASK_CONFIG.COMPLETION_TIMES[hardwareTier][task.type] * 1000;
   
   return Math.min((elapsed / completionTime) * 100, 100);
+};
+
+// Add selector for completed tasks for stats
+export const selectCompletedTasksForStats = (state: { tasks: TaskPipelineState }) => {
+  return state.tasks.completedTasksForStats;
 };
 
 export default taskSlice.reducer;

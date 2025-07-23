@@ -18,7 +18,6 @@ interface HardwareInfo {
   deviceGroup: 'desktop_laptop' | 'mobile_tablet';
   deviceType?: 'desktop' | 'laptop' | 'tablet' | 'mobile';
   rewardTier: 'webgpu' | 'wasm' | 'webgl' | 'cpu';
-  customDeviceName?: string;
 }
 
 interface HardwareScanDialogProps {
@@ -192,74 +191,6 @@ const ResultsDialog = ({
   );
 };
 
-const DeviceNamingDialog = ({ 
-  hardwareInfo, 
-  onClose, 
-  onConfirm 
-}: { 
-  hardwareInfo: HardwareInfo; 
-  onClose: () => void;
-  onConfirm: (deviceName: string) => void;
-}) => {
-  const [deviceName, setDeviceName] = React.useState(
-    `My ${hardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${hardwareInfo.deviceType?.slice(1) || 'evice'}`
-  );
-
-  const handleRegister = () => {
-    if (deviceName.trim()) {
-      onConfirm(deviceName.trim());
-    }
-  };
-
-  return (
-    <DialogContent className="sm:max-w-[400px] bg-slate-800 border-slate-700 text-white">
-      <DialogHeader className="flex flex-row items-center justify-between">
-        <DialogTitle className="text-lg font-semibold">Name Your Device</DialogTitle>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </DialogHeader>
-
-      <div className="py-4">
-        <p className="text-sm text-gray-300 mb-4">
-          Give your device a memorable name to help identify it in your dashboard.
-        </p>
-        
-        <div className="mb-6">
-          <input
-            type="text"
-            value={deviceName}
-            onChange={(e) => setDeviceName(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Enter device name"
-            maxLength={50}
-          />
-        </div>
-
-        <div className="flex gap-3">
-          <Button
-            onClick={onClose}
-            variant="outline"
-            className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleRegister}
-            disabled={!deviceName.trim()}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Register
-          </Button>
-        </div>
-      </div>
-    </DialogContent>
-  );
-};
-
 export const HardwareScanDialog: React.FC<HardwareScanDialogProps> = ({
   isOpen,
   onClose,
@@ -267,7 +198,6 @@ export const HardwareScanDialog: React.FC<HardwareScanDialogProps> = ({
 }) => {
   const [scanStep, setScanStep] = useState<ScanStep>('scanning');
   const [hardwareInfo, setHardwareInfo] = useState<HardwareInfo | null>(null);
-  const [showNamingDialog, setShowNamingDialog] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
   const startScan = async () => {
@@ -277,17 +207,13 @@ export const HardwareScanDialog: React.FC<HardwareScanDialogProps> = ({
     setScanStep('scanning');
     
     try {
-      // Show scanning step for at least 1 second
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Simulate scanning delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       setScanStep('analyzing');
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Show analyzing step for at least 1 second while detecting
-      const [result] = await Promise.all([
-        detectHardware(),
-        new Promise(resolve => setTimeout(resolve, 1000))
-      ]);
-      
+      const result = await detectHardware();
       setHardwareInfo(result);
       setScanStep('complete');
       
@@ -301,26 +227,14 @@ export const HardwareScanDialog: React.FC<HardwareScanDialogProps> = ({
 
   const handleRegister = () => {
     if (hardwareInfo) {
-      // Show device naming dialog instead of registering immediately
-      setShowNamingDialog(true);
+      onScanComplete(hardwareInfo);
+      onClose();
     }
   };
 
   const handleScanAgain = () => {
     setHardwareInfo(null);
     startScan();
-  };
-
-  const handleDeviceNaming = (deviceName: string) => {
-    if (hardwareInfo) {
-      // Pass hardware info with custom device name to parent
-      onScanComplete({ ...hardwareInfo, customDeviceName: deviceName });
-      onClose();
-    }
-  };
-
-  const handleNamingCancel = () => {
-    setShowNamingDialog(false);
   };
 
   // Start scan when dialog opens
@@ -336,7 +250,6 @@ export const HardwareScanDialog: React.FC<HardwareScanDialogProps> = ({
       setHardwareInfo(null);
       setScanStep('scanning');
       setIsScanning(false);
-      setShowNamingDialog(false);
     }
   }, [isOpen]);
 
@@ -344,13 +257,7 @@ export const HardwareScanDialog: React.FC<HardwareScanDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      {showNamingDialog && hardwareInfo ? (
-        <DeviceNamingDialog
-          hardwareInfo={hardwareInfo}
-          onClose={handleNamingCancel}
-          onConfirm={handleDeviceNaming}
-        />
-      ) : scanStep === 'complete' && hardwareInfo ? (
+      {scanStep === 'complete' && hardwareInfo ? (
         <ResultsDialog
           hardwareInfo={hardwareInfo}
           onClose={onClose}
