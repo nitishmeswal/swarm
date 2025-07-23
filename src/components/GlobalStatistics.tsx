@@ -14,89 +14,15 @@ import {
 } from "lucide-react";
 import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
-// Mock data for demonstration
-const mockStats = {
-  totalTasks: 15420,
-  avgComputeTime: 45,
-  totalUsers: 8932,
-  activeNodes: 1247,
-  networkLoad: 78,
-  totalEarnings: 125000.5,
-};
-
-const mockLeaderboard = [
-  {
-    user_id: "1",
-    username: "CryptoMiner2024",
-    total_earnings: 15420.75,
-    rank: 1,
-    task_count: 892,
-  },
-  {
-    user_id: "2",
-    username: "NodeRunner",
-    total_earnings: 12350.25,
-    rank: 2,
-    task_count: 756,
-  },
-  {
-    user_id: "3",
-    username: "SwarmKing",
-    total_earnings: 10890.5,
-    rank: 3,
-    task_count: 634,
-  },
-  {
-    user_id: "4",
-    username: "TechGuru",
-    total_earnings: 9750.0,
-    rank: 4,
-    task_count: 567,
-  },
-  {
-    user_id: "5",
-    username: "DataCruncher",
-    total_earnings: 8920.25,
-    rank: 5,
-    task_count: 498,
-  },
-  {
-    user_id: "6",
-    username: "AIEnthusiast",
-    total_earnings: 7650.75,
-    rank: 6,
-    task_count: 423,
-  },
-  {
-    user_id: "7",
-    username: "ComputeNode",
-    total_earnings: 6890.5,
-    rank: 7,
-    task_count: 389,
-  },
-  {
-    user_id: "8",
-    username: "BlockchainPro",
-    total_earnings: 6234.25,
-    rank: 8,
-    task_count: 345,
-  },
-  {
-    user_id: "9",
-    username: "NetworkNode",
-    total_earnings: 5678.0,
-    rank: 9,
-    task_count: 312,
-  },
-  {
-    user_id: "10",
-    username: "SwarmWorker",
-    total_earnings: 5123.75,
-    rank: 10,
-    task_count: 287,
-  },
-];
+// Interface for global statistics data
+interface GlobalStatsData {
+  global_sp: number;
+  total_users: number;
+  global_compute_generated: number;
+}
 
 // Interface for leaderboard entry
 interface LeaderboardEntry {
@@ -107,63 +33,149 @@ interface LeaderboardEntry {
   task_count: number;
 }
 
+// Interface for user rank data
+interface UserRankData {
+  user_id: string;
+  username: string;
+  total_earnings: number;
+  rank: number;
+  task_count: number;
+}
+
 export const GlobalStatistics = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [leaderboard, setLeaderboard] =
-    useState<LeaderboardEntry[]>(mockLeaderboard);
-  const [currentUserRank, setCurrentUserRank] =
-    useState<LeaderboardEntry | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [currentUserRank, setCurrentUserRank] = useState<UserRankData | null>(
+    null
+  );
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
-  const [totalEarnings, setTotalEarnings] = useState(mockStats.totalEarnings);
-  const [stats, setStats] = useState(mockStats);
+  const [globalStats, setGlobalStats] = useState<GlobalStatsData>({
+    global_sp: 0,
+    total_users: 0,
+    global_compute_generated: 0,
+  });
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
 
-  // Mock user profile for demonstration
-  const userProfile = { id: "user123", user_name: "CurrentUser" };
+  const { user, profile } = useAuth();
+  const supabase = createClient();
 
-  // Fetch network statistics (mock implementation)
-  const fetchNetworkStats = async () => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return mockStats;
+  // Fetch global statistics from edge function
+  const fetchGlobalStats = async (): Promise<GlobalStatsData> => {
+    try {
+      const response = await fetch(
+        "https://phpaoasgtqsnwohtevwf.supabase.co/functions/v1/global_statistics_data",
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching global stats:", error);
+      // Return default values on error
+      return {
+        global_sp: 0,
+        total_users: 0,
+        global_compute_generated: 0,
+      };
+    }
   };
 
-  // Fetch leaderboard data (mock implementation)
+  // Fetch leaderboard data using the get_top10_with_user_rank function
   const fetchLeaderboard = async () => {
+    if (!user?.id) return;
+
     try {
       setIsLeaderboardLoading(true);
+      console.log("Fetching leaderboard for user:", user.id);
 
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      setLeaderboard(mockLeaderboard);
-      setTotalEarnings(mockStats.totalEarnings);
-
-      // Set mock current user rank
-      setCurrentUserRank({
-        user_id: "user123",
-        username: "CurrentUser",
-        total_earnings: 3456.78,
-        rank: 15,
-        task_count: 234,
+      // Call the get_top10_with_user_rank function
+      const { data, error } = await supabase.rpc("get_top10_with_user_rank", {
+        target_user_id: user.id,
       });
+
+      if (error) {
+        console.error("Error fetching leaderboard:", error);
+        setIsLeaderboardLoading(false);
+        return;
+      }
+
+      console.log("Leaderboard data received:", data);
+
+      if (data) {
+        // Parse the JSONB response
+        const leaderboardData = data as any;
+
+        // Extract top 10 users
+        if (leaderboardData.top10 && Array.isArray(leaderboardData.top10)) {
+          const top10: LeaderboardEntry[] = leaderboardData.top10.map(
+            (entry: any) => ({
+              user_id: entry.user_id,
+              username: entry.username || entry.user_name || "Anonymous",
+              total_earnings: Number(entry.total_earnings) || 0,
+              rank: Number(entry.rank) || 0,
+              task_count: Number(entry.task_count) || 0,
+            })
+          );
+          console.log("Top 10 users:", top10);
+          setLeaderboard(top10);
+        } else {
+          console.log("No top10 data found or invalid format");
+          setLeaderboard([]);
+        }
+
+        // Extract current user rank
+        if (leaderboardData.user_rank && leaderboardData.user_rank.user_id) {
+          const userRank: UserRankData = {
+            user_id: leaderboardData.user_rank.user_id,
+            username:
+              leaderboardData.user_rank.username ||
+              leaderboardData.user_rank.user_name ||
+              "Anonymous",
+            total_earnings:
+              Number(leaderboardData.user_rank.total_earnings) || 0,
+            rank: Number(leaderboardData.user_rank.rank) || 0,
+            task_count: Number(leaderboardData.user_rank.task_count) || 0,
+          };
+          console.log("User rank data:", userRank);
+          setCurrentUserRank(userRank);
+        } else {
+          console.log("No user rank data found");
+          setCurrentUserRank(null);
+        }
+      } else {
+        console.log("No data returned from function");
+        setLeaderboard([]);
+        setCurrentUserRank(null);
+      }
 
       setIsLeaderboardLoading(false);
     } catch (error) {
       console.error("Error fetching leaderboard data:", error);
       setIsLeaderboardLoading(false);
+      setLeaderboard([]);
+      setCurrentUserRank(null);
     }
   };
 
   // Update stats when refreshing or initial load
   const updateStats = async () => {
-    setIsRefreshing(true);
+    setIsStatsLoading(true);
     try {
-      const networkStats = await fetchNetworkStats();
-      setStats(networkStats);
+      const stats = await fetchGlobalStats();
+      setGlobalStats(stats);
     } catch (error) {
       console.error("Error updating stats:", error);
     } finally {
-      setIsRefreshing(false);
+      setIsStatsLoading(false);
     }
   };
 
@@ -171,22 +183,32 @@ export const GlobalStatistics = () => {
   useEffect(() => {
     const initialLoad = async () => {
       try {
+        // Always fetch global stats (public data)
         await updateStats();
-        await fetchLeaderboard();
+
+        // Only fetch leaderboard if user is authenticated
+        if (user?.id) {
+          await fetchLeaderboard();
+        }
       } catch (error) {
         console.error("Error during initial data load:", error);
       }
     };
 
     initialLoad();
-  }, []);
+  }, [user?.id]);
 
   const handleRefresh = useCallback(async () => {
     try {
       setIsRefreshing(true);
 
-      // Fetch all data in parallel
-      await Promise.all([updateStats(), fetchLeaderboard()]);
+      // Always fetch global stats (public data)
+      await updateStats();
+
+      // Only fetch leaderboard if user is authenticated
+      if (user?.id) {
+        await fetchLeaderboard();
+      }
 
       setIsRefreshing(false);
       console.log("Data refreshed successfully");
@@ -194,7 +216,7 @@ export const GlobalStatistics = () => {
       console.error("Error refreshing data:", error);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [user?.id]);
 
   // Format currency for display
   const formatCurrency = (amount: number) => {
@@ -228,7 +250,7 @@ export const GlobalStatistics = () => {
     }
   };
 
-  const scrollRef = useRef(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const scrollEl = scrollRef.current;
@@ -262,11 +284,13 @@ export const GlobalStatistics = () => {
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            disabled={isRefreshing}
+            disabled={isRefreshing || isStatsLoading}
             className="gradient-button border-0 h-8 rounded-full ml-auto sm:ml-0"
           >
             <RefreshCw
-              className={`w-4 h-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`}
+              className={`w-4 h-4 mr-1 ${
+                isRefreshing || isStatsLoading ? "animate-spin" : ""
+              }`}
             />
             Refresh
           </Button>
@@ -404,10 +428,10 @@ export const GlobalStatistics = () => {
                       </span>
                     )}
                   </>
-                ) : userProfile ? (
+                ) : user ? (
                   "N/A"
                 ) : (
-                  "-"
+                  "Login Required"
                 )}
               </span>
             </div>
@@ -422,7 +446,11 @@ export const GlobalStatistics = () => {
             <div className="flex flex-col">
               <span className="text-sm text-slate-400">Global SP</span>
               <span className="text-xl font-bold text-white">
-                {formatCurrency(totalEarnings)}
+                {isStatsLoading ? (
+                  <div className="animate-pulse bg-slate-600 h-6 w-20 rounded"></div>
+                ) : (
+                  formatCurrency(globalStats.global_sp)
+                )}
               </span>
             </div>
           </div>
@@ -436,7 +464,11 @@ export const GlobalStatistics = () => {
             <div className="flex flex-col">
               <span className="text-sm text-slate-400">Total Users</span>
               <span className="text-xl font-bold text-white">
-                {stats.totalUsers.toLocaleString()}
+                {isStatsLoading ? (
+                  <div className="animate-pulse bg-slate-600 h-6 w-16 rounded"></div>
+                ) : (
+                  globalStats.total_users.toLocaleString()
+                )}
               </span>
             </div>
           </div>
@@ -452,10 +484,16 @@ export const GlobalStatistics = () => {
                 Global Compute Generated
               </span>
               <span className="text-xl font-bold text-white">
-                {stats.activeNodes.toLocaleString(undefined, {
-                  maximumFractionDigits: 2,
-                })}{" "}
-                TFLOPs
+                {isStatsLoading ? (
+                  <div className="animate-pulse bg-slate-600 h-6 w-20 rounded"></div>
+                ) : (
+                  `${globalStats.global_compute_generated.toLocaleString(
+                    undefined,
+                    {
+                      maximumFractionDigits: 2,
+                    }
+                  )} TFLOPs`
+                )}
               </span>
             </div>
           </div>
@@ -490,7 +528,7 @@ export const GlobalStatistics = () => {
                 key={entry.user_id}
                 className={`grid grid-cols-12 gap-2 py-3 px-4 text-white
                   ${
-                    userProfile && entry.user_id === userProfile.id
+                    profile && entry.user_id === profile.id
                       ? "bg-blue-900/30 border-l-2 border-blue-500"
                       : "hover:bg-slate-800/40"
                   }`}
@@ -500,7 +538,7 @@ export const GlobalStatistics = () => {
                 </div>
                 <div className="col-span-5 font-medium truncate">
                   {cleanUsername(entry.username)}
-                  {userProfile && entry.user_id === userProfile.id && (
+                  {profile && entry.user_id === profile.id && (
                     <span className="ml-2 text-xs bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded-full">
                       You
                     </span>
@@ -517,10 +555,8 @@ export const GlobalStatistics = () => {
 
             {/* Current user outside top 10 */}
             {currentUserRank &&
-              userProfile &&
-              !leaderboard.some(
-                (entry) => entry.user_id === userProfile.id
-              ) && (
+              profile &&
+              !leaderboard.some((entry) => entry.user_id === profile.id) && (
                 <>
                   <div className="flex justify-center py-2 border-t border-slate-800/50">
                     <div className="text-slate-500 text-sm">. . .</div>
@@ -546,6 +582,11 @@ export const GlobalStatistics = () => {
                   </div>
                 </>
               )}
+          </div>
+        ) : !user ? (
+          <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+            <TrendingUp className="w-10 h-10 mb-2 text-slate-600" />
+            <p>Please log in to view the leaderboard</p>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-8 text-slate-400">
