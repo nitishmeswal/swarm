@@ -170,4 +170,120 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// PATCH - Update task_completed count
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session?.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const { completed_tasks } = await request.json();
+
+    if (!completed_tasks || typeof completed_tasks !== 'object') {
+      return NextResponse.json(
+        { error: 'completed_tasks object is required' },
+        { status: 400 }
+      );
+    }
+
+    console.log('PATCH /api/profile - Received completed_tasks:', completed_tasks);
+
+    // Calculate total tasks completed
+    const totalTasks = (completed_tasks.three_d || 0) + 
+                      (completed_tasks.video || 0) + 
+                      (completed_tasks.text || 0) + 
+                      (completed_tasks.image || 0);
+
+    // Add bonus if all task types have at least 1 completed task
+    const allTypesCompleted = completed_tasks.three_d > 0 && 
+                             completed_tasks.video > 0 && 
+                             completed_tasks.text > 0 && 
+                             completed_tasks.image > 0;
+    
+    const tasksToAdd = allTypesCompleted ? totalTasks + 4 : totalTasks;
+
+    console.log('PATCH /api/profile - Calculation:', {
+      totalTasks,
+      allTypesCompleted,
+      tasksToAdd,
+      userId: session.user.id
+    });
+
+    if (tasksToAdd <= 0) {
+      return NextResponse.json(
+        { message: 'No tasks to update', tasks_added: 0 },
+        { status: 200 }
+      );
+    }
+
+    // First get current task_completed count
+    const { data: currentProfile, error: fetchError } = await supabase
+      .from('user_profiles')
+      .select('task_completed')
+      .eq('id', session.user.id)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching current task count:', fetchError);
+      return NextResponse.json(
+        { error: 'Failed to fetch current task count' },
+        { status: 500 }
+      );
+    }
+
+    const newTaskCount = (currentProfile.task_completed || 0) + tasksToAdd;
+
+    // Update the task_completed count
+    const { data: updatedProfile, error } = await supabase
+      .from('user_profiles')
+      .update({ 
+        task_completed: newTaskCount
+      })
+      .eq('id', session.user.id)
+      .select('task_completed')
+      .single();
+    
+    if (error) {
+      console.error('Error updating task_completed:', error);
+      return NextResponse.json(
+        { error: 'Failed to update task completed count' },
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json(
+      { 
+        message: 'Task completed count updated successfully',
+        tasks_added: tasksToAdd,
+        bonus_applied: allTypesCompleted,
+        new_total: updatedProfile.task_completed,
+        breakdown: {
+          base_tasks: totalTasks,
+          bonus: allTypesCompleted ? 4 : 0,
+          total_added: tasksToAdd
+        }
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache',
+        },
+      }
+    );
+    
+  } catch (error) {
+    console.error('Profile PATCH API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 } 

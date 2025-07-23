@@ -182,6 +182,36 @@ export const useNodeUptime = () => {
       const result: NodeUptimeResponse = await response.json();
 
       if (result.success && result.data) {
+        // Update user profile with completed tasks count
+        if (Object.values(completedTasksForStats).some(count => count > 0)) {
+          try {
+            console.log('Updating profile with completed tasks:', completedTasksForStats);
+            
+            const profileResponse = await fetch('/api/profile', {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                completed_tasks: completedTasksForStats
+              })
+            });
+
+            const profileResult = await profileResponse.json();
+            
+            if (profileResponse.ok) {
+              console.log('Profile task_completed updated successfully:', profileResult);
+            } else {
+              console.error('Failed to update profile task_completed:', profileResult.error);
+            }
+          } catch (profileError) {
+            console.error('Error updating profile task_completed:', profileError);
+            // Don't fail the entire operation if profile update fails
+          }
+        } else {
+          console.log('No completed tasks to update in profile');
+        }
+
         // Update local state with server response
         setDeviceUptimes(prev => {
           const newMap = new Map(prev);

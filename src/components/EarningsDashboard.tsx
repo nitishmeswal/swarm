@@ -12,6 +12,7 @@ import {
   HelpCircle,
   Clock,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "./ui/button";
 import {
@@ -77,9 +78,12 @@ export const EarningsDashboard = () => {
   const [checkInLoading, setCheckInLoading] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [walletAddress] = useState<string>("SOL1234...5678");
+  const [taskCompleted, setTaskCompleted] = useState<number>(0);
+  const [isLoadingTaskStats, setIsLoadingTaskStats] = useState<boolean>(true);
 
-  // Mock user session
-  const userId = "user123";
+  // Get user from auth context
+  const { user } = useAuth();
+  const userId = user?.id;
   const hasWallet = true;
 
   // Mock earnings data
@@ -129,6 +133,10 @@ export const EarningsDashboard = () => {
 
   const handleRefresh = () => {
     setLoading(true);
+    // Refetch task stats along with other data
+    if (userId) {
+      fetchTaskStats();
+    }
     setTimeout(() => {
       setLoading(false);
       alert("Earnings data refreshed");
@@ -156,12 +164,45 @@ export const EarningsDashboard = () => {
   };
 
   const getTaskCount = () => {
-    return earnings.completedTasks || 0;
+    return taskCompleted || 0;
   };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
+
+  // Fetch task completed count from API
+  const fetchTaskStats = async () => {
+    try {
+      setIsLoadingTaskStats(true);
+      const response = await fetch('/api/user-task-stats', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const { taskCompleted: completedCount } = await response.json();
+        setTaskCompleted(completedCount || 0);
+      } else {
+        console.error('Failed to fetch task stats:', response.status);
+        setTaskCompleted(0);
+      }
+    } catch (error) {
+      console.error('Error fetching task stats:', error);
+      setTaskCompleted(0);
+    } finally {
+      setIsLoadingTaskStats(false);
+    }
+  };
+
+  // Load task stats on component mount and when userId changes
+  useEffect(() => {
+    if (userId) {
+      fetchTaskStats();
+    }
+  }, [userId]);
 
   if (!userId) {
     return (
@@ -308,7 +349,14 @@ export const EarningsDashboard = () => {
             <div className="flex flex-col">
               <span className="text-sm text-[#515194]">Total Tasks</span>
               <span className="text-xl font-bold text-white">
-                {getTaskCount().toLocaleString()}
+                {isLoadingTaskStats ? (
+                  <div className="flex items-center">
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Loading...
+                  </div>
+                ) : (
+                  getTaskCount().toLocaleString()
+                )}
               </span>
             </div>
           </div>
@@ -598,7 +646,13 @@ export const EarningsDashboard = () => {
               </h4>
               <pre className="text-xs bg-[#0D0D1A] p-2 rounded overflow-auto max-h-40 text-white">
                 {JSON.stringify(
-                  { earnings, transactions: transactions.length, streakData },
+                  { 
+                    earnings, 
+                    transactions: transactions.length, 
+                    streakData,
+                    taskCompleted,
+                    isLoadingTaskStats 
+                  },
                   null,
                   2
                 )}

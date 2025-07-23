@@ -19,7 +19,7 @@ import { Button } from "./ui/button";
 import { HardwareScanDialog } from "./HardwareScanDialog";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
 import { registerDevice, startNode, stopNode, selectCurrentUptime, selectNode } from "@/lib/store/slices/nodeSlice";
-import { selectTotalEarnings, selectSessionEarnings, selectEarnings } from "@/lib/store/slices/earningsSlice";
+import { selectTotalEarnings, selectSessionEarnings, selectEarnings, resetSessionEarnings } from "@/lib/store/slices/earningsSlice";
 import { resetTasks } from "@/lib/store/slices/taskSlice";
 import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
@@ -120,12 +120,15 @@ export const NodeControlPanel = () => {
   const [displayUptime, setDisplayUptime] = useState(0);
   const [dbUnclaimedRewards, setDbUnclaimedRewards] = useState(0);
   const [isLoadingUnclaimedRewards, setIsLoadingUnclaimedRewards] = useState(true);
+  const [lastSavedSessionEarnings, setLastSavedSessionEarnings] = useState(0);
+  const [isSavingToDb, setIsSavingToDb] = useState(false);
   const initializedDevicesRef = useRef<Set<string>>(new Set());
+  const lastAutoSaveRef = useRef<number>(0);
   
   // Replace static nodes with state
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
 
-  // Functions to handle unclaimed rewards in database
+  // Robust unclaimed rewards management system
   const fetchUnclaimedRewards = async () => {
     if (!user?.id) return;
     
@@ -140,7 +143,15 @@ export const NodeControlPanel = () => {
       
       if (response.ok) {
         const { unclaimed_reward } = await response.json();
-        setDbUnclaimedRewards(unclaimed_reward || 0);
+        const dbRewards = unclaimed_reward || 0;
+        setDbUnclaimedRewards(dbRewards);
+        
+        // On page load, reset session earnings to start fresh
+        // This prevents double-counting from previous sessions
+        dispatch(resetSessionEarnings());
+        setLastSavedSessionEarnings(0);
+        
+        console.log('Loaded unclaimed rewards from DB:', dbRewards);
       } else {
         console.error('Failed to fetch unclaimed rewards:', response.status);
       }
@@ -151,28 +162,63 @@ export const NodeControlPanel = () => {
     }
   };
 
-  const saveUnclaimedRewards = async (amount: number) => {
-    if (!user?.id || amount <= 0) return;
+  const saveSessionEarningsToDb = async (forceSkipConcurrencyCheck = false) => {
+    if (!user?.id || sessionEarnings <= 0) return false;
+    
+    // Prevent concurrent saves unless forced
+    if (isSavingToDb && !forceSkipConcurrencyCheck) {
+      console.log('Skipping save - already saving to DB');
+      return false;
+    }
+    
+    // Prevent rapid auto-saves (minimum 10 seconds between auto-saves)
+    const now = Date.now();
+    if (!forceSkipConcurrencyCheck && now - lastAutoSaveRef.current < 10000) {
+      console.log('Skipping auto-save - too frequent');
+      return false;
+    }
+    
+    setIsSavingToDb(true);
+    const currentSessionEarnings = sessionEarnings; // Capture current value
     
     try {
+      // Calculate new total: existing DB rewards + current session earnings
+      const newDbTotal = dbUnclaimedRewards + currentSessionEarnings;
+      
       const response = await fetch('/api/unclaimed-rewards', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount: newDbTotal }),
       });
       
-      if (!response.ok) {
-        console.error('Failed to save unclaimed rewards:', response.status);
+      if (response.ok) {
+        console.log(`✅ Saved session earnings to DB: ${currentSessionEarnings} (new total: ${newDbTotal})`);
+        
+        // Update local state to reflect the save
+        setDbUnclaimedRewards(newDbTotal);
+        setLastSavedSessionEarnings(currentSessionEarnings);
+        lastAutoSaveRef.current = now;
+        
+        // Clear session earnings since they're now saved to DB
+        dispatch(resetSessionEarnings());
+        
+        return true;
+      } else {
+        console.error('❌ Failed to save session earnings to DB:', response.status);
+        return false;
       }
     } catch (error) {
-      console.error('Error saving unclaimed rewards:', error);
+      console.error('❌ Error saving session earnings to DB:', error);
+      return false;
+    } finally {
+      setIsSavingToDb(false);
     }
   };
 
-  const resetUnclaimedRewards = async () => {
-    if (!user?.id) return;
+  const resetAllUnclaimedRewards = async () => {
+    if (!user?.id) return false;
     
     try {
       const response = await fetch('/api/unclaimed-rewards', {
@@ -184,12 +230,18 @@ export const NodeControlPanel = () => {
       });
       
       if (response.ok) {
+        console.log('Reset all unclaimed rewards to 0');
         setDbUnclaimedRewards(0);
+        setLastSavedSessionEarnings(0);
+        dispatch(resetSessionEarnings());
+        return true;
       } else {
         console.error('Failed to reset unclaimed rewards:', response.status);
+        return false;
       }
     } catch (error) {
       console.error('Error resetting unclaimed rewards:', error);
+      return false;
     }
   };
   
@@ -206,6 +258,24 @@ export const NodeControlPanel = () => {
     }
   }, [user?.id, isMounted]);
 
+  // Auto-save session earnings periodically when node is running
+  useEffect(() => {
+    if (!user?.id || sessionEarnings <= 0 || !node.isActive) return;
+    
+    // Auto-save session earnings every 60 seconds when node is running
+    const autoSaveInterval = setInterval(() => {
+      if (node.isActive || isDeviceRunning(selectedNodeId)) {
+        console.log('🔄 Auto-save interval triggered - Session earnings:', sessionEarnings);
+        saveSessionEarningsToDb(false); // Don't force, respect concurrency controls
+      }
+    }, 60000); // 60 seconds
+    
+    return () => {
+      clearInterval(autoSaveInterval);
+      console.log('🔄 Auto-save interval cleared');
+    };
+  }, [sessionEarnings, user?.id, node.isActive, selectedNodeId]);
+
   // Show claim success message after successful claim
   useEffect(() => {
     if (claimSuccess) {
@@ -218,24 +288,24 @@ export const NodeControlPanel = () => {
     }
   }, [claimSuccess, resetClaimState]);
 
-  // Save unclaimed rewards before page unload
+  // Robust page unload and visibility change handling
   useEffect(() => {
     const handleBeforeUnload = () => {
-      const totalUnclaimed = sessionEarnings + dbUnclaimedRewards;
-      if (totalUnclaimed > 0) {
-        // Use sendBeacon with Blob for JSON data
-        const data = JSON.stringify({ amount: totalUnclaimed });
+      if (sessionEarnings > 0) {
+        // Use sendBeacon for reliable data transmission on page unload
+        const newDbTotal = dbUnclaimedRewards + sessionEarnings;
+        const data = JSON.stringify({ amount: newDbTotal });
         const blob = new Blob([data], { type: 'application/json' });
         navigator.sendBeacon('/api/unclaimed-rewards', blob);
+        console.log('Page unload: Saved session earnings via beacon:', sessionEarnings);
       }
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        const totalUnclaimed = sessionEarnings + dbUnclaimedRewards;
-        if (totalUnclaimed > 0) {
-          saveUnclaimedRewards(totalUnclaimed);
-        }
+      if (document.visibilityState === 'hidden' && sessionEarnings > 0) {
+        // Save session earnings when page becomes hidden (force save)
+        console.log('📱 Page hidden: Saving session earnings:', sessionEarnings);
+        saveSessionEarningsToDb(true); // Force save, ignore concurrency controls
       }
     };
 
@@ -246,7 +316,7 @@ export const NodeControlPanel = () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [sessionEarnings, dbUnclaimedRewards, user?.id]);
+  }, [sessionEarnings, dbUnclaimedRewards, dispatch]);
 
   // For demo purposes - in a real implementation this would be derived from the selected node ID
   const selectedNode = nodes.find(node => node.id === selectedNodeId);
@@ -399,11 +469,13 @@ export const NodeControlPanel = () => {
       setIsStopping(true);
       
       try {
-        // Save unclaimed rewards before stopping the node
-        const totalUnclaimed = sessionEarnings + dbUnclaimedRewards;
-        if (totalUnclaimed > 0) {
-          await saveUnclaimedRewards(totalUnclaimed);
-          setDbUnclaimedRewards(totalUnclaimed);
+        // Save any unsaved session earnings before stopping the node
+        if (sessionEarnings > 0) {
+          console.log('🛑 Node stopping: Saving session earnings to DB:', sessionEarnings);
+          const saveSuccess = await saveSessionEarningsToDb(true); // Force save
+          if (!saveSuccess) {
+            console.error('❌ Failed to save session earnings before stopping node');
+          }
         }
 
         // Stop uptime tracking and update server
@@ -514,15 +586,33 @@ export const NodeControlPanel = () => {
     if (totalUnclaimedRewards <= 0) return;
     
     try {
-      // First claim the rewards (using total unclaimed rewards)
-      const result = await claimTaskRewards(totalUnclaimedRewards);
+      console.log('Claiming total rewards:', totalUnclaimedRewards, '(Session:', sessionEarnings, '+ DB:', dbUnclaimedRewards, ')');
+      
+      // First, save any unsaved session earnings to ensure we don't lose them
+      if (sessionEarnings > 0) {
+        console.log('💰 Claiming: First saving unsaved session earnings:', sessionEarnings);
+        const saveSuccess = await saveSessionEarningsToDb(true); // Force save before claiming
+        if (!saveSuccess) {
+          console.error('❌ Failed to save session earnings before claiming');
+          return;
+        }
+      }
+      
+      // Recalculate total after potential save (should now be all in DB)
+      const finalDbRewards = dbUnclaimedRewards + (sessionEarnings > 0 ? sessionEarnings : 0);
+      
+      // Claim the rewards
+      const result = await claimTaskRewards(finalDbRewards);
       
       if (result) {
-        // After successful claim, reset database unclaimed rewards
-        await resetUnclaimedRewards();
+        // After successful claim, reset everything to 0
+        const resetSuccess = await resetAllUnclaimedRewards();
+        if (resetSuccess) {
+          console.log('Successfully claimed and reset all rewards');
+        }
         
         // Process referral rewards
-        const { error } = await processReferralRewards(user!.id, totalUnclaimedRewards);
+        const { error } = await processReferralRewards(user!.id, finalDbRewards);
         
         if (error) {
           console.error('Error processing referral rewards:', error);
@@ -532,6 +622,8 @@ export const NodeControlPanel = () => {
       console.error('Error in reward claiming process:', error);
     }
   };
+
+
 
   useEffect(() => {
     if (claimSuccess) {
@@ -759,9 +851,29 @@ export const NodeControlPanel = () => {
                       <span className="text-white text-base font-medium">
                         Unclaimed: <span className="text-blue-400">+{(sessionEarnings + dbUnclaimedRewards).toFixed(2)} NLOV</span>
                       </span>
-                      <span className="text-xs text-white/50">
-                        {isLoadingUnclaimedRewards ? "Loading..." : "Saved automatically - will persist until claimed"}
-                      </span>
+                      <div className="text-xs text-white/50 space-y-0.5">
+                        {isLoadingUnclaimedRewards ? (
+                          <div>Loading...</div>
+                        ) : (
+                          <>
+                            {dbUnclaimedRewards > 0 && (
+                              <div>Saved: {dbUnclaimedRewards.toFixed(2)} NLOV</div>
+                            )}
+                            {sessionEarnings > 0 && (
+                              <div>
+                                Session: {sessionEarnings.toFixed(2)} NLOV{" "}
+                                {isSavingToDb ? (
+                                  <span className="text-blue-400">(saving...)</span>
+                                ) : node.isActive || isDeviceRunning(selectedNodeId) ? (
+                                  <span className="text-green-400">(auto-saving)</span>
+                                ) : (
+                                  <span className="text-yellow-400">(unsaved)</span>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -772,7 +884,7 @@ export const NodeControlPanel = () => {
                     variant="default"
                     size="sm"
                     onClick={handleClaimReward}
-                    disabled={isClaimingReward || (sessionEarnings + dbUnclaimedRewards) <= 0 || isLoadingUnclaimedRewards}
+                    disabled={isClaimingReward || isSavingToDb || (sessionEarnings + dbUnclaimedRewards) <= 0 || isLoadingUnclaimedRewards}
                     className="bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500 rounded-full text-white px-4 py-2 w-full"
                   >
                     {isClaimingReward ? (

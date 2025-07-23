@@ -44,7 +44,7 @@ const loadTaskState = (): TaskPipelineState => {
         stats[task.status]++;
       });
       
-      return {
+      const loadedState = {
         ...parsed,
         stats,
         // Ensure completedTasksForStats exists
@@ -55,6 +55,12 @@ const loadTaskState = (): TaskPipelineState => {
           image: 0,
         }
       };
+      
+      if (loadedState.completedTasksForStats && Object.values(loadedState.completedTasksForStats).some((count: unknown) => typeof count === 'number' && count > 0)) {
+        logger.log('Loaded completed tasks from localStorage:', loadedState.completedTasksForStats);
+      }
+      
+      return loadedState;
     }
   } catch (error) {
     logger.error('Failed to load task state', error);
@@ -193,6 +199,8 @@ const taskSlice = createSlice({
           
           // Increment completed tasks for global stats
           state.completedTasksForStats[task.type as keyof typeof state.completedTasksForStats]++;
+          
+          logger.log(`Task ${task.type} completed. Total completed tasks:`, state.completedTasksForStats);
         }
       });
       
@@ -219,6 +227,7 @@ const taskSlice = createSlice({
     
     // Add action to reset completed tasks for stats (after successful backend update)
     resetCompletedTasksForStats: (state) => {
+      const previousTasks = { ...state.completedTasksForStats };
       state.completedTasksForStats = {
         three_d: 0,
         video: 0,
@@ -226,6 +235,7 @@ const taskSlice = createSlice({
         image: 0,
       };
       saveTaskState(state);
+      logger.log('Completed tasks reset after successful server update. Previous:', previousTasks);
     },
     
     resetTasks: (state) => {
