@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 import { ProxyTask, TaskPipelineState, RootState } from '../types';
 import { TASK_CONFIG, TASK_MODELS, SAMPLE_PROMPTS, STORAGE_KEYS, generateTaskId, logger } from '../config';
 
@@ -254,13 +254,27 @@ export const {
 } = taskSlice.actions;
 
 // Selectors
-export const selectRecentTasks = (state: { tasks: TaskPipelineState }, count: number = 5) => {
-  return state.tasks.tasks.slice(-count).reverse();
-};
+export const selectTasks = (state: { tasks: TaskPipelineState }) => state.tasks;
+export const selectTasksArray = (state: { tasks: TaskPipelineState }) => state.tasks.tasks;
+export const selectTasksStats = (state: { tasks: TaskPipelineState }) => state.tasks.stats;
+export const selectTasksAutoMode = (state: { tasks: TaskPipelineState }) => state.tasks.autoMode;
+export const selectTasksIsGenerating = (state: { tasks: TaskPipelineState }) => state.tasks.isGenerating;
 
-export const selectProcessingTasks = (state: { tasks: TaskPipelineState }) => {
-  return state.tasks.tasks.filter(task => task.status === 'processing');
-};
+// Memoized selectors to prevent unnecessary re-renders
+export const selectRecentTasks = createSelector(
+  [selectTasksArray, (state: { tasks: TaskPipelineState }, count: number) => count],
+  (tasks, count = 5) => tasks.slice(-count).reverse()
+);
+
+export const selectProcessingTasks = createSelector(
+  [selectTasksArray],
+  (tasks) => tasks.filter(task => task.status === 'processing')
+);
+
+export const selectPendingTasks = createSelector(
+  [selectTasksArray],
+  (tasks) => tasks.filter(task => task.status === 'pending')
+);
 
 export const selectTaskProgress = (task: ProxyTask, hardwareTier: 'webgpu' | 'wasm' | 'webgl' | 'cpu'): number => {
   if (task.status !== 'processing' || !task.processing_start) return 0;

@@ -18,8 +18,8 @@ import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "./ui/button";
 import { HardwareScanDialog } from "./HardwareScanDialog";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
-import { registerDevice, startNode, stopNode, selectCurrentUptime } from "@/lib/store/slices/nodeSlice";
-import { selectTotalEarnings, selectSessionEarnings } from "@/lib/store/slices/earningsSlice";
+import { registerDevice, startNode, stopNode, selectCurrentUptime, selectNode } from "@/lib/store/slices/nodeSlice";
+import { selectTotalEarnings, selectSessionEarnings, selectEarnings } from "@/lib/store/slices/earningsSlice";
 import { resetTasks } from "@/lib/store/slices/taskSlice";
 import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
@@ -76,7 +76,8 @@ interface SupabaseDevice {
 
 export const NodeControlPanel = () => {
   const dispatch = useAppDispatch();
-  const { node, earnings } = useAppSelector(state => state);
+  const node = useAppSelector(selectNode);
+  const earnings = useAppSelector(selectEarnings);
   const currentUptime = useAppSelector(selectCurrentUptime);
   const totalEarnings = useAppSelector(selectTotalEarnings);
   const sessionEarnings = useAppSelector(selectSessionEarnings);

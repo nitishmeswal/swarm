@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 import { useAppDispatch, useAppSelector } from '@/lib/store';
 import { selectCompletedTasksForStats, resetCompletedTasksForStats } from '@/lib/store/slices/taskSlice';
+import { selectNode } from '@/lib/store/slices/nodeSlice';
 
 interface CompletedTasks {
   three_d: number;
@@ -36,7 +37,7 @@ export const useNodeUptime = () => {
   const { user } = useAuth();
   const supabase = createClient();
   const dispatch = useAppDispatch();
-  const { node } = useAppSelector(state => state);
+  const node = useAppSelector(selectNode);
   const completedTasksForStats = useAppSelector(selectCompletedTasksForStats);
   
   // State for tracking multiple device uptimes (removed completedTasks from here)
