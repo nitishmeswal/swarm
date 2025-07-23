@@ -11,6 +11,7 @@ import {
   Loader2,
   HelpCircle,
   Clock,
+  AlertCircle,
 } from "lucide-react";
 import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "./ui/button";
@@ -21,6 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { useEarnings } from "@/hooks/useEarnings";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAppSelector } from "@/lib/store";
 
 type TimeRange = "daily" | "weekly" | "monthly" | "all-time";
 
@@ -34,7 +38,7 @@ interface ChartDataPoint {
   timestamp?: number;
 }
 
-// Mock data for demonstration
+// Mock data for demonstration - will be replaced with real data later
 const mockTransactions = [
   {
     id: "1",
@@ -59,33 +63,31 @@ const mockTransactions = [
   },
 ];
 
-const mockEarnings = {
-  totalEarnings: 6218.0,
-  pendingEarnings: 6218.0,
-  completedTasks: 155,
-};
-
-const mockStreakData = {
-  streak: 3,
-  lastCheckIn: "2024-01-16",
-};
-
 export const EarningsDashboard = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>("daily");
   const [chartPeriod, setChartPeriod] = useState<TimeRange>("daily");
   const [debugMode, setDebugMode] = useState<boolean>(false);
-  const [checkInLoading, setCheckInLoading] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
   const [walletAddress] = useState<string>("SOL1234...5678");
+  const [successMessage, setSuccessMessage] = useState<string>("");
 
-  // Mock user session
-  const userId = "user123";
-  const hasWallet = true;
+  // Real data from hooks
+  const { user } = useAuth();
+  const { 
+    streakData, 
+    performDailyCheckIn, 
+    loadStreakData,
+    isCheckingIn, 
+    checkInError,
+    isLoading,
+    resetClaimState
+  } = useEarnings();
+  
+  // Get earnings data from Redux store
+  const totalEarnings = useAppSelector((state) => state.earnings.totalEarned);
+  const sessionEarnings = useAppSelector((state) => state.earnings.sessionEarnings);
 
-  // Mock earnings data
-  const earnings = mockEarnings;
+  // Mock data for transactions - this should be replaced with real data from the hook later
   const transactions = mockTransactions;
-  const streakData = mockStreakData;
 
   // Process transactions into chart data based on selected period
   const chartData = useMemo<ChartDataPoint[]>(() => {
@@ -114,6 +116,26 @@ export const EarningsDashboard = () => {
     return labels;
   }, [chartPeriod]);
 
+  // Clear success message after 5 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
+  // Clear errors after 5 seconds
+  useEffect(() => {
+    if (checkInError) {
+      const timer = setTimeout(() => {
+        resetClaimState();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [checkInError, resetClaimState]);
+
   const handleTimeRangeChange = (value: string) => {
     setTimeRange(value as TimeRange);
   };
@@ -127,43 +149,43 @@ export const EarningsDashboard = () => {
     alert("Withdrawals will be available after mainnet launch");
   };
 
-  const handleRefresh = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      alert("Earnings data refreshed");
-    }, 1000);
+  const handleRefresh = async () => {
+    if (user?.id) {
+      await loadStreakData(true);
+      setSuccessMessage("Data refreshed successfully!");
+    }
   };
 
   const handleDailyCheckIn = async () => {
-    setCheckInLoading(true);
-    setTimeout(() => {
-      setCheckInLoading(false);
-      alert(
-        `Day ${streakData.streak + 1} checked in! You earned ${
-          (streakData.streak + 1) * 10
-        } SP!`
-      );
-    }, 1000);
+    const result = await performDailyCheckIn();
+    if (result) {
+      setSuccessMessage(result.message);
+    }
   };
 
   const calculateMonthlyExpectedEarnings = () => {
-    return earnings.totalEarnings * 0.1; // Mock calculation
+    return totalEarnings * 0.1; // Mock calculation
   };
 
   const getTotalBalance = () => {
-    return earnings.pendingEarnings || 0;
+    return totalEarnings + sessionEarnings;
   };
 
   const getTaskCount = () => {
-    return earnings.completedTasks || 0;
+    // This should be replaced with real task count from the store/API
+    return 155; // Mock data
   };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  if (!userId) {
+  // Get current streak for display
+  const currentStreak = streakData?.current_streak || 0;
+  const canCheckIn = streakData?.can_check_in ?? false;
+  const nextReward = streakData?.next_reward || 10;
+
+  if (!user) {
     return (
       <div className="flex flex-col stat-card">
         <div className="flex justify-between items-center mb-8">
@@ -237,9 +259,9 @@ export const EarningsDashboard = () => {
             className="h-8 m-0 bg-[#1D1D33] rounded-full font-md font-thin"
             size="sm"
             onClick={handleRefresh}
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? (
+            {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               "Refresh"
@@ -247,6 +269,21 @@ export const EarningsDashboard = () => {
           </Button>
         </div>
       </div>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-900/20 border border-green-500/50 rounded-lg flex items-center gap-2">
+          <Check className="w-4 h-4 text-green-400" />
+          <span className="text-green-400 text-sm">{successMessage}</span>
+        </div>
+      )}
+
+      {checkInError && (
+        <div className="mb-4 p-3 bg-red-900/20 border border-red-500/50 rounded-lg flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-400" />
+          <span className="text-red-400 text-sm">{checkInError}</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         {/* Total Earning Card */}
@@ -262,7 +299,7 @@ export const EarningsDashboard = () => {
             <div className="flex flex-col">
               <span className="text-sm text-[#515194]">Total Earning</span>
               <span className="text-xl font-bold text-white">
-                {earnings.totalEarnings.toLocaleString(undefined, {
+                {totalEarnings.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}{" "}
@@ -456,31 +493,37 @@ export const EarningsDashboard = () => {
               <h3 className="text-lg font-medium">Daily Rewards</h3>
               <div className="ml-2 mt-2">
                 <InfoTooltip 
-                  content="Check in daily to earn rewards! Rewards increase with consecutive days."
+                  content="Check in daily to earn rewards! Rewards increase with consecutive days. Miss a day and your streak resets."
                 />
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {userId && (
-              <div className="flex items-center bg-blue-900/20 px-3 py-1 rounded-full">
-                <span className="text-xs text-blue-300 mr-1">
-                  Current streak:
-                </span>
-                <span className="text-sm font-medium text-blue-400">
-                  {streakData.streak.toLocaleString()} days
-                </span>
-              </div>
-            )}
+            <div className="flex items-center bg-blue-900/20 px-3 py-1 rounded-full">
+              <span className="text-xs text-blue-300 mr-1">
+                Current streak:
+              </span>
+              <span className="text-sm font-medium text-blue-400">
+                {currentStreak.toLocaleString()} days
+              </span>
+            </div>
+            <div className="flex items-center bg-green-900/20 px-3 py-1 rounded-full">
+              <span className="text-xs text-green-300 mr-1">
+                Next reward:
+              </span>
+              <span className="text-sm font-medium text-green-400">
+                {nextReward} SP
+              </span>
+            </div>
             <Button
               className="gradient-button rounded-full"
               onClick={handleDailyCheckIn}
-              disabled={checkInLoading || !userId}
+              disabled={isCheckingIn || !canCheckIn}
             >
-              {checkInLoading ? (
+              {isCheckingIn ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : null}
-              Check In
+              {!canCheckIn ? "Checked In" : "Check In"}
             </Button>
           </div>
         </div>
@@ -492,23 +535,23 @@ export const EarningsDashboard = () => {
               key={day}
               day={day}
               points={day * 10}
-              isActive={streakData.streak === day - 1}
-              isCompleted={streakData.streak >= day}
+              isActive={(currentStreak % 7) + 1 === day && canCheckIn}
+              isCompleted={currentStreak >= day || (currentStreak % 7) >= day}
               description="Earn instantly"
             />
           ))}
         </div>
 
         {/* Last check-in info */}
-        {streakData.lastCheckIn && (
+        {streakData?.last_checkin_date && (
           <div className="flex justify-center mt-4">
             <div className="text-xs text-slate-400">
               Last check-in:{" "}
-              {streakData.lastCheckIn ===
+              {streakData.last_checkin_date ===
               new Date().toISOString().split("T")[0] ? (
                 <span className="text-green-400">Today</span>
               ) : (
-                new Date(streakData.lastCheckIn).toLocaleDateString()
+                new Date(streakData.last_checkin_date).toLocaleDateString()
               )}
             </div>
           </div>
@@ -531,20 +574,20 @@ export const EarningsDashboard = () => {
           <h3 className="text-lg font-medium">Recent Transactions</h3>
         </div>
 
-        {loading && (
+        {isLoading && (
           <div className="flex justify-center items-center h-40">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
           </div>
         )}
 
-        {!loading && transactions.length === 0 && (
+        {!isLoading && transactions.length === 0 && (
           <div className="flex items-center justify-center h-40 text-slate-400 text-sm">
             <Clock className="w-16 h-16 text-slate-600 mr-2" />
             <p>No transaction history available yet</p>
           </div>
         )}
 
-        {!loading && transactions.length > 0 && (
+        {!isLoading && transactions.length > 0 && (
           <div className="flex flex-col">
             <div className="space-y-2 h-[320px] overflow-y-auto pr-1 custom-scrollbar">
               {transactions.map((tx) => (
@@ -596,13 +639,13 @@ export const EarningsDashboard = () => {
               <h4 className="text-md font-medium mb-2 text-blue-400">
                 Mock Data Status
               </h4>
-              <pre className="text-xs bg-[#0D0D1A] p-2 rounded overflow-auto max-h-40 text-white">
-                {JSON.stringify(
-                  { earnings, transactions: transactions.length, streakData },
-                  null,
-                  2
-                )}
-              </pre>
+                              <pre className="text-xs bg-[#0D0D1A] p-2 rounded overflow-auto max-h-40 text-white">
+                  {JSON.stringify(
+                    { totalEarned: totalEarnings, sessionEarnings, streakData, transactions: transactions.length },
+                    null,
+                    2
+                  )}
+                </pre>
             </div>
           </div>
         </div>
