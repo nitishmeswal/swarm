@@ -24,7 +24,6 @@ import {
 } from "./ui/select";
 import { useEarnings } from "@/hooks/useEarnings";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAppSelector } from "@/lib/store";
 
 type TimeRange = "daily" | "weekly" | "monthly" | "all-time";
 
@@ -38,7 +37,7 @@ interface ChartDataPoint {
   timestamp?: number;
 }
 
-// Mock data for demonstration - will be replaced with real data later
+// Mock data for demonstration
 const mockTransactions = [
   {
     id: "1",
@@ -63,6 +62,12 @@ const mockTransactions = [
   },
 ];
 
+const mockEarnings = {
+  totalEarnings: 6218.0,
+  pendingEarnings: 6218.0,
+  completedTasks: 155,
+};
+
 export const EarningsDashboard = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>("daily");
   const [chartPeriod, setChartPeriod] = useState<TimeRange>("daily");
@@ -70,7 +75,7 @@ export const EarningsDashboard = () => {
   const [walletAddress] = useState<string>("SOL1234...5678");
   const [successMessage, setSuccessMessage] = useState<string>("");
 
-  // Real data from hooks
+  // Real data from hooks (only for daily check-in)
   const { user } = useAuth();
   const { 
     streakData, 
@@ -82,11 +87,8 @@ export const EarningsDashboard = () => {
     resetClaimState
   } = useEarnings();
   
-  // Get earnings data from Redux store
-  const totalEarnings = useAppSelector((state) => state.earnings.totalEarned);
-  const sessionEarnings = useAppSelector((state) => state.earnings.sessionEarnings);
-
-  // Mock data for transactions - this should be replaced with real data from the hook later
+  // Mock data for earnings and transactions
+  const earnings = mockEarnings;
   const transactions = mockTransactions;
 
   // Process transactions into chart data based on selected period
@@ -164,16 +166,15 @@ export const EarningsDashboard = () => {
   };
 
   const calculateMonthlyExpectedEarnings = () => {
-    return totalEarnings * 0.1; // Mock calculation
+    return earnings.totalEarnings * 0.1; // Mock calculation
   };
 
   const getTotalBalance = () => {
-    return totalEarnings + sessionEarnings;
+    return earnings.pendingEarnings || 0;
   };
 
   const getTaskCount = () => {
-    // This should be replaced with real task count from the store/API
-    return 155; // Mock data
+    return earnings.completedTasks || 0;
   };
 
   const formatDate = (dateString: string) => {
@@ -299,7 +300,7 @@ export const EarningsDashboard = () => {
             <div className="flex flex-col">
               <span className="text-sm text-[#515194]">Total Earning</span>
               <span className="text-xl font-bold text-white">
-                {totalEarnings.toLocaleString(undefined, {
+                {earnings.totalEarnings.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}{" "}
@@ -641,7 +642,7 @@ export const EarningsDashboard = () => {
               </h4>
                               <pre className="text-xs bg-[#0D0D1A] p-2 rounded overflow-auto max-h-40 text-white">
                   {JSON.stringify(
-                    { totalEarned: totalEarnings, sessionEarnings, streakData, transactions: transactions.length },
+                    { earnings, transactions: transactions.length, streakData },
                     null,
                     2
                   )}
