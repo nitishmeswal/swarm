@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Eye,
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
 
-const ResetPasswordPage: React.FC = () => {
+const ResetPasswordContent: React.FC = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -307,6 +307,25 @@ const ResetPasswordPage: React.FC = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const ResetPasswordPage: React.FC = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-[#161628] rounded-2xl p-8 max-w-md w-full mx-4 border border-[#112544]">
+            <div className="flex items-center justify-center space-x-3">
+              <RefreshCw className="w-6 h-6 animate-spin text-blue-400" />
+              <span className="text-white">Loading...</span>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
   );
 };
 
