@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface ReferralStatCardProps {
   label: string;
@@ -9,6 +10,7 @@ interface ReferralStatCardProps {
   backgroundImage?: string;
   className?: string;
   highlight?: boolean;
+  description?: string;
 }
 
 export const ReferralStatCard: React.FC<ReferralStatCardProps> = ({
@@ -18,6 +20,7 @@ export const ReferralStatCard: React.FC<ReferralStatCardProps> = ({
   backgroundImage,
   className = "",
   highlight = false,
+  description
 }) => {
   // Add state to track animation phases
   const [isAnimating, setIsAnimating] = useState(false);
