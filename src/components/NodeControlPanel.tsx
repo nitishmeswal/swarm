@@ -25,6 +25,7 @@ import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
 import { useEarnings } from "@/hooks/useEarnings";
 import { useNodeUptime } from "@/hooks/useNodeuptime";
+import { useReferrals } from "@/hooks/useRefferals";
 import {
   Select,
   SelectContent,
@@ -95,7 +96,6 @@ export const NodeControlPanel = () => {
     initializeDeviceUptime,
     startDeviceUptime,
     stopDeviceUptime,
-    addCompletedTask,
     getCurrentUptime,
     isDeviceRunning,
     getCompletedTasks,
@@ -103,6 +103,8 @@ export const NodeControlPanel = () => {
     isUpdatingUptime,
     deviceUptimes: deviceUptimeList
   } = useNodeUptime();
+  
+  const { processReferralRewards } = useReferrals();
   
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
@@ -458,7 +460,22 @@ export const NodeControlPanel = () => {
 
   const handleClaimReward = async () => {
     if (sessionEarnings <= 0) return;
-    await claimTaskRewards(sessionEarnings);
+    
+    try {
+      // First claim the rewards
+      const result = await claimTaskRewards(sessionEarnings);
+      
+      if (result) {
+        // After successful claim, process referral rewards
+        const { error } = await processReferralRewards(user!.id, sessionEarnings);
+        
+        if (error) {
+          console.error('Error processing referral rewards:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error in reward claiming process:', error);
+    }
   };
 
   useEffect(() => {

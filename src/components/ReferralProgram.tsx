@@ -22,121 +22,146 @@ import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-// import { toast } from "sonner";
 import { ReferralStatCard } from "./ReferralStatCard";
 import { User as LucideUser } from "lucide-react";
+import { useReferrals } from "@/hooks/useRefferals";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEarnings } from "@/hooks/useEarnings";
+import { createClient } from "@/utils/supabase/client";
 
-// Mock data for demonstration
-const mockData = {
-  tier1Referrals: 5,
-  tier2Referrals: 12,
-  tier3Referrals: 8,
-  totalReferralEarnings: 2450.75,
-  claimedRewards: 1800.25,
-  pendingRewards: 650.5,
-  userProfile: {
-    id: "user123",
-    referral_code: "SWARM123",
-    email: "user@example.com",
-  },
-  referrals: [
-    {
-      id: "1",
-      user_profile: { user_name: "Alice Johnson" },
-      referred_name: "Alice Johnson",
-      referred_at: "2024-01-15T10:30:00Z",
-      tier_level: "tier_1",
-      referred_id: "user456",
-      referrer_id: "user123",
-    },
-    {
-      id: "2",
-      user_profile: { user_name: "Bob Smith" },
-      referred_name: "Bob Smith",
-      referred_at: "2024-01-20T14:45:00Z",
-      tier_level: "tier_2",
-      referred_id: "user789",
-      referrer_id: "user123",
-    },
-  ],
-  referralRewards: [
-    {
-      id: "reward1",
-      reward_amount: 250,
-      reward_type: "signup",
-      reward_timestamp: "2024-01-15T10:30:00Z",
-      claimed: false,
-      referral: {
-        user_profile: { user_name: "Alice Johnson" },
-        referred_name: "Alice Johnson",
-        referred_id: "user456",
-      },
-    },
-    {
-      id: "reward2",
-      reward_amount: 125,
-      reward_type: "task_completion",
-      reward_timestamp: "2024-01-20T14:45:00Z",
-      claimed: true,
-      referral: {
-        user_profile: { user_name: "Bob Smith" },
-        referred_name: "Bob Smith",
-        referred_id: "user789",
-      },
-    },
-  ],
-};
+const API_ENDPOINT = "https://phpaoasgtqsnwohtevwf.supabase.co/functions/v1/add_earnings";
+const token = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export const ReferralProgram = () => {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [dataReady, setDataReady] = useState(true);
   const [referralCode, setReferralCode] = useState("");
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
   const [referralError, setReferralError] = useState("");
+  const [referralData, setReferralData] = useState<any>(null);
+  const [referralRewards, setReferralRewards] = useState<any[]>([]);
+  const [totalReferralEarnings, setTotalReferralEarnings] = useState(0);
+  const [claimedRewards, setClaimedRewards] = useState(0);
+  const [pendingRewards, setPendingRewards] = useState(0);
+  const [isClaimingReward, setIsClaimingReward] = useState(false);
+  const [claimSuccess, setClaimSuccess] = useState(false);
 
-  // Use mock data
-  const userProfile = mockData.userProfile;
-  const referrals = mockData.referrals;
-  const referralRewards = mockData.referralRewards;
-  const totalReferralEarnings = mockData.totalReferralEarnings;
-  const claimedRewards = mockData.claimedRewards;
-  const pendingRewards = mockData.pendingRewards;
+  const { user } = useAuth();
+  const supabase = createClient();
+  const { 
+    verifyReferralCode, 
+    createReferralRelationship,
+    getMyReferrals,
+    isVerifying,
+    isCreating,
+    isFetching 
+  } = useReferrals();
+  const { claimTaskRewards } = useEarnings();
+
+  // Load referral data
+  useEffect(() => {
+    if (user?.id) {
+      loadReferralData();
+    }
+  }, [user?.id]);
+
+  const loadReferralData = async () => {
+    setIsLoading(true);
+    try {
+      // Get my referrals
+      const { data: myReferrals } = await getMyReferrals(user!.id);
+      setReferralData(myReferrals);
+  
+      // Get referral rewards
+      const { data: rewardsData, error: rewardsError } = await supabase
+        .from('referral_rewards')
+        .select(`
+          id,
+          referral_id,
+          reward_type,
+          reward_amount,
+          reward_timestamp,
+          claimed,
+          claimed_at,
+          referrals!inner (
+            id,
+            referrer_id,
+            user_profile:referred_id (
+              user_name
+            )
+          )
+        `)
+        .eq('referrals.referrer_id', user!.id);
+  
+      if (rewardsError) throw rewardsError;
+      setReferralRewards(rewardsData || []);
+  
+      // Calculate rewards from referral_rewards table
+      const total = rewardsData?.reduce((sum, reward) => sum + Number(reward.reward_amount), 0) || 0;
+      const claimed = rewardsData?.filter(r => r.claimed).reduce((sum, reward) => sum + Number(reward.reward_amount), 0) || 0;
+      const pending = rewardsData?.filter(r => !r.claimed).reduce((sum, reward) => sum + Number(reward.reward_amount), 0) || 0;
+  
+      // Get total referral earnings from earnings table
+      const { data: earningsData, error: earningsError } = await supabase
+        .from('earnings')
+        .select('amount')
+        .eq('user_id', user!.id)
+        .eq('earning_type', 'referral');
+
+      if (earningsError) throw earningsError;
+
+      // Calculate total from both tables
+      const totalFromEarnings = earningsData?.reduce((sum, earning) => sum + Number(earning.amount), 0) || 0;
+      
+      // Set the states
+      setTotalReferralEarnings(total + totalFromEarnings); // Sum of both pending rewards and claimed earnings
+      setClaimedRewards(totalFromEarnings); // Only from earnings table (these are claimed)
+      setPendingRewards(pending); // Only from referral_rewards table (these are pending)
+
+    } catch (error) {
+      console.error('Error loading referral data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get user profile data
+  const [userProfile, setUserProfile] = useState<any>(null);
+  useEffect(() => {
+    if (user?.id) {
+      supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setUserProfile(data);
+        });
+    }
+  }, [user?.id]);
 
   const userReferralCode = userProfile?.referral_code || null;
-  const referralLink =
-    userReferralCode && typeof window !== "undefined"
-      ? `${window.location.origin}/dashboard?ref=${userReferralCode}`
-      : null;
+  const referralLink = userReferralCode && typeof window !== "undefined"
+    ? `${window.location.origin}/dashboard?ref=${userReferralCode}`
+    : null;
 
   // Filter referrals by tier
-  const tier1Referrals =
-    referrals?.filter((ref) => ref.tier_level === "tier_1") || [];
-  const tier2Referrals =
-    referrals?.filter((ref) => ref.tier_level === "tier_2") || [];
-  const tier3Referrals =
-    referrals?.filter((ref) => ref.tier_level === "tier_3") || [];
-
-  const directReferrals = tier1Referrals.length;
-  const totalReferrals =
-    directReferrals + tier2Referrals.length + tier3Referrals.length;
+  const tier1Referrals = referralData?.referrals?.filter((ref: any) => ref.tier_level === "tier_1") || [];
+  const tier2Referrals = referralData?.referrals?.filter((ref: any) => ref.tier_level === "tier_2") || [];
+  const tier3Referrals = referralData?.referrals?.filter((ref: any) => ref.tier_level === "tier_3") || [];
 
   const handleCopyReferralLink = async () => {
     if (!referralLink) {
-      console.error("Please connect a wallet to generate a referral code");
+      console.error("Please sign in to get your referral code");
       return;
     }
 
     try {
       await navigator.clipboard.writeText(referralLink);
       setCopySuccess(true);
-      console.log("Referral link copied to clipboard!");
       setTimeout(() => setCopySuccess(false), 3000);
     } catch (err) {
-      console.error("Failed to copy referral link");
-      console.error("Failed to copy: ", err);
+      console.error("Failed to copy referral link:", err);
     }
   };
 
@@ -146,59 +171,129 @@ export const ReferralProgram = () => {
       return;
     }
 
-    setIsVerifying(true);
-
-    // Mock verification
-    setTimeout(() => {
-      if (referralCode === "INVALID") {
-        setReferralError("Invalid referral code");
-        setIsVerified(false);
-      } else {
-        setIsVerified(true);
-        setReferralError("");
-        console.log("Referral code verified successfully");
+    try {
+      const { referrerId, error } = await verifyReferralCode(referralCode);
+      
+      if (error) {
+        setReferralError(error.message);
+        return;
       }
-      setIsVerifying(false);
-    }, 1000);
-  };
 
-  const handleSubmitReferral = async () => {
-    if (!isVerified || !referralCode) {
-      setReferralError("Please verify a valid referral code first");
-      return;
+      if (!referrerId) {
+        setReferralError("Invalid referral code");
+        return;
+      }
+
+      // Create referral relationship
+      const { success, error: createError } = await createReferralRelationship(
+        referralCode,
+        user!.id
+      );
+
+      if (createError) {
+        setReferralError(createError.message);
+        return;
+      }
+
+      if (success) {
+        // Reload referral data
+        await loadReferralData();
+        setReferralCode("");
+        setReferralError("");
+      }
+    } catch (err) {
+      console.error("Error verifying referral code:", err);
+      setReferralError("An error occurred while verifying the code");
     }
-
-    console.log("Successfully joined referral program!");
-    setReferralCode("");
-    setIsVerified(false);
   };
 
+  const handleClaimReward = async (rewardId: string, amount: number) => {
+    if (isClaimingReward) return;
+    
+    setIsClaimingReward(true);
+    try {
+      // First mark the reward as claimed and set amount to 0 to satisfy constraint
+      const { error: updateError } = await supabase
+        .from('referral_rewards')
+        .update({ 
+          claimed: true,
+          claimed_at: new Date().toISOString(),
+          reward_amount: 0 // Required by your constraint
+        })
+        .eq('id', rewardId);
+
+      if (updateError) throw updateError;
+
+      // Get current session for auth
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      
+      // Use session access token if available, otherwise use anon key
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      } else if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      // Make API call to add earnings
+      const response = await fetch(API_ENDPOINT, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          reward_type: "referral", // Specify referral type
+          amount: amount,
+          user_id: user!.id
+        })
+      });
+
+      const apiResult = await response.json();
+      
+      if (apiResult.success) {
+        setClaimSuccess(true);
+        setTimeout(() => setClaimSuccess(false), 3000);
+        // Reload data to update UI
+        await loadReferralData();
+      } else {
+        throw new Error(apiResult.error || "Failed to add referral earnings");
+      }
+    } catch (error) {
+      console.error('Error claiming reward:', error);
+    } finally {
+      setIsClaimingReward(false);
+    }
+  };
   return (
     <div className="space-y-6 sm:space-y-8 p-3 sm:p-6 rounded-3xl max-w-full overflow-x-hidden">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <ReferralStatCard
           label="First Tier"
-          value={isLoading || !dataReady ? "..." : directReferrals}
+          value={isLoading ? "..." : tier1Referrals.length}
           icon={<LucideUser className="w-5 h-5 text-white" />}
           backgroundImage={"/images/flower_1.png"}
+          description={`${tier1Referrals.length} direct referrals`}
         />
         <ReferralStatCard
           label="Second Tier"
-          value={isLoading || !dataReady ? "..." : tier2Referrals.length}
+          value={isLoading ? "..." : tier2Referrals.length}
           icon={<LucideUser className="w-5 h-5 text-white" />}
           backgroundImage={"/images/flower_1.png"}
+          description={`${tier2Referrals.length} indirect referrals`}
         />
         <ReferralStatCard
           label="Third Tier"
-          value={isLoading || !dataReady ? "..." : tier3Referrals.length}
+          value={isLoading ? "..." : tier3Referrals.length}
           icon={<LucideUser className="w-5 h-5 text-white" />}
           backgroundImage={"/images/flower_1.png"}
+          description={`${tier3Referrals.length} indirect referrals`}
         />
         <ReferralStatCard
           label="Total Referral Rewards"
           value={
-            isLoading || !dataReady
+            isLoading
               ? "..."
               : `${totalReferralEarnings.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
@@ -207,6 +302,7 @@ export const ReferralProgram = () => {
           }
           backgroundImage={"/images/flower_2.png"}
           highlight
+          description={`From ${referralData?.total_referrals || 0} total referrals`}
         />
       </div>
 
@@ -225,8 +321,14 @@ export const ReferralProgram = () => {
             className="gradient-button py-3 sm:py-4 flex items-center justify-center gap-2"
             onClick={handleCopyReferralLink}
           >
-            <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="text-sm sm:text-base">Copy Link</span>
+            {copySuccess ? (
+              <Check className="w-4 h-4 sm:w-5 sm:h-5" />
+            ) : (
+              <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
+            )}
+            <span className="text-sm sm:text-base">
+              {copySuccess ? "Copied!" : "Copy Link"}
+            </span>
           </Button>
         </div>
       ) : (
@@ -241,7 +343,7 @@ export const ReferralProgram = () => {
       )}
 
       {/* Referral Code Input Section */}
-      {userProfile?.id && (
+      {userProfile?.id && !referralData?.has_referrals && (
         <div className="bg-[radial-gradient(ellipse_at_top_left,#0361DA_0%,#090C18_54%)] p-3 sm:p-6 rounded-2xl border border-[#0361DA]/80">
           <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 p-5 rounded-xl border border-blue-500/20">
             <div className="flex items-center gap-2 mb-4">
@@ -263,7 +365,7 @@ export const ReferralProgram = () => {
                     value={referralCode}
                     onChange={(e) => setReferralCode(e.target.value)}
                     className="pl-10 py-3 bg-[#111827]/50 border-blue-500/20 focus:border-blue-400 text-white rounded-xl focus-visible:ring-blue-500/30 focus-visible:ring-offset-0 w-full"
-                    placeholder="Enter referral code or link"
+                    placeholder="Enter referral code"
                   />
                 </div>
                 <Button
@@ -276,7 +378,7 @@ export const ReferralProgram = () => {
                   ) : (
                     <CheckCircle className="w-4 h-4 mr-2" />
                   )}
-                  <span>{isVerifying ? "Verifying..." : "Verify"}</span>
+                  <span>{isVerifying ? "Verifying..." : "Verify & Join"}</span>
                 </Button>
               </div>
 
@@ -285,25 +387,6 @@ export const ReferralProgram = () => {
                   <AlertCircle className="w-3 h-3 mr-1" />
                   {referralError}
                 </p>
-              )}
-
-              {isVerified && (
-                <div className="mt-3 bg-blue-900/20 p-4 rounded-xl border border-blue-500/20">
-                  <div className="flex items-center text-green-400 text-sm mb-3">
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    <span>
-                      Referral code verified! Click below to join the referral
-                      program.
-                    </span>
-                  </div>
-                  <Button
-                    onClick={handleSubmitReferral}
-                    className="bg-blue-600 hover:bg-blue-700 w-full rounded-xl py-5"
-                  >
-                    <ArrowRight className="w-4 h-4 mr-2" />
-                    <span>Join Referral Program</span>
-                  </Button>
-                </div>
               )}
             </div>
           </div>
@@ -359,8 +442,59 @@ export const ReferralProgram = () => {
                 <p className="text-[#515194]/80 text-xs sm:text-sm mt-1">
                   Available rewards ready to claim
                 </p>
+                {pendingRewards > 0 && (
+                  <Button
+                    onClick={() => handleClaimReward(referralRewards.find(r => !r.claimed)?.id, pendingRewards)}
+                    disabled={isClaimingReward}
+                    className="mt-3 w-full bg-amber-500 hover:bg-amber-600 text-white"
+                  >
+                    {isClaimingReward ? (
+                      <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <DollarSign className="w-4 h-4 mr-2" />
+                    )}
+                    <span>{isClaimingReward ? "Claiming..." : "Claim Rewards"}</span>
+                  </Button>
+                )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Referral List */}
+      {userProfile?.id && referralData?.referrals?.length > 0 && (
+        <div className="bg-[#161628] rounded-2xl p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-medium">Your Referrals</h3>
+            <span className="text-[#515194] text-sm">
+              Total: {referralData.total_referrals}
+            </span>
+          </div>
+          <div className="space-y-4">
+            {referralData.referrals.map((ref: any) => (
+              <div
+                key={ref.user_id}
+                className="flex items-center justify-between p-3 bg-[#1E1E3F] rounded-xl"
+              >
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-blue-400" />
+                  <div>
+                    <p className="text-white text-sm">{ref.user_name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[#515194] text-xs">
+                        {ref.tier_level.replace('_', ' ').toUpperCase()}
+                      </p>
+                     
+                      <span className="text-[#515194]">•</span>
+                      <p className="text-[#515194] text-xs">
+                        Referred {new Date(ref.referred_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
