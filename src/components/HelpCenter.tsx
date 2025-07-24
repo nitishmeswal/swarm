@@ -165,6 +165,11 @@ export default function HelpCenter() {
     email: "",
     message: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{
+    type: 'success' | 'error' | null;
+    message: string;
+  }>({ type: null, message: '' });
 
   const faqs = [
     {
@@ -225,12 +230,43 @@ export default function HelpCenter() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
-    // Handle form submission here
-    alert("Thank you for your message! We'll get back to you soon.");
-    setFormData({ name: "", email: "", message: "" });
+    setIsSubmitting(true);
+    setSubmitStatus({ type: null, message: '' });
+
+    try {
+      const response = await fetch('/api/support-tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setSubmitStatus({
+          type: 'success',
+          message: 'Thank you for your message! We\'ll get back to you soon.',
+        });
+        setFormData({ name: "", email: "", message: "" });
+      } else {
+        setSubmitStatus({
+          type: 'error',
+          message: result.error || 'Failed to submit your message. Please try again.',
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting support ticket:', error);
+      setSubmitStatus({
+        type: 'error',
+        message: 'Network error. Please check your connection and try again.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -301,6 +337,18 @@ export default function HelpCenter() {
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {submitStatus.type && (
+                  <div
+                    className={`p-3 rounded-lg text-sm ${
+                      submitStatus.type === 'success'
+                        ? 'bg-green-900/30 text-green-300 border border-green-500/30'
+                        : 'bg-red-900/30 text-red-300 border border-red-500/30'
+                    }`}
+                  >
+                    {submitStatus.message}
+                  </div>
+                )}
+
                 <div>
                   <label
                     htmlFor="name"
@@ -360,9 +408,17 @@ export default function HelpCenter() {
 
                 <Button
                   type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white px-6 py-2"
                 >
-                  {t("helpCenter.contactForm.submit")}
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Submitting...
+                    </>
+                  ) : (
+                    t("helpCenter.contactForm.submit")
+                  )}
                 </Button>
               </form>
             </div>

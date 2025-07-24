@@ -91,9 +91,27 @@ export function ProfileEditModal({
 
     try {
       setLoading(true);
+      
+      // Call the API endpoint to update the username
+      const response = await fetch('/api/profile/update', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_name: username }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update username');
+      }
+      
+      // Update local state via context
       await updateProfile({
         user_name: username
       });
+      
       showMessage("Username updated successfully", false);
     } catch (error) {
       console.error("Failed to update username:", error);
@@ -142,10 +160,30 @@ export function ProfileEditModal({
 
     setIsSavingWallet(true);
     try {
+      // Call the API endpoint to update wallet information
+      const response = await fetch('/api/profile/update', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          wallet_address: manualWalletAddress,
+          wallet_type: walletType
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to save wallet address');
+      }
+      
+      // Update local state via context
       await updateProfile({
         wallet_address: manualWalletAddress,
         wallet_type: walletType
       });
+      
       showMessage("Wallet address saved successfully", false);
     } catch (error) {
       console.error("Error saving wallet address:", error);
@@ -349,9 +387,33 @@ export function ProfileEditModal({
 
                   <div className="mt-4">
                     <Button
-                      onClick={() => {
-                        setManualWalletAddress("");
-                        updateProfile({ wallet_address: null, wallet_type: null });
+                      onClick={async () => {
+                        try {
+                          // Call the API endpoint to clear wallet information
+                          const response = await fetch('/api/profile/update', {
+                            method: 'PATCH',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              wallet_address: null,
+                              wallet_type: null
+                            }),
+                          });
+                          
+                          if (!response.ok) {
+                            const result = await response.json();
+                            throw new Error(result.error || 'Failed to disconnect wallet');
+                          }
+                          
+                          // Update local state
+                          setManualWalletAddress("");
+                          await updateProfile({ wallet_address: null, wallet_type: null });
+                          showMessage("Wallet disconnected successfully", false);
+                        } catch (error) {
+                          console.error("Error disconnecting wallet:", error);
+                          showMessage("Failed to disconnect wallet", true);
+                        }
                       }}
                       variant="outline"
                       className="w-full bg-red-900/20 hover:bg-red-900/40 text-red-400 border-red-800/50"

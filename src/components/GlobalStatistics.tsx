@@ -32,70 +32,60 @@ const mockLeaderboard = [
     username: "CryptoMiner2024",
     total_earnings: 15420.75,
     rank: 1,
-    task_count: 892,
   },
   {
     user_id: "2",
     username: "NodeRunner",
     total_earnings: 12350.25,
     rank: 2,
-    task_count: 756,
   },
   {
     user_id: "3",
     username: "SwarmKing",
     total_earnings: 10890.5,
     rank: 3,
-    task_count: 634,
   },
   {
     user_id: "4",
     username: "TechGuru",
     total_earnings: 9750.0,
     rank: 4,
-    task_count: 567,
   },
   {
     user_id: "5",
     username: "DataCruncher",
     total_earnings: 8920.25,
     rank: 5,
-    task_count: 498,
   },
   {
     user_id: "6",
     username: "AIEnthusiast",
     total_earnings: 7650.75,
     rank: 6,
-    task_count: 423,
   },
   {
     user_id: "7",
     username: "ComputeNode",
     total_earnings: 6890.5,
     rank: 7,
-    task_count: 389,
   },
   {
     user_id: "8",
     username: "BlockchainPro",
     total_earnings: 6234.25,
     rank: 8,
-    task_count: 345,
   },
   {
     user_id: "9",
     username: "NetworkNode",
     total_earnings: 5678.0,
     rank: 9,
-    task_count: 312,
   },
   {
     user_id: "10",
     username: "SwarmWorker",
     total_earnings: 5123.75,
     rank: 10,
-    task_count: 287,
   },
 ];
 
@@ -105,7 +95,6 @@ interface LeaderboardEntry {
   username: string;
   total_earnings: number;
   rank: number;
-  task_count: number;
 }
 
 export const GlobalStatistics = () => {
@@ -279,7 +268,7 @@ export const GlobalStatistics = () => {
     }
   };
 
-  const scrollRef = useRef(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const scrollEl = scrollRef.current;
@@ -530,9 +519,8 @@ export const GlobalStatistics = () => {
             {/* Header row */}
             <div className="grid grid-cols-12 gap-2 px-4 py-3 text-slate-400 text-sm border-b border-slate-800/50">
               <div className="col-span-1">Rank</div>
-              <div className="col-span-5">User</div>
-              <div className="col-span-3 text-right">Earnings</div>
-              <div className="col-span-3 text-right">Tasks</div>
+              <div className="col-span-6">User</div>
+              <div className="col-span-5 text-right">Earnings</div>
             </div>
 
             {/* Top 10 Users */}
@@ -549,7 +537,7 @@ export const GlobalStatistics = () => {
                 <div className="col-span-1 flex items-center">
                   {getMedalIcon(entry.rank)}
                 </div>
-                <div className="col-span-5 font-medium truncate">
+                <div className="col-span-6 font-medium truncate">
                   {cleanUsername(entry.username)}
                   {userProfile && entry.user_id === userProfile.id && (
                     <span className="ml-2 text-xs bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded-full">
@@ -557,11 +545,8 @@ export const GlobalStatistics = () => {
                     </span>
                   )}
                 </div>
-                <div className="col-span-3 text-right font-medium">
+                <div className="col-span-5 text-right font-medium">
                   {formatCurrency(entry.total_earnings)}
-                </div>
-                <div className="col-span-3 text-right text-slate-300">
-                  {entry.task_count.toLocaleString()}
                 </div>
               </div>
             ))}
@@ -582,17 +567,14 @@ export const GlobalStatistics = () => {
                         {currentUserRank.rank}
                       </span>
                     </div>
-                    <div className="col-span-5 font-medium truncate">
+                    <div className="col-span-6 font-medium truncate">
                       {cleanUsername(currentUserRank.username)}
                       <span className="ml-2 text-xs bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded-full">
                         You
                       </span>
                     </div>
-                    <div className="col-span-3 text-right font-medium">
+                    <div className="col-span-5 text-right font-medium">
                       {formatCurrency(currentUserRank.total_earnings)}
-                    </div>
-                    <div className="col-span-3 text-right text-slate-300">
-                      {currentUserRank.task_count.toLocaleString()}
                     </div>
                   </div>
                 </>

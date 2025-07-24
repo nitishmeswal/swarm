@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     console.log('Debug - totalUsers from count:', totalUsers);
     const userCount = totalUsers ?? 0;
     
-    // Get total earnings - fallback to calculation if RPC doesn't exist yet
+    // Get total earnings - fallback to calculation if RPC doesn't exist
     let totalEarnings = 0;
     if (totalEarningsData !== null && typeof totalEarningsData === 'number') {
       totalEarnings = totalEarningsData;
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     // Calculate global compute generated based on user activity
     // Since we don't have access to global_stats table, use estimated values based on total earnings
     const globalComputeGenerated = Math.round(totalEarnings * 0.1); // Estimate based on earnings
-    const totalTasks = Math.round(totalUsers * 15.5); // Estimate average tasks per user
+    const totalTasksCount = Math.round((userCount || 0) * 15.5); // Ensure userCount is not null
 
     // Format leaderboard data from earnings_history with user_profiles join
     console.log('Debug - leaderboardData sample:', leaderboardData?.[0]);
@@ -91,8 +91,7 @@ export async function GET(request: NextRequest) {
         user_id: entry.user_id,
         username: entry.user_profiles?.[0]?.user_name || entry.user_profiles?.user_name || `User${entry.user_id.slice(0, 6)}`,
         total_earnings: Number(entry.total_amount) || 0,
-        rank: index + 1,
-        task_count: 0
+        rank: index + 1
       };
     });
     
@@ -111,7 +110,7 @@ export async function GET(request: NextRequest) {
         totalUsers: userCount,
         totalEarnings,
         globalComputeGenerated,
-        totalTasks
+        totalTasks: totalTasksCount
       },
       leaderboard,
       currentUserRank
