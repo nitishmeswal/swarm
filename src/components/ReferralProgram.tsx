@@ -45,6 +45,7 @@ export const ReferralProgram = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [referralCode, setReferralCode] = useState("");
   const [referralError, setReferralError] = useState("");
+  const [referralSuccess, setReferralSuccess] = useState(false);
   const [referralData, setReferralData] = useState<any>(null);
   const [referralRewards, setReferralRewards] = useState<any[]>([]);
   const [totalReferralEarnings, setTotalReferralEarnings] = useState(0);
@@ -173,11 +174,13 @@ export const ReferralProgram = () => {
       
       if (error) {
         setReferralError(error.message);
+        setReferralSuccess(false);
         return;
       }
 
       if (!referrerId) {
         setReferralError("Invalid referral code");
+        setReferralSuccess(false);
         return;
       }
 
@@ -189,18 +192,44 @@ export const ReferralProgram = () => {
 
       if (createError) {
         setReferralError(createError.message);
+        setReferralSuccess(false);
         return;
       }
 
       if (success) {
+        // Add referral rewards
+        const rewardsResponse = await fetch('/api/referrals/rewards', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            referralCode,
+            userId: user!.id,
+          }),
+        });
+
+        if (!rewardsResponse.ok) {
+          const errorData = await rewardsResponse.json();
+          throw new Error(errorData.error || 'Failed to add referral rewards');
+        }
+
+        // Show success message
+        setReferralSuccess(true);
+        setReferralError("");
+        // Clear the input
+        setReferralCode("");
         // Reload referral data
         await loadReferralData();
-        setReferralCode("");
-        setReferralError("");
+        // Reset success message after 3 seconds
+        setTimeout(() => {
+          setReferralSuccess(false);
+        }, 3000);
       }
     } catch (err) {
       console.error("Error verifying referral code:", err);
       setReferralError("An error occurred while verifying the code");
+      setReferralSuccess(false);
     }
   };
 
@@ -571,6 +600,13 @@ export const ReferralProgram = () => {
                 <p className="text-red-400 text-sm mt-2 flex items-center">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   {referralError}
+                </p>
+              )}
+              
+              {referralSuccess && (
+                <p className="text-green-400 text-sm mt-2 flex items-center">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Referral code successfully applied! Welcome to the program.
                 </p>
               )}
             </div>
