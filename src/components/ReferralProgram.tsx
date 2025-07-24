@@ -54,6 +54,7 @@ export const ReferralProgram = () => {
   const [isClaimingReward, setIsClaimingReward] = useState(false);
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [isReferred, setIsReferred] = useState(false);
+  const [referrerInfo, setReferrerInfo] = useState<any>(null);
 
   const { user, profile: userProfile } = useAuth();
   const { 
@@ -111,7 +112,7 @@ export const ReferralProgram = () => {
     if (!user?.id) return;
     
     try {
-      const response = await fetch('/api/referrals', {
+      const response = await fetch('/api/referrals/check-referred', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -120,12 +121,17 @@ export const ReferralProgram = () => {
 
       if (response.ok) {
         const data = await response.json();
-        // If user has referrals, it means they are a referrer
-        // We need to check if they are referred by checking if they are in someone else's referrals
-        setIsReferred(false); // This logic may need adjustment based on your requirements
+        setIsReferred(data.isReferred);
+        setReferrerInfo(data.referrerInfo);
+      } else {
+        console.error('Failed to check referral status');
+        setIsReferred(false);
+        setReferrerInfo(null);
       }
     } catch (error) {
       console.error('Error checking referral status:', error);
+      setIsReferred(false);
+      setReferrerInfo(null);
     }
   };
 
@@ -614,24 +620,141 @@ export const ReferralProgram = () => {
         </div>
       )}
 
-      {/* Already Referred Message */}
+      {/* Enhanced Already Referred Banner */}
       {userProfile?.id && isReferred && (
-        <div className="bg-[radial-gradient(ellipse_at_top_left,#0361DA_0%,#090C18_54%)] p-3 sm:p-6 rounded-2xl border border-[#0361DA]/80">
-          <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 p-5 rounded-xl border border-blue-500/20">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-500/20 rounded-full p-2">
-                <CheckCircle className="h-6 w-6 text-blue-400" />
+        <div className="bg-[radial-gradient(ellipse_at_top_left,#16a34a_0%,#0f172a_54%)] p-3 sm:p-6 rounded-2xl border border-green-500/40">
+          <div className="bg-gradient-to-r from-green-600/10 to-emerald-600/10 p-5 rounded-xl border border-green-500/20">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-green-500/20 rounded-full p-2">
+                <CheckCircle className="h-6 w-6 text-green-400" />
               </div>
               <div>
-                <h3 className="text-white font-medium mb-1">You're Part of the Program!</h3>
-                <p className="text-sm text-blue-300/80">
-                  You've already joined using a referral code. Share your referral link to start earning rewards!
+                <h3 className="text-white font-medium mb-1">
+                  You've been referred by {referrerInfo?.name || 'someone'}! 🎉
+                </h3>
+                <p className="text-sm text-green-300/80">
+                  Now earn more by sharing your referral code on social media
                 </p>
               </div>
             </div>
-            <div className="mt-4 flex items-center gap-2">
-              <Share2 className="w-4 h-4 text-blue-400" />
-              <span className="text-blue-400 text-sm">Share your link and boost your earnings</span>
+            
+            {/* Social Sharing Section */}
+            <div className="bg-black/20 p-4 rounded-lg border border-green-500/20">
+              <div className="flex items-center gap-2 mb-3">
+                <Share2 className="w-4 h-4 text-green-400" />
+                <span className="text-green-400 text-sm font-medium">Share & Earn More</span>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                {/* Telegram Share */}
+                <motion.button
+                  onClick={() => {
+                    const message = `🚀 Join me on Kyahaiye and start earning SP! Use my referral code: ${userReferralCode} ${referralLink}`;
+                    const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink || '')}&text=${encodeURIComponent(message)}`;
+                    window.open(telegramUrl, '_blank', 'width=600,height=400');
+                  }}
+                  className="flex items-center justify-center gap-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-3 py-2 rounded-lg transition-all"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <FaTelegram className="w-4 h-4" />
+                  <span className="text-xs">Telegram</span>
+                </motion.button>
+                
+                {/* WhatsApp Share */}
+                <motion.button
+                  onClick={() => {
+                    const message = `🚀 Join me on Kyahaiye and start earning SP! Use my referral code: ${userReferralCode} ${referralLink}`;
+                    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+                    window.open(whatsappUrl, '_blank', 'width=600,height=400');
+                  }}
+                  className="flex items-center justify-center gap-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 px-3 py-2 rounded-lg transition-all"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <FaWhatsapp className="w-4 h-4" />
+                  <span className="text-xs">WhatsApp</span>
+                </motion.button>
+                
+                {/* Twitter Share */}
+                <motion.button
+                  onClick={() => {
+                    const message = `🚀 Join me on @Kyahaiye and start earning SP! 💰\n\nUse my referral code: ${userReferralCode}\n\n${referralLink}\n\n#Kyahaiye #EarnSP #ReferralProgram`;
+                    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`;
+                    window.open(twitterUrl, '_blank', 'width=600,height=400');
+                  }}
+                  className="flex items-center justify-center gap-2 bg-gray-700/20 hover:bg-gray-700/30 text-white px-3 py-2 rounded-lg transition-all"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <FaSquareXTwitter className="w-4 h-4" />
+                  <span className="text-xs">Twitter</span>
+                </motion.button>
+                
+                {/* Copy Link */}
+                <motion.button
+                  onClick={async () => {
+                    if (referralLink) {
+                      try {
+                        await navigator.clipboard.writeText(referralLink);
+                        setCopySuccess(true);
+                        setTimeout(() => setCopySuccess(false), 2000);
+                      } catch (err) {
+                        console.error('Failed to copy:', err);
+                      }
+                    }
+                  }}
+                  className={`flex items-center justify-center gap-2 ${copySuccess ? 'bg-green-500/20 text-green-400' : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-400'} px-3 py-2 rounded-lg transition-all`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {copySuccess ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span className="text-xs">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span className="text-xs">Copy Link</span>
+                    </>
+                  )}
+                </motion.button>
+              </div>
+              
+              {/* Referral Link Display */}
+              <div className="bg-black/30 p-3 rounded-lg border border-green-500/10">
+                <div className="flex items-center justify-between gap-2">
+                  <input
+                    type="text"
+                    value={referralLink || ""}
+                    readOnly
+                    className="flex-1 bg-transparent text-sm text-green-300 focus:outline-none overflow-hidden"
+                  />
+                  <motion.button
+                    className={`p-1 rounded-full ${copySuccess ? "bg-green-500/20" : "bg-green-500/20"}`}
+                    onClick={async () => {
+                      if (referralLink) {
+                        try {
+                          await navigator.clipboard.writeText(referralLink);
+                          setCopySuccess(true);
+                          setTimeout(() => setCopySuccess(false), 2000);
+                        } catch (err) {
+                          console.error('Failed to copy:', err);
+                        }
+                      }
+                    }}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    {copySuccess ? (
+                      <Check className="w-4 h-4 text-green-400" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-green-400" />
+                    )}
+                  </motion.button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
