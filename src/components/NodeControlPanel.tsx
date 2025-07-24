@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Clock,
   Laptop,
@@ -74,6 +75,7 @@ interface SupabaseDevice {
 
 export const NodeControlPanel = () => {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const node = useAppSelector(selectNode);
   const earnings = useAppSelector(selectEarnings);
   const currentUptime = useAppSelector(selectCurrentUptime);
@@ -171,9 +173,9 @@ export const NodeControlPanel = () => {
       return false;
     }
     
-    // Prevent rapid auto-saves (minimum 10 seconds between auto-saves)
+    // Prevent rapid auto-saves (minimum 5 seconds between auto-saves)
     const now = Date.now();
-    if (!forceSkipConcurrencyCheck && now - lastAutoSaveRef.current < 10000) {
+    if (!forceSkipConcurrencyCheck && now - lastAutoSaveRef.current < 5000) {
       console.log('Skipping auto-save - too frequent');
       return false;
     }
@@ -258,23 +260,61 @@ export const NodeControlPanel = () => {
     }
   }, [user?.id, isMounted]);
 
-  // Auto-save session earnings periodically when node is running
+  // Auto-save session earnings periodically when node is running - More frequent saves
   useEffect(() => {
-    if (!user?.id || sessionEarnings <= 0 || !node.isActive) return;
+    if (!user?.id || sessionEarnings <= 0) return;
     
-    // Auto-save session earnings every 60 seconds when node is running
+    // Auto-save session earnings every 10 seconds when there are session earnings
     const autoSaveInterval = setInterval(() => {
-      if (node.isActive || isDeviceRunning(selectedNodeId)) {
+      if (sessionEarnings > 0) {
         console.log('🔄 Auto-save interval triggered - Session earnings:', sessionEarnings);
         saveSessionEarningsToDb(false); // Don't force, respect concurrency controls
       }
-    }, 60000); // 60 seconds
+    }, 10000); // 10 seconds - more frequent saves
     
     return () => {
       clearInterval(autoSaveInterval);
       console.log('🔄 Auto-save interval cleared');
     };
-  }, [sessionEarnings, user?.id, node.isActive, selectedNodeId]);
+  }, [sessionEarnings, user?.id]);
+
+  // Component unmount cleanup - Save session earnings when component unmounts (route changes)
+  useEffect(() => {
+    return () => {
+      // Component is unmounting (likely due to route change)
+      if (sessionEarnings > 0 && user?.id) {
+        console.log('🚪 Component unmounting: Saving session earnings via beacon:', sessionEarnings);
+        // Use sendBeacon for reliable data transmission during unmount
+        const newDbTotal = dbUnclaimedRewards + sessionEarnings;
+        const data = JSON.stringify({ amount: newDbTotal });
+        const blob = new Blob([data], { type: 'application/json' });
+        navigator.sendBeacon('/api/unclaimed-rewards', blob);
+      }
+    };
+  }, [sessionEarnings, dbUnclaimedRewards, user?.id]);
+
+  // Additional safety net - Save on user interaction (click anywhere)
+  useEffect(() => {
+    if (!user?.id || sessionEarnings <= 0) return;
+
+    const handleUserInteraction = () => {
+      if (sessionEarnings > 0) {
+        // Debounced save on user interaction
+        const now = Date.now();
+        if (now - lastAutoSaveRef.current > 15000) { // Only if last save was >15 seconds ago
+          console.log('👆 User interaction: Saving session earnings:', sessionEarnings);
+          saveSessionEarningsToDb(false);
+        }
+      }
+    };
+
+    // Add click listener to document
+    document.addEventListener('click', handleUserInteraction, { passive: true });
+
+    return () => {
+      document.removeEventListener('click', handleUserInteraction);
+    };
+  }, [sessionEarnings, user?.id]);
 
   // Show claim success message after successful claim
   useEffect(() => {
@@ -306,6 +346,10 @@ export const NodeControlPanel = () => {
         // Save session earnings when page becomes hidden (force save)
         console.log('📱 Page hidden: Saving session earnings:', sessionEarnings);
         saveSessionEarningsToDb(true); // Force save, ignore concurrency controls
+      } else if (document.visibilityState === 'visible' && user?.id) {
+        // Refresh unclaimed rewards when page becomes visible (user might have returned to tab)
+        console.log('👁️ Page visible: Refreshing unclaimed rewards');
+        fetchUnclaimedRewards();
       }
     };
 
@@ -484,12 +528,18 @@ export const NodeControlPanel = () => {
       setIsStopping(true);
       
       try {
-        // Save any unsaved session earnings before stopping the node
+        // Save any unsaved session earnings before stopping the node - Force save to ensure no data loss
         if (sessionEarnings > 0) {
-          console.log('🛑 Node stopping: Saving session earnings to DB:', sessionEarnings);
+          console.log('🛑 Node stopping: Force saving session earnings to DB:', sessionEarnings);
           const saveSuccess = await saveSessionEarningsToDb(true); // Force save
           if (!saveSuccess) {
             console.error('❌ Failed to save session earnings before stopping node');
+            // Even if save fails, try beacon as backup
+            const newDbTotal = dbUnclaimedRewards + sessionEarnings;
+            const data = JSON.stringify({ amount: newDbTotal });
+            const blob = new Blob([data], { type: 'application/json' });
+            navigator.sendBeacon('/api/unclaimed-rewards', blob);
+            console.log('📡 Used beacon as backup save method');
           }
         }
 
@@ -497,12 +547,17 @@ export const NodeControlPanel = () => {
         const result = await stopDeviceUptime(selectedNodeId);
         
         if (result.success) {
-          console.log('Node stopped and uptime updated successfully');
+          console.log('✅ Node stopped and uptime updated successfully');
+          
+          // Get the completed tasks count from the hook
+          const completedTasks = getCompletedTasks();
+          console.log('📊 Completed tasks for device:', completedTasks);
+          
         } else {
-          console.error('Failed to update uptime:', result.error);
+          console.error('❌ Failed to update uptime:', result.error);
         }
       } catch (error) {
-        console.error('Error stopping node:', error);
+        console.error('❌ Error stopping node:', error);
       }
       
       setTimeout(() => {
