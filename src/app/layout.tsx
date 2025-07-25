@@ -27,7 +27,7 @@ export default function RootLayout({
         <ReduxProvider>
           <AuthProvider>
             <Layout>{children}</Layout>
-            <AuthDebugger />
+            {/* <AuthDebugger /> */}
             {GA_MEASUREMENT_ID && (
               <AnalyticsProvider GA_MEASUREMENT_ID={GA_MEASUREMENT_ID} />
             )}

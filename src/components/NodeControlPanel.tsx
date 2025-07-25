@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { 
+import {
   Clock,
   Laptop,
   Monitor,
@@ -10,7 +10,7 @@ import {
   Scan,
   Loader2,
   AlertTriangle,
-  Trash2
+  Trash2,
 } from "lucide-react";
 import { VscDebugStart } from "react-icons/vsc";
 import { IoStopOutline } from "react-icons/io5";
@@ -18,8 +18,19 @@ import { InfoTooltip } from "./InfoTooltip";
 import { Button } from "./ui/button";
 import { HardwareScanDialog } from "./HardwareScanDialog";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
-import { registerDevice, startNode, stopNode, selectCurrentUptime, selectNode } from "@/lib/store/slices/nodeSlice";
-import { selectTotalEarnings, selectSessionEarnings, selectEarnings, resetSessionEarnings } from "@/lib/store/slices/earningsSlice";
+import {
+  registerDevice,
+  startNode,
+  stopNode,
+  selectCurrentUptime,
+  selectNode,
+} from "@/lib/store/slices/nodeSlice";
+import {
+  selectTotalEarnings,
+  selectSessionEarnings,
+  selectEarnings,
+  resetSessionEarnings,
+} from "@/lib/store/slices/earningsSlice";
 import { resetTasks } from "@/lib/store/slices/taskSlice";
 import { formatUptime, TASK_CONFIG } from "@/lib/store/config";
 import { HardwareInfo } from "@/lib/store/types";
@@ -81,16 +92,16 @@ export const NodeControlPanel = () => {
   const sessionEarnings = useAppSelector(selectSessionEarnings);
   const { user } = useAuth();
   const supabase = createClient();
-  const { 
-    claimTaskRewards, 
-    loadTotalEarnings, 
-    isClaimingReward, 
-    isLoading: isLoadingEarnings, 
-    claimError, 
-    claimSuccess, 
-    resetClaimState 
+  const {
+    claimTaskRewards,
+    loadTotalEarnings,
+    isClaimingReward,
+    isLoading: isLoadingEarnings,
+    claimError,
+    claimSuccess,
+    resetClaimState,
   } = useEarnings();
-  
+
   const {
     initializeDeviceUptime,
     startDeviceUptime,
@@ -100,11 +111,11 @@ export const NodeControlPanel = () => {
     getCompletedTasks,
     syncDeviceUptime,
     isUpdatingUptime,
-    deviceUptimes: deviceUptimeList
+    deviceUptimes: deviceUptimeList,
   } = useNodeUptime();
-  
+
   const { processReferralRewards } = useReferrals();
-  
+
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showScanDialog, setShowScanDialog] = useState(false);
@@ -119,44 +130,45 @@ export const NodeControlPanel = () => {
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   const [displayUptime, setDisplayUptime] = useState(0);
   const [dbUnclaimedRewards, setDbUnclaimedRewards] = useState(0);
-  const [isLoadingUnclaimedRewards, setIsLoadingUnclaimedRewards] = useState(true);
+  const [isLoadingUnclaimedRewards, setIsLoadingUnclaimedRewards] =
+    useState(true);
   const [lastSavedSessionEarnings, setLastSavedSessionEarnings] = useState(0);
   const [isSavingToDb, setIsSavingToDb] = useState(false);
   const initializedDevicesRef = useRef<Set<string>>(new Set());
   const lastAutoSaveRef = useRef<number>(0);
-  
+
   // Replace static nodes with state
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
 
   // Robust unclaimed rewards management system
   const fetchUnclaimedRewards = async () => {
     if (!user?.id) return;
-    
+
     try {
       setIsLoadingUnclaimedRewards(true);
-      const response = await fetch('/api/unclaimed-rewards', {
-        method: 'GET',
+      const response = await fetch("/api/unclaimed-rewards", {
+        method: "GET",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
-      
+
       if (response.ok) {
         const { unclaimed_reward } = await response.json();
         const dbRewards = unclaimed_reward || 0;
         setDbUnclaimedRewards(dbRewards);
-        
+
         // On page load, reset session earnings to start fresh
         // This prevents double-counting from previous sessions
         dispatch(resetSessionEarnings());
         setLastSavedSessionEarnings(0);
-        
-        console.log('Loaded unclaimed rewards from DB:', dbRewards);
+
+        console.log("Loaded unclaimed rewards from DB:", dbRewards);
       } else {
-        console.error('Failed to fetch unclaimed rewards:', response.status);
+        console.error("Failed to fetch unclaimed rewards:", response.status);
       }
     } catch (error) {
-      console.error('Error fetching unclaimed rewards:', error);
+      console.error("Error fetching unclaimed rewards:", error);
     } finally {
       setIsLoadingUnclaimedRewards(false);
     }
@@ -164,53 +176,58 @@ export const NodeControlPanel = () => {
 
   const saveSessionEarningsToDb = async (forceSkipConcurrencyCheck = false) => {
     if (!user?.id || sessionEarnings <= 0) return false;
-    
+
     // Prevent concurrent saves unless forced
     if (isSavingToDb && !forceSkipConcurrencyCheck) {
-      console.log('Skipping save - already saving to DB');
+      console.log("Skipping save - already saving to DB");
       return false;
     }
-    
+
     // Prevent rapid auto-saves (minimum 10 seconds between auto-saves)
     const now = Date.now();
     if (!forceSkipConcurrencyCheck && now - lastAutoSaveRef.current < 10000) {
-      console.log('Skipping auto-save - too frequent');
+      console.log("Skipping auto-save - too frequent");
       return false;
     }
-    
+
     setIsSavingToDb(true);
     const currentSessionEarnings = sessionEarnings; // Capture current value
-    
+
     try {
       // Calculate new total: existing DB rewards + current session earnings
       const newDbTotal = dbUnclaimedRewards + currentSessionEarnings;
-      
-      const response = await fetch('/api/unclaimed-rewards', {
-        method: 'POST',
+
+      const response = await fetch("/api/unclaimed-rewards", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ amount: newDbTotal }),
       });
-      
+
       if (response.ok) {
-        console.log(`✅ Saved session earnings to DB: ${currentSessionEarnings} (new total: ${newDbTotal})`);
-        
+        console.log(
+          `✅ Saved session earnings to DB: ${currentSessionEarnings} (new total: ${newDbTotal})`
+        );
+
         // Update local state to reflect the save
         setDbUnclaimedRewards(newDbTotal);
         setLastSavedSessionEarnings(currentSessionEarnings);
         lastAutoSaveRef.current = now;
-        
+
         // Clear session earnings since they're now saved to DB
         dispatch(resetSessionEarnings());
-        
+
         return true;
       } else {
-        console.error('❌ Failed to save session earnings to DB:', response.status);
+        console.error(
+          "❌ Failed to save session earnings to DB:",
+          response.status
+        );
         return false;
       }
     } catch (error) {
-      console.error('❌ Error saving session earnings to DB:', error);
+      console.error("❌ Error saving session earnings to DB:", error);
       return false;
     } finally {
       setIsSavingToDb(false);
@@ -219,32 +236,32 @@ export const NodeControlPanel = () => {
 
   const resetAllUnclaimedRewards = async () => {
     if (!user?.id) return false;
-    
+
     try {
-      const response = await fetch('/api/unclaimed-rewards', {
-        method: 'POST',
+      const response = await fetch("/api/unclaimed-rewards", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ amount: 0 }),
       });
-      
+
       if (response.ok) {
-        console.log('Reset all unclaimed rewards to 0');
+        console.log("Reset all unclaimed rewards to 0");
         setDbUnclaimedRewards(0);
         setLastSavedSessionEarnings(0);
         dispatch(resetSessionEarnings());
         return true;
       } else {
-        console.error('Failed to reset unclaimed rewards:', response.status);
+        console.error("Failed to reset unclaimed rewards:", response.status);
         return false;
       }
     } catch (error) {
-      console.error('Error resetting unclaimed rewards:', error);
+      console.error("Error resetting unclaimed rewards:", error);
       return false;
     }
   };
-  
+
   // Ensure hydration safety
   useEffect(() => {
     setIsMounted(true);
@@ -261,18 +278,21 @@ export const NodeControlPanel = () => {
   // Auto-save session earnings periodically when node is running
   useEffect(() => {
     if (!user?.id || sessionEarnings <= 0 || !node.isActive) return;
-    
+
     // Auto-save session earnings every 60 seconds when node is running
     const autoSaveInterval = setInterval(() => {
       if (node.isActive || isDeviceRunning(selectedNodeId)) {
-        console.log('🔄 Auto-save interval triggered - Session earnings:', sessionEarnings);
+        console.log(
+          "🔄 Auto-save interval triggered - Session earnings:",
+          sessionEarnings
+        );
         saveSessionEarningsToDb(false); // Don't force, respect concurrency controls
       }
     }, 60000); // 60 seconds
-    
+
     return () => {
       clearInterval(autoSaveInterval);
-      console.log('🔄 Auto-save interval cleared');
+      console.log("🔄 Auto-save interval cleared");
     };
   }, [sessionEarnings, user?.id, node.isActive, selectedNodeId]);
 
@@ -295,31 +315,37 @@ export const NodeControlPanel = () => {
         // Use sendBeacon for reliable data transmission on page unload
         const newDbTotal = dbUnclaimedRewards + sessionEarnings;
         const data = JSON.stringify({ amount: newDbTotal });
-        const blob = new Blob([data], { type: 'application/json' });
-        navigator.sendBeacon('/api/unclaimed-rewards', blob);
-        console.log('Page unload: Saved session earnings via beacon:', sessionEarnings);
+        const blob = new Blob([data], { type: "application/json" });
+        navigator.sendBeacon("/api/unclaimed-rewards", blob);
+        console.log(
+          "Page unload: Saved session earnings via beacon:",
+          sessionEarnings
+        );
       }
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && sessionEarnings > 0) {
+      if (document.visibilityState === "hidden" && sessionEarnings > 0) {
         // Save session earnings when page becomes hidden (force save)
-        console.log('📱 Page hidden: Saving session earnings:', sessionEarnings);
+        console.log(
+          "📱 Page hidden: Saving session earnings:",
+          sessionEarnings
+        );
         saveSessionEarningsToDb(true); // Force save, ignore concurrency controls
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [sessionEarnings, dbUnclaimedRewards, dispatch]);
 
   // For demo purposes - in a real implementation this would be derived from the selected node ID
-  const selectedNode = nodes.find(node => node.id === selectedNodeId);
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
 
   // Update display uptime every second for the selected device
   useEffect(() => {
@@ -346,7 +372,7 @@ export const NodeControlPanel = () => {
       const timeoutId = setTimeout(() => {
         syncDeviceUptime(selectedNodeId);
       }, 100); // Small delay to prevent rapid calls
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [selectedNodeId]); // Only depend on selectedNodeId, not the functions
@@ -354,63 +380,86 @@ export const NodeControlPanel = () => {
   // Fetch user devices from Supabase
   useEffect(() => {
     if (!user?.id || hasFetchedDevices) return;
-    
+
     const fetchUserDevices = async () => {
       setIsLoadingDevices(true);
       try {
-        const response = await fetch('/api/devices', {
-          method: 'GET',
+        const response = await fetch("/api/devices", {
+          method: "GET",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         });
-        
+
         if (!response.ok) {
-          console.error("Error fetching devices:", response.status, response.statusText);
+          console.error(
+            "Error fetching devices:",
+            response.status,
+            response.statusText
+          );
           return;
         }
-        
+
         const { devices } = await response.json();
-        
-        const mappedNodes: NodeInfo[] = devices.map((device: SupabaseDevice) => ({
-          id: device.id,
-          name: device.device_name || `My ${device.device_type.charAt(0).toUpperCase() + device.device_type.slice(1)}`,
-          type: device.device_type,
-          rewardTier: device.reward_tier || 'cpu',
-          status: device.status === 'online' ? 'running' : device.status === 'offline' ? 'idle' : 'offline',
-          gpuInfo: device.gpu_model
-        }));
-        
+
+        const mappedNodes: NodeInfo[] = devices.map(
+          (device: SupabaseDevice) => ({
+            id: device.id,
+            name:
+              device.device_name ||
+              `My ${
+                device.device_type.charAt(0).toUpperCase() +
+                device.device_type.slice(1)
+              }`,
+            type: device.device_type,
+            rewardTier: device.reward_tier || "cpu",
+            status:
+              device.status === "online"
+                ? "running"
+                : device.status === "offline"
+                ? "idle"
+                : "offline",
+            gpuInfo: device.gpu_model,
+          })
+        );
+
         setNodes(mappedNodes);
-        
+
         // Register existing devices in Redux store so they can be started without hardware scan
         if (devices.length > 0 && !node.isRegistered) {
           const firstDevice = devices[0];
           const hardwareInfo: HardwareInfo = {
             gpuInfo: firstDevice.gpu_model,
-            rewardTier: firstDevice.reward_tier || 'cpu',
+            rewardTier: firstDevice.reward_tier || "cpu",
             deviceType: firstDevice.device_type,
             // Add other required fields with reasonable defaults
             cpuCores: 4, // Default values since this info isn't stored in DB
-            deviceMemory: '8GB',
-            deviceGroup: firstDevice.device_type === 'mobile' || firstDevice.device_type === 'tablet' ? 'mobile_tablet' : 'desktop_laptop'
+            deviceMemory: "8GB",
+            deviceGroup:
+              firstDevice.device_type === "mobile" ||
+              firstDevice.device_type === "tablet"
+                ? "mobile_tablet"
+                : "desktop_laptop",
           };
           dispatch(registerDevice(hardwareInfo));
         }
-        
+
         // Initialize device uptimes with server data (only once per device)
-        mappedNodes.forEach(node => {
+        mappedNodes.forEach((node) => {
           if (!initializedDevicesRef.current.has(node.id)) {
-            const serverUptime = Number(devices.find((d: SupabaseDevice) => d.id === node.id)?.uptime) || 0;
+            const serverUptime =
+              Number(
+                devices.find((d: SupabaseDevice) => d.id === node.id)?.uptime
+              ) || 0;
             initializeDeviceUptime(node.id, serverUptime);
             initializedDevicesRef.current.add(node.id);
           }
         });
-        
+
         if (mappedNodes.length > 0 && !selectedNodeId) {
           setSelectedNodeId(mappedNodes[0].id);
         }
-        
+
         setHasFetchedDevices(true);
       } catch (err) {
         console.error("Exception while fetching devices:", err);
@@ -418,7 +467,7 @@ export const NodeControlPanel = () => {
         setIsLoadingDevices(false);
       }
     };
-    
+
     fetchUserDevices();
   }, [user?.id, hasFetchedDevices]); // Keep minimal dependencies
 
@@ -429,26 +478,32 @@ export const NodeControlPanel = () => {
 
   const deleteDevice = async (deviceId: string) => {
     if (!deviceId || !user?.id) return;
-    
+
     try {
       const response = await fetch(`/api/devices?id=${deviceId}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
-        
+
       if (!response.ok) {
-        console.error("Error deleting device:", response.status, response.statusText);
+        console.error(
+          "Error deleting device:",
+          response.status,
+          response.statusText
+        );
         return false;
       } else {
         // Remove the node from the list
-        setNodes(prevNodes => prevNodes.filter(node => node.id !== deviceId));
-        
+        setNodes((prevNodes) =>
+          prevNodes.filter((node) => node.id !== deviceId)
+        );
+
         // If we deleted the currently selected node, select another one if available
         if (deviceId === selectedNodeId) {
           if (nodes.length > 1) {
-            const nextNodeId = nodes.find(node => node.id !== deviceId)?.id;
+            const nextNodeId = nodes.find((node) => node.id !== deviceId)?.id;
             setSelectedNodeId(nextNodeId || "");
           } else {
             setSelectedNodeId("");
@@ -479,32 +534,37 @@ export const NodeControlPanel = () => {
     if (!selectedNodeId) return;
 
     const deviceCurrentlyRunning = isDeviceRunning(selectedNodeId);
-    
+
     if (deviceCurrentlyRunning || node.isActive) {
       setIsStopping(true);
-      
+
       try {
         // Save any unsaved session earnings before stopping the node
         if (sessionEarnings > 0) {
-          console.log('🛑 Node stopping: Saving session earnings to DB:', sessionEarnings);
+          console.log(
+            "🛑 Node stopping: Saving session earnings to DB:",
+            sessionEarnings
+          );
           const saveSuccess = await saveSessionEarningsToDb(true); // Force save
           if (!saveSuccess) {
-            console.error('❌ Failed to save session earnings before stopping node');
+            console.error(
+              "❌ Failed to save session earnings before stopping node"
+            );
           }
         }
 
         // Stop uptime tracking and update server
         const result = await stopDeviceUptime(selectedNodeId);
-        
+
         if (result.success) {
-          console.log('Node stopped and uptime updated successfully');
+          console.log("Node stopped and uptime updated successfully");
         } else {
-          console.error('Failed to update uptime:', result.error);
+          console.error("Failed to update uptime:", result.error);
         }
       } catch (error) {
-        console.error('Error stopping node:', error);
+        console.error("Error stopping node:", error);
       }
-      
+
       setTimeout(() => {
         dispatch(stopNode());
         dispatch(resetTasks()); // Clear all proxy tasks when node stops
@@ -516,10 +576,10 @@ export const NodeControlPanel = () => {
         return;
       }
       setIsStarting(true);
-      
+
       // Start uptime tracking
       startDeviceUptime(selectedNodeId);
-      
+
       setTimeout(() => {
         dispatch(startNode());
         setIsStarting(false);
@@ -527,52 +587,64 @@ export const NodeControlPanel = () => {
     }
   };
 
-  const handleScanComplete = async (hardwareInfo: HardwareInfo, deviceName: string) => {
+  const handleScanComplete = async (
+    hardwareInfo: HardwareInfo,
+    deviceName: string
+  ) => {
     if (!user?.id) return;
-    
+
     // Register the device in Redux store
     dispatch(registerDevice(hardwareInfo));
-    
+
     // Save the device using API route
     try {
-      const response = await fetch('/api/devices', {
-        method: 'POST',
+      const response = await fetch("/api/devices", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           gpu_model: hardwareInfo.gpuInfo,
-          device_type: hardwareInfo.deviceType || 'desktop',
+          device_type: hardwareInfo.deviceType || "desktop",
           reward_tier: hardwareInfo.rewardTier,
           device_name: deviceName,
         }),
       });
-      
+
       if (!response.ok) {
-        console.error("Error saving device:", response.status, response.statusText);
+        console.error(
+          "Error saving device:",
+          response.status,
+          response.statusText
+        );
       } else {
         const { device } = await response.json();
         const newDevice = device as SupabaseDevice;
         const newNode: NodeInfo = {
           id: newDevice.id,
-          name: newDevice.device_name || `My ${newDevice.device_type.charAt(0).toUpperCase() + newDevice.device_type.slice(1)}`,
+          name:
+            newDevice.device_name ||
+            `My ${
+              newDevice.device_type.charAt(0).toUpperCase() +
+              newDevice.device_type.slice(1)
+            }`,
           type: newDevice.device_type,
-          rewardTier: newDevice.reward_tier || 'cpu',
-          status: 'idle',
-          gpuInfo: newDevice.gpu_model
+          rewardTier: newDevice.reward_tier || "cpu",
+          status: "idle",
+          gpuInfo: newDevice.gpu_model,
         };
-        
-        setNodes(prevNodes => [...prevNodes, newNode]);
+
+        setNodes((prevNodes) => [...prevNodes, newNode]);
         setSelectedNodeId(newDevice.id);
       }
     } catch (err) {
       console.error("Exception while saving device:", err);
     }
   };
-  
+
   const deleteSelectedNode = async () => {
     if (!selectedNodeId || !user?.id) return;
-    
+
     setIsDeletingNode(true);
     try {
       const success = await deleteDevice(selectedNodeId);
@@ -585,60 +657,78 @@ export const NodeControlPanel = () => {
       setIsDeletingNode(false);
     }
   };
-  
+
   const getRewardTierColor = (tier: string) => {
     switch (tier) {
-      case 'webgpu': return 'text-purple-400';
-      case 'wasm': return 'text-blue-400';
-      case 'webgl': return 'text-green-400';
-      case 'cpu': return 'text-yellow-400';
-      default: return 'text-gray-400';
+      case "webgpu":
+        return "text-purple-400";
+      case "wasm":
+        return "text-blue-400";
+      case "webgl":
+        return "text-green-400";
+      case "cpu":
+        return "text-yellow-400";
+      default:
+        return "text-gray-400";
     }
   };
 
   const handleClaimReward = async () => {
     const totalUnclaimedRewards = sessionEarnings + dbUnclaimedRewards;
     if (totalUnclaimedRewards <= 0) return;
-    
+
     try {
-      console.log('Claiming total rewards:', totalUnclaimedRewards, '(Session:', sessionEarnings, '+ DB:', dbUnclaimedRewards, ')');
-      
+      console.log(
+        "Claiming total rewards:",
+        totalUnclaimedRewards,
+        "(Session:",
+        sessionEarnings,
+        "+ DB:",
+        dbUnclaimedRewards,
+        ")"
+      );
+
       // First, save any unsaved session earnings to ensure we don't lose them
       if (sessionEarnings > 0) {
-        console.log('💰 Claiming: First saving unsaved session earnings:', sessionEarnings);
+        console.log(
+          "💰 Claiming: First saving unsaved session earnings:",
+          sessionEarnings
+        );
         const saveSuccess = await saveSessionEarningsToDb(true); // Force save before claiming
         if (!saveSuccess) {
-          console.error('❌ Failed to save session earnings before claiming');
+          console.error("❌ Failed to save session earnings before claiming");
           return;
         }
       }
-      
+
       // Recalculate total after potential save (should now be all in DB)
-      const finalDbRewards = dbUnclaimedRewards + (sessionEarnings > 0 ? sessionEarnings : 0);
-      
+      const finalDbRewards =
+        dbUnclaimedRewards + (sessionEarnings > 0 ? sessionEarnings : 0);
+
       // Claim the rewards
       const result = await claimTaskRewards(finalDbRewards);
-      
+
       if (result) {
         // After successful claim, reset everything to 0
         const resetSuccess = await resetAllUnclaimedRewards();
         if (resetSuccess) {
-          console.log('Successfully claimed and reset all rewards');
+          console.log("Successfully claimed and reset all rewards");
         }
-        
+
         // Process referral rewards
-        const { error } = await processReferralRewards(user!.id, finalDbRewards);
-        
+        const { error } = await processReferralRewards(
+          user!.id,
+          finalDbRewards
+        );
+
         if (error) {
-          console.error('Error processing referral rewards:', error);
+          console.error("Error processing referral rewards:", error);
         }
       }
     } catch (error) {
-      console.error('Error in reward claiming process:', error);
+      console.error("Error in reward claiming process:", error);
     }
   };
-
-
 
   useEffect(() => {
     if (claimSuccess) {
@@ -691,7 +781,13 @@ export const NodeControlPanel = () => {
                       )}
                     </>
                   )}
-                  {!selectedNode && <span>{isLoadingDevices ? "Loading nodes..." : "No nodes available"}</span>}
+                  {!selectedNode && (
+                    <span>
+                      {isLoadingDevices
+                        ? "Loading nodes..."
+                        : "No nodes available"}
+                    </span>
+                  )}
                 </div>
               </SelectTrigger>
               <SelectContent className="bg-[#0A1A2F] border-[#1E293B]">
@@ -738,7 +834,9 @@ export const NodeControlPanel = () => {
 
             <Button
               variant="default"
-              disabled={isStarting || isStopping || isUpdatingUptime || !selectedNodeId}
+              disabled={
+                isStarting || isStopping || isUpdatingUptime || !selectedNodeId
+              }
               onClick={toggleNodeStatus}
               className={`rounded-full transition-all duration-300 shadow-md hover:shadow-lg text-white text-xs sm:text-sm px-3 py-1 sm:px-4 sm:py-2 h-9 sm:h-10 hover:translate-y-[-0.5px] ${
                 node.isActive || isDeviceRunning(selectedNodeId)
@@ -760,7 +858,9 @@ export const NodeControlPanel = () => {
               )}
               {!isStarting && !isStopping && !isUpdatingUptime && (
                 <>
-                  {node.isActive || isDeviceRunning(selectedNodeId) ? "Stop Node" : "Start Node"}
+                  {node.isActive || isDeviceRunning(selectedNodeId)
+                    ? "Stop Node"
+                    : "Start Node"}
                   {!node.isActive && !isDeviceRunning(selectedNodeId) ? (
                     <VscDebugStart className="text-white/90 ml-1 sm:ml-2" />
                   ) : (
@@ -774,23 +874,33 @@ export const NodeControlPanel = () => {
           <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
             <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
               <div className="text-[#515194] text-xs mb-1">Reward Tier</div>
-              <div className="flex items-center">
-                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/cpu_usage.png" alt="NLOV" className="w-8 h-8 object-contain" />
+              <div className="flex flex-col sm:flex-row sm:items-center">
+                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2 mx-auto sm:mx-0">
+                  <img
+                    src="/images/cpu_usage.png"
+                    alt="NLOV"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
-                <div className="text-lg font-medium text-white ml-3 mt-2">
-                  {isMounted ? (selectedNode?.rewardTier || 'CPU').toUpperCase() : 'CPU'}
+                <div className="text-lg font-medium text-white mt-2 text-center sm:text-left sm:ml-3">
+                  {isMounted
+                    ? (selectedNode?.rewardTier || "CPU").toUpperCase()
+                    : "CPU"}
                 </div>
               </div>
             </div>
 
             <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
               <div className="text-[#515194] text-xs mb-1">Device Uptime</div>
-              <div className="flex items-center">
-                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/active_nodes.png" alt="NLOV" className="w-8 h-8 object-contain" />
+              <div className="flex flex-col sm:flex-row sm:items-center">
+                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2 mx-auto sm:mx-0">
+                  <img
+                    src="/images/active_nodes.png"
+                    alt="NLOV"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
-                <div className="text-lg font-medium text-white ml-3 mt-2">
+                <div className="text-lg font-medium text-white mt-2 text-center sm:text-left sm:ml-3">
                   {formatUptime(displayUptime)}
                 </div>
               </div>
@@ -799,12 +909,18 @@ export const NodeControlPanel = () => {
 
           <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
             <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
-              <div className="text-[#515194] text-xs mb-1">Connected Devices</div>
-              <div className="flex items-center">
-                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/devices.png" alt="NLOV" className="w-8 h-8 object-contain" />
+              <div className="text-[#515194] text-xs mb-1">
+                Connected Devices
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center">
+                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2 mx-auto sm:mx-0">
+                  <img
+                    src="/images/devices.png"
+                    alt="NLOV"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
-                <div className="text-lg font-medium text-white ml-3 mt-2">
+                <div className="text-lg font-medium text-white mt-2 text-center sm:text-left sm:ml-3">
                   {nodes.length}
                 </div>
               </div>
@@ -812,83 +928,102 @@ export const NodeControlPanel = () => {
 
             <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
               <div className="text-[#515194] text-xs mb-1">GPU Model</div>
-              <div className="flex items-start">
-                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2">
-                  <img src="/images/gpu_model.png" alt="NLOV" className="w-8 h-8 object-contain" />
+              <div className="flex flex-col sm:flex-row sm:items-start">
+                <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2 mx-auto sm:mx-0">
+                  <img
+                    src="/images/gpu_model.png"
+                    alt="NLOV"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
                 <div
-                  className="text-sm text-white ml-3 mt-2 overflow-hidden w-[75%]"
-                  title={selectedNode?.gpuInfo || 'N/A'}
+                  className="text-sm text-white mt-2 text-center sm:text-left sm:ml-3 overflow-hidden w-full sm:w-[75%]"
+                  title={selectedNode?.gpuInfo || "N/A"}
                 >
-                  {selectedNode?.gpuInfo || 'N/A'}
+                  {selectedNode?.gpuInfo || "N/A"}
                 </div>
               </div>
             </div>
           </div>
 
-          <div 
+          <div
             className={`p-4 sm:p-6 flex flex-col rounded-xl sm:rounded-2xl border relative overflow-hidden gap-4 transition-all duration-300 ${
-              (sessionEarnings + dbUnclaimedRewards) > 0 
-                ? 'border-yellow-500/30 bg-yellow-900/10'
-                : 'border-blue-800/30 bg-blue-900/10'
+              sessionEarnings + dbUnclaimedRewards > 0
+                ? "border-yellow-500/30 bg-yellow-900/10"
+                : "border-blue-800/30 bg-blue-900/10"
             }`}
           >
-            <div className="flex flex-row items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-4 z-10">
                 <img
                   src="/images/nlov-coin.png"
                   alt="coin"
-                  className="w-11 h-11 object-contain z-10"
+                  className="w-11 h-11 object-contain z-10 flex-shrink-0"
                 />
-                <div className="flex flex-col">
-                  <span className="text-white/90 text-2xl whitespace-nowrap transition-all duration-500">
-                    {(sessionEarnings + dbUnclaimedRewards) > 0 ? 'Rewards Available' : 'Total Earnings'}
+                <div className="flex flex-col min-w-0">
+                  <span className="text-white/90 text-xl sm:text-2xl break-words transition-all duration-500">
+                    {sessionEarnings + dbUnclaimedRewards > 0
+                      ? "Rewards Available"
+                      : "Total Earnings"}
                   </span>
                   {isLoadingEarnings && (
-                    <span className="text-xs text-white/50">Loading earnings...</span>
+                    <span className="text-xs text-white/50">
+                      Loading earnings...
+                    </span>
                   )}
-                  {(sessionEarnings + dbUnclaimedRewards) > 0 && (node.isActive || isDeviceRunning(selectedNodeId)) && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                      <span className="text-xs text-yellow-400">Stop active node to claim rewards</span>
-                    </div>
-                  )}
+                  {sessionEarnings + dbUnclaimedRewards > 0 &&
+                    (node.isActive || isDeviceRunning(selectedNodeId)) && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                        <span className="text-xs text-yellow-400">
+                          Stop active node to claim rewards
+                        </span>
+                      </div>
+                    )}
                 </div>
               </div>
               <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
-                <span className={`font-medium lg:text-4xl md:text-3xl sm:text-2xl transition-all duration-300 ${
-                  (sessionEarnings + dbUnclaimedRewards) > 0 
-                    ? 'text-yellow-400' 
-                    : 'text-blue-400'
-                } leading-none`}>
-                  {isLoadingEarnings ? "..." : 
-                    (sessionEarnings + dbUnclaimedRewards) > 0 
-                      ? (sessionEarnings + dbUnclaimedRewards).toFixed(2)
-                      : totalEarnings.toFixed(2)
-                  }
+                <span
+                  className={`font-medium text-2xl sm:text-3xl lg:text-4xl transition-all duration-300 ${
+                    sessionEarnings + dbUnclaimedRewards > 0
+                      ? "text-yellow-400"
+                      : "text-blue-400"
+                  } leading-none`}
+                >
+                  {isLoadingEarnings
+                    ? "..."
+                    : sessionEarnings + dbUnclaimedRewards > 0
+                    ? (sessionEarnings + dbUnclaimedRewards).toFixed(2)
+                    : totalEarnings.toFixed(2)}
                 </span>
-                <span className={`text-sm transition-all duration-300 ${
-                  (sessionEarnings + dbUnclaimedRewards) > 0 
-                    ? 'text-yellow-300' 
-                    : 'text-white/90'
-                }`}>
-                  {(sessionEarnings + dbUnclaimedRewards) > 0 ? 'SP' : 'NLOV'}
+                <span
+                  className={`text-sm transition-all duration-300 ${
+                    sessionEarnings + dbUnclaimedRewards > 0
+                      ? "text-yellow-300"
+                      : "text-white/90"
+                  }`}
+                >
+                  {sessionEarnings + dbUnclaimedRewards > 0 ? "SP" : "NLOV"}
                 </span>
               </div>
             </div>
-            
-            {(sessionEarnings + dbUnclaimedRewards) > 0 && (
+
+            {sessionEarnings + dbUnclaimedRewards > 0 && (
               <div className="flex flex-col">
-                <div className="flex items-center justify-between mt-2 border-t border-yellow-500/30 pt-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-2 border-t border-yellow-500/30 pt-3 gap-3">
                   <div className="flex items-center gap-2">
                     <img
                       src="/images/pending_reward.png"
                       alt="Unclaimed"
-                      className="w-5 h-5 object-contain"
+                      className="w-5 h-5 object-contain flex-shrink-0"
                     />
-                    <div className="flex flex-col">
-                      <span className="text-white text-base font-medium">
-                        Unclaimed: <span className="text-yellow-400">+{(sessionEarnings + dbUnclaimedRewards).toFixed(2)} NLOV</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-white text-base font-medium break-words">
+                        Unclaimed:{" "}
+                        <span className="text-yellow-400">
+                          +{(sessionEarnings + dbUnclaimedRewards).toFixed(2)}{" "}
+                          NLOV
+                        </span>
                       </span>
                       <div className="text-xs text-white/50 space-y-0.5">
                         {isLoadingUnclaimedRewards ? (
@@ -896,17 +1031,26 @@ export const NodeControlPanel = () => {
                         ) : (
                           <>
                             {dbUnclaimedRewards > 0 && (
-                              <div>Saved: {dbUnclaimedRewards.toFixed(2)} NLOV</div>
+                              <div>
+                                Saved: {dbUnclaimedRewards.toFixed(2)} NLOV
+                              </div>
                             )}
                             {sessionEarnings > 0 && (
                               <div>
                                 Session: {sessionEarnings.toFixed(2)} NLOV{" "}
                                 {isSavingToDb ? (
-                                  <span className="text-blue-400">(saving...)</span>
-                                ) : node.isActive || isDeviceRunning(selectedNodeId) ? (
-                                  <span className="text-green-400">(auto-saving)</span>
+                                  <span className="text-blue-400">
+                                    (saving...)
+                                  </span>
+                                ) : node.isActive ||
+                                  isDeviceRunning(selectedNodeId) ? (
+                                  <span className="text-green-400">
+                                    (auto-saving)
+                                  </span>
                                 ) : (
-                                  <span className="text-yellow-400">(unsaved)</span>
+                                  <span className="text-yellow-400">
+                                    (unsaved)
+                                  </span>
                                 )}
                               </div>
                             )}
@@ -916,24 +1060,33 @@ export const NodeControlPanel = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between mt-3">
-                  {claimError && <span className="text-red-400 text-xs">{claimError}</span>}
-                  {showClaimSuccess && <span className="text-green-400 text-xs">Reward claimed successfully!</span>}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-3 gap-2">
+                  <div className="flex flex-col gap-1">
+                    {claimError && (
+                      <span className="text-red-400 text-xs">{claimError}</span>
+                    )}
+                    {showClaimSuccess && (
+                      <span className="text-green-400 text-xs">
+                        Reward claimed successfully!
+                      </span>
+                    )}
+                  </div>
                   <Button
                     variant="default"
                     size="sm"
                     onClick={handleClaimReward}
                     disabled={
-                      isClaimingReward || 
-                      isSavingToDb || 
-                      (sessionEarnings + dbUnclaimedRewards) <= 0 || 
+                      isClaimingReward ||
+                      isSavingToDb ||
+                      sessionEarnings + dbUnclaimedRewards <= 0 ||
                       isLoadingUnclaimedRewards ||
-                      (node.isActive || isDeviceRunning(selectedNodeId))
+                      node.isActive ||
+                      isDeviceRunning(selectedNodeId)
                     }
-                    className={`rounded-full text-white px-4 py-2 w-full transition-all duration-300 ${
-                      (node.isActive || isDeviceRunning(selectedNodeId))
-                        ? 'bg-gray-600 hover:bg-gray-700 cursor-not-allowed'
-                        : 'bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500'
+                    className={`rounded-full text-white px-4 py-2 w-full sm:w-auto transition-all duration-300 ${
+                      node.isActive || isDeviceRunning(selectedNodeId)
+                        ? "bg-gray-600 hover:bg-gray-700 cursor-not-allowed"
+                        : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
                     }`}
                   >
                     {isClaimingReward ? (
@@ -948,24 +1101,28 @@ export const NodeControlPanel = () => {
                           alt="Claim"
                           className="w-4 h-4 mr-2 object-contain"
                         />
-                        {(node.isActive || isDeviceRunning(selectedNodeId)) ? 'Stop Node to Claim' : 'Claim Rewards'}
+                        {node.isActive || isDeviceRunning(selectedNodeId)
+                          ? "Stop Node to Claim"
+                          : "Claim Rewards"}
                       </div>
                     )}
                   </Button>
                 </div>
               </div>
             )}
-            
+
             {/* Show message when no rewards available */}
-            {(sessionEarnings + dbUnclaimedRewards) <= 0 && (
+            {sessionEarnings + dbUnclaimedRewards <= 0 && (
               <div className="flex items-center justify-center border-t border-blue-800/30 pt-3">
-                <span className="text-white/50 text-sm">Complete tasks to earn rewards</span>
+                <span className="text-white/50 text-sm">
+                  Complete tasks to earn rewards
+                </span>
               </div>
             )}
           </div>
         </div>
       </div>
-      
+
       {/* Hardware Scan Dialog */}
       <HardwareScanDialog
         isOpen={showScanDialog}
@@ -973,7 +1130,10 @@ export const NodeControlPanel = () => {
         onScanComplete={handleScanComplete}
       />
 
-      <Dialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+      <Dialog
+        open={showDeleteConfirmDialog}
+        onOpenChange={setShowDeleteConfirmDialog}
+      >
         <DialogContent className="sm:max-w-md bg-[#0A1A2F] border-[#112544]">
           <DialogHeader>
             <DialogTitle className="text-white">Delete Node</DialogTitle>
