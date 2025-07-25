@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/dialog";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePlan } from "@/contexts/PlanContext";
 
 interface NodeInfo {
   id: string;
@@ -84,20 +85,21 @@ interface SupabaseDevice {
 }
 
 export const NodeControlPanel = () => {
+  const { user, isLoggedIn, isLoading } = useAuth();
+  const { canAddDevice, getMaxUptime, currentPlan, planDetails } = usePlan();
   const dispatch = useAppDispatch();
   const node = useAppSelector(selectNode);
   const earnings = useAppSelector(selectEarnings);
   const currentUptime = useAppSelector(selectCurrentUptime);
   const totalEarnings = useAppSelector(selectTotalEarnings);
   const sessionEarnings = useAppSelector(selectSessionEarnings);
-  const { user } = useAuth();
   const supabase = createClient();
   const {
     claimTaskRewards,
     loadTotalEarnings,
     isClaimingReward,
     isLoading: isLoadingEarnings,
-    claimError,
+    claimError: earningsClaimError,
     claimSuccess,
     resetClaimState,
   } = useEarnings();
@@ -127,6 +129,8 @@ export const NodeControlPanel = () => {
   const [isLoadingDevices, setIsLoadingDevices] = useState(true);
   const [hasFetchedDevices, setHasFetchedDevices] = useState(false);
   const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
+  const [uptimeExceeded, setUptimeExceeded] = useState(false);
+  const [deviceLimitExceeded, setDeviceLimitExceeded] = useState(false);
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   const [displayUptime, setDisplayUptime] = useState(0);
   const [dbUnclaimedRewards, setDbUnclaimedRewards] = useState(0);
@@ -136,6 +140,7 @@ export const NodeControlPanel = () => {
   const [isSavingToDb, setIsSavingToDb] = useState(false);
   const initializedDevicesRef = useRef<Set<string>>(new Set());
   const lastAutoSaveRef = useRef<number>(0);
+  const autoStopInProgressRef = useRef<boolean>(false);
 
   // Replace static nodes with state
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
@@ -530,6 +535,78 @@ export const NodeControlPanel = () => {
     }
   };
 
+  // Check if current uptime exceeds plan limit
+  const checkUptimeLimit = () => {
+    const currentUptime = getCurrentUptime(selectedNodeId);
+    const maxUptime = getMaxUptime();
+    return currentUptime >= maxUptime;
+  };
+
+  // Check device limits
+  const checkDeviceLimit = () => {
+    return !canAddDevice(nodes.length);
+  };
+
+  // Update restriction states and auto-stop node if uptime exceeded
+  useEffect(() => {
+    if (selectedNodeId) {
+      const isUptimeExceeded = checkUptimeLimit();
+      setUptimeExceeded(isUptimeExceeded);
+      
+      // Auto-stop node if uptime limit is exceeded and node is currently running
+      // Use ref to prevent multiple auto-stop calls
+      if (isUptimeExceeded && 
+          (node.isActive || isDeviceRunning(selectedNodeId)) && 
+          !autoStopInProgressRef.current && 
+          !isStopping) {
+        
+        console.log('⏰ Uptime limit exceeded, automatically stopping node...');
+        autoStopInProgressRef.current = true; // Set flag to prevent multiple calls
+        setIsStopping(true);
+        
+        const autoStopNode = async () => {
+          try {
+            // Save any unsaved session earnings before stopping the node
+            if (sessionEarnings > 0) {
+              console.log(
+                "🛑 Auto-stop: Saving session earnings to DB:",
+                sessionEarnings
+              );
+              const saveSuccess = await saveSessionEarningsToDb(true); // Force save
+              if (!saveSuccess) {
+                console.error(
+                  "❌ Failed to save session earnings before auto-stopping node"
+                );
+              }
+            }
+    
+            // Stop uptime tracking and update server
+            const result = await stopDeviceUptime(selectedNodeId);
+    
+            if (result.success) {
+              console.log("Node auto-stopped and uptime updated successfully");
+            } else {
+              console.error("Failed to update uptime during auto-stop:", result.error);
+            }
+          } catch (error) {
+            console.error("Error during auto-stop:", error);
+          }
+    
+          setTimeout(() => {
+            dispatch(stopNode());
+            dispatch(resetTasks()); // Clear all proxy tasks when node stops
+            setIsStopping(false);
+            autoStopInProgressRef.current = false; // Reset flag after completion
+            console.log(`✅ Auto-stop completed. Uptime limit (${formatUptime(getMaxUptime())}) reached for ${currentPlan.toLowerCase()} plan.`);
+          }, 2000);
+        };
+        
+        autoStopNode();
+      }
+    }
+    setDeviceLimitExceeded(checkDeviceLimit());
+  }, [selectedNodeId, nodes.length, deviceUptimeList, node.isActive]);
+
   const toggleNodeStatus = async () => {
     if (!selectedNodeId) return;
 
@@ -571,6 +648,12 @@ export const NodeControlPanel = () => {
         setIsStopping(false);
       }, 2000);
     } else {
+      // Check uptime limits before starting
+      if (checkUptimeLimit()) {
+        alert(`Node cannot start. Uptime limit (${formatUptime(getMaxUptime())}) reached for ${currentPlan.toLowerCase()} plan.`);
+        return;
+      }
+
       if (!node.isRegistered) {
         setShowScanDialog(true);
         return;
@@ -592,6 +675,12 @@ export const NodeControlPanel = () => {
     deviceName: string
   ) => {
     if (!user?.id) return;
+
+    // Check device limit before adding new device
+    if (deviceLimitExceeded) {
+      alert(`Device limit reached. Your ${currentPlan.toLowerCase()} plan allows ${planDetails.deviceLimit} device${planDetails.deviceLimit > 1 ? 's' : ''}.`);
+      return;
+    }
 
     // Register the device in Redux store
     dispatch(registerDevice(hardwareInfo));
@@ -755,8 +844,19 @@ export const NodeControlPanel = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowScanDialog(true)}
-              className="gradient-button rounded-full text-[#8BBEFF] text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2"
+              onClick={() => {
+                if (deviceLimitExceeded) {
+                  alert(`Device limit reached. Your ${currentPlan.toLowerCase()} plan allows ${planDetails.deviceLimit} device${planDetails.deviceLimit > 1 ? 's' : ''}. Current: ${nodes.length}`);
+                  return;
+                }
+                setShowScanDialog(true);
+              }}
+              disabled={deviceLimitExceeded}
+              className={`gradient-button rounded-full text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2 ${
+                deviceLimitExceeded 
+                  ? 'opacity-50 cursor-not-allowed text-gray-400' 
+                  : 'text-[#8BBEFF]'
+              }`}
             >
               <Scan className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               Scan Device
@@ -835,12 +935,15 @@ export const NodeControlPanel = () => {
             <Button
               variant="default"
               disabled={
-                isStarting || isStopping || isUpdatingUptime || !selectedNodeId
+                isStarting || isStopping || isUpdatingUptime || !selectedNodeId || 
+                (uptimeExceeded && !(node.isActive || isDeviceRunning(selectedNodeId)))
               }
               onClick={toggleNodeStatus}
               className={`rounded-full transition-all duration-300 shadow-md hover:shadow-lg text-white text-xs sm:text-sm px-3 py-1 sm:px-4 sm:py-2 h-9 sm:h-10 hover:translate-y-[-0.5px] ${
                 node.isActive || isDeviceRunning(selectedNodeId)
                   ? "bg-red-600 hover:bg-red-700 hover:shadow-red-500/30 shadow-red-500"
+                  : uptimeExceeded 
+                  ? "bg-gray-600 hover:bg-gray-700 cursor-not-allowed opacity-50"
                   : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
               }`}
             >
@@ -860,9 +963,15 @@ export const NodeControlPanel = () => {
                 <>
                   {node.isActive || isDeviceRunning(selectedNodeId)
                     ? "Stop Node"
+                    : uptimeExceeded
+                    ? "Uptime Limit Reached"
                     : "Start Node"}
                   {!node.isActive && !isDeviceRunning(selectedNodeId) ? (
-                    <VscDebugStart className="text-white/90 ml-1 sm:ml-2" />
+                    uptimeExceeded ? (
+                      <AlertTriangle className="text-white/90 ml-1 sm:ml-2" />
+                    ) : (
+                      <VscDebugStart className="text-white/90 ml-1 sm:ml-2" />
+                    )
                   ) : (
                     <IoStopOutline className="text-white/90 ml-1 sm:ml-2" />
                   )}
@@ -890,8 +999,15 @@ export const NodeControlPanel = () => {
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
-              <div className="text-[#515194] text-xs mb-1">Device Uptime</div>
+            <div className={`p-4 rounded-xl flex flex-col ${
+              uptimeExceeded ? 'bg-red-900/20 border border-red-500/30' : 'bg-[#1D1D33]'
+            }`}>
+              <div className="text-[#515194] text-xs mb-1 flex items-center justify-between">
+                <span>Device Uptime</span>
+                {uptimeExceeded && (
+                  <span className="text-red-400 text-xs">LIMIT REACHED</span>
+                )}
+              </div>
               <div className="flex flex-col sm:flex-row sm:items-center">
                 <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2 mx-auto sm:mx-0">
                   <img
@@ -900,8 +1016,24 @@ export const NodeControlPanel = () => {
                     className="w-8 h-8 object-contain"
                   />
                 </div>
-                <div className="text-lg font-medium text-white mt-2 text-center sm:text-left sm:ml-3">
-                  {formatUptime(displayUptime)}
+                <div className="flex flex-col mt-2 sm:ml-3 w-full">
+                  <div className={`text-lg font-medium text-center sm:text-left ${
+                    uptimeExceeded ? 'text-red-400' : 'text-white'
+                  }`}>
+                    {formatUptime(displayUptime)}
+                  </div>
+                  <div className="text-xs text-white/50 text-center sm:text-left">
+                    of {formatUptime(getMaxUptime())}
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full bg-gray-700 rounded-full h-1.5 mt-1">
+                    <div 
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        uptimeExceeded ? 'bg-red-500' : displayUptime / getMaxUptime() > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
+                      }`}
+                      style={{ width: `${Math.min((displayUptime / getMaxUptime()) * 100, 100)}%` }}
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -920,8 +1052,20 @@ export const NodeControlPanel = () => {
                     className="w-8 h-8 object-contain"
                   />
                 </div>
-                <div className="text-lg font-medium text-white mt-2 text-center sm:text-left sm:ml-3">
-                  {nodes.length}
+                <div className="flex flex-col mt-2 sm:ml-3">
+                  <div className={`text-lg font-medium text-center sm:text-left ${
+                    deviceLimitExceeded ? 'text-red-400' : 'text-white'
+                  }`}>
+                    {nodes.length}
+                  </div>
+                  <div className="text-xs text-white/50 text-center sm:text-left">
+                    of {planDetails.deviceLimit}
+                  </div>
+                  {deviceLimitExceeded && (
+                    <div className="text-xs text-red-400 text-center sm:text-left mt-1">
+                      LIMIT REACHED
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1062,8 +1206,8 @@ export const NodeControlPanel = () => {
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-3 gap-2">
                   <div className="flex flex-col gap-1">
-                    {claimError && (
-                      <span className="text-red-400 text-xs">{claimError}</span>
+                    {earningsClaimError && (
+                      <span className="text-red-400 text-xs">{earningsClaimError}</span>
                     )}
                     {showClaimSuccess && (
                       <span className="text-green-400 text-xs">

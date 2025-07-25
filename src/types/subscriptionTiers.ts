@@ -39,7 +39,7 @@ export const subscriptionTiers: SubscriptionTier[] = [
     ]
   },
   {
-    name: "Pro",
+    name: "Ultimate",
     price: 15,
     maxUptime: (4 + 8) * 60 * 60, // 12 hours
     deviceLimit: 2,
@@ -58,7 +58,7 @@ export const subscriptionTiers: SubscriptionTier[] = [
     ]
   },
   {
-    name: "Elite",
+    name: "Enterprise",
     price: 50,
     maxUptime: 24 * 60 * 60, // 24 hours
     deviceLimit: 6,

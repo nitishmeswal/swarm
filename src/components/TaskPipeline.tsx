@@ -24,9 +24,11 @@ import { selectSessionEarnings } from "@/lib/store/slices/earningsSlice";
 import { getTaskEngine } from "@/lib/store/taskEngine";
 import { formatUptimeShort, TASK_CONFIG } from "@/lib/store/config";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePlan } from "@/contexts/PlanContext";
 
 export const TaskPipeline = () => {
   const { user, isLoggedIn, isLoading } = useAuth();
+  const { getMaxUptime, currentPlan } = usePlan();
   const dispatch = useAppDispatch();
   const node = useAppSelector(selectNode);
   const tasks = useAppSelector(selectTasks);
