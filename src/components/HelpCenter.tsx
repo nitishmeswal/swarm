@@ -70,7 +70,7 @@ const useTranslation = () => {
         "Describe your issue or question",
       "helpCenter.contactForm.submit": "Submit Request",
       "helpCenter.emailSupport.title": "Email Support",
-      "helpCenter.emailSupport.email": "SUPPORT@NEUROSWARM.AI",
+      "helpCenter.emailSupport.email": "support@neurolov.ai",
       "helpCenter.emailSupport.description":
         "For general inquiries and support",
       "helpCenter.supportHours.title": "Support Hours",
