@@ -131,6 +131,7 @@ export const NodeControlPanel = () => {
   const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
   const [uptimeExceeded, setUptimeExceeded] = useState(false);
   const [deviceLimitExceeded, setDeviceLimitExceeded] = useState(false);
+  const [showUptimeLimitDialog, setShowUptimeLimitDialog] = useState(false);
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   const [displayUptime, setDisplayUptime] = useState(0);
   const [dbUnclaimedRewards, setDbUnclaimedRewards] = useState(0);
@@ -597,6 +598,7 @@ export const NodeControlPanel = () => {
             dispatch(resetTasks()); // Clear all proxy tasks when node stops
             setIsStopping(false);
             autoStopInProgressRef.current = false; // Reset flag after completion
+            setShowUptimeLimitDialog(true); // Show upgrade dialog
             console.log(`✅ Auto-stop completed. Uptime limit (${formatUptime(getMaxUptime())}) reached for ${currentPlan.toLowerCase()} plan.`);
           }, 2000);
         };
@@ -1310,6 +1312,47 @@ export const NodeControlPanel = () => {
               ) : (
                 "Delete"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Uptime Limit Exceeded Dialog */}
+      <Dialog
+        open={showUptimeLimitDialog}
+        onOpenChange={setShowUptimeLimitDialog}
+      >
+        <DialogContent className="sm:max-w-md bg-[#0A1A2F] border-[#112544]">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Uptime Limit Exceeded
+            </DialogTitle>
+            <DialogDescription className="text-white/70">
+              Your node has been automatically stopped because you've reached the uptime limit for your {currentPlan.toLowerCase()} plan.
+              <br /><br />
+              <span className="text-yellow-400">
+                Current usage: {formatUptime(displayUptime)} of {formatUptime(getMaxUptime())}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setShowUptimeLimitDialog(false)}
+              className="border-[#112544] text-white hover:bg-[#112544]/30 w-full sm:w-auto"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                window.open('https://app.neurolov.ai/subscription', '_blank');
+                setShowUptimeLimitDialog(false);
+              }}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white w-full sm:w-auto"
+            >
+              Upgrade Plan
             </Button>
           </DialogFooter>
         </DialogContent>
