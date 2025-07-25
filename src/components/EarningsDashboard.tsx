@@ -24,7 +24,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from "recharts";
 
 type TimeRange = "daily" | "weekly" | "monthly" | "all-time";
 
@@ -80,13 +90,13 @@ export const EarningsDashboard = () => {
   const [isLoadingTaskStats, setIsLoadingTaskStats] = useState<boolean>(true);
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [isLoadingStreak, setIsLoadingStreak] = useState<boolean>(true);
-  
+
   // Real data states
   const [earningsData, setEarningsData] = useState<EarningsData>({
     totalEarnings: 0,
     availableBalance: 0,
     periodEarnings: 0,
-    avgDaily: 0
+    avgDaily: 0,
   });
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -103,75 +113,75 @@ export const EarningsDashboard = () => {
   // API functions
   const fetchEarningsData = async () => {
     if (!user?.id) return;
-    
+
     try {
       setIsLoadingEarnings(true);
-      
+
       // Fetch total earnings
-      const earningsRes = await fetch('/api/earnings');
+      const earningsRes = await fetch("/api/earnings");
       const earningsData = await earningsRes.json();
-      
+
       // Fetch unclaimed balance (SP)
-      const unclaimedRes = await fetch('/api/unclaimed-rewards');
+      const unclaimedRes = await fetch("/api/unclaimed-rewards");
       const unclaimedData = await unclaimedRes.json();
-      
+
       setEarningsData({
         totalEarnings: earningsData.totalEarnings || 0,
         availableBalance: unclaimedData.unclaimed_reward || 0,
         periodEarnings: 0, // Will be calculated from chart data
-        avgDaily: 0 // Will be calculated from chart data
+        avgDaily: 0, // Will be calculated from chart data
       });
     } catch (error) {
-      console.error('Error fetching earnings data:', error);
+      console.error("Error fetching earnings data:", error);
     } finally {
       setIsLoadingEarnings(false);
     }
   };
-  
+
   const fetchChartData = async () => {
     if (!user?.id) return;
-    
+
     try {
       setIsLoadingChart(true);
       const res = await fetch(`/api/earnings/chart?range=${chartPeriod}`);
       const data = await res.json();
-      
+
       if (data.chartData) {
         setChartData(data.chartData);
         setChartSummary(data.summary);
-        
+
         // Update earnings data with period info
-        setEarningsData(prev => ({
+        setEarningsData((prev) => ({
           ...prev,
           periodEarnings: data.summary.periodEarnings,
-          avgDaily: data.summary.avgDaily
+          avgDaily: data.summary.avgDaily,
         }));
       }
     } catch (error) {
-      console.error('Error fetching chart data:', error);
+      console.error("Error fetching chart data:", error);
     } finally {
       setIsLoadingChart(false);
     }
   };
-  
+
   const fetchTransactions = async () => {
     if (!user?.id) return;
-    
+
     try {
       setIsLoadingTransactions(true);
-      const res = await fetch('/api/earnings/transactions?limit=10');
+      const res = await fetch("/api/earnings/transactions?limit=10");
       const data = await res.json();
-      
+
       if (data.transactions) {
         setTransactions(data.transactions);
       }
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      console.error("Error fetching transactions:", error);
     } finally {
       setIsLoadingTransactions(false);
     }
   };
-  
+
   // Effects
   useEffect(() => {
     if (user?.id) {
@@ -179,7 +189,7 @@ export const EarningsDashboard = () => {
       fetchTransactions();
     }
   }, [user?.id]);
-  
+
   useEffect(() => {
     if (user?.id) {
       fetchChartData();
@@ -214,13 +224,13 @@ export const EarningsDashboard = () => {
 
   const handleDailyCheckIn = async () => {
     if (!streakData || !userId) return;
-    
+
     setCheckInLoading(true);
     try {
-      const response = await fetch('/api/daily-checkins', {
-        method: 'POST',
+      const response = await fetch("/api/daily-checkins", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
 
@@ -232,11 +242,11 @@ export const EarningsDashboard = () => {
         fetchTaskStats();
       } else {
         const error = await response.json();
-        alert(error.error || 'Failed to check in');
+        alert(error.error || "Failed to check in");
       }
     } catch (error) {
-      console.error('Error during check-in:', error);
-      alert('Failed to check in. Please try again.');
+      console.error("Error during check-in:", error);
+      alert("Failed to check in. Please try again.");
     } finally {
       setCheckInLoading(false);
     }
@@ -262,10 +272,10 @@ export const EarningsDashboard = () => {
   const fetchTaskStats = async () => {
     try {
       setIsLoadingTaskStats(true);
-      const response = await fetch('/api/user-task-stats', {
-        method: 'GET',
+      const response = await fetch("/api/user-task-stats", {
+        method: "GET",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
 
@@ -273,11 +283,11 @@ export const EarningsDashboard = () => {
         const { taskCompleted: completedCount } = await response.json();
         setTaskCompleted(completedCount || 0);
       } else {
-        console.error('Failed to fetch task stats:', response.status);
+        console.error("Failed to fetch task stats:", response.status);
         setTaskCompleted(0);
       }
     } catch (error) {
-      console.error('Error fetching task stats:', error);
+      console.error("Error fetching task stats:", error);
       setTaskCompleted(0);
     } finally {
       setIsLoadingTaskStats(false);
@@ -288,10 +298,10 @@ export const EarningsDashboard = () => {
   const fetchStreakData = async () => {
     try {
       setIsLoadingStreak(true);
-      const response = await fetch('/api/daily-checkins', {
-        method: 'GET',
+      const response = await fetch("/api/daily-checkins", {
+        method: "GET",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
 
@@ -299,11 +309,11 @@ export const EarningsDashboard = () => {
         const data = await response.json();
         setStreakData(data);
       } else {
-        console.error('Failed to fetch streak data:', response.status);
+        console.error("Failed to fetch streak data:", response.status);
         setStreakData(null);
       }
     } catch (error) {
-      console.error('Error fetching streak data:', error);
+      console.error("Error fetching streak data:", error);
       setStreakData(null);
     } finally {
       setIsLoadingStreak(false);
@@ -394,11 +404,7 @@ export const EarningsDashboard = () => {
             onClick={handleRefresh}
             disabled={loading}
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Refresh"
-            )}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
           </Button>
         </div>
       </div>
@@ -407,16 +413,18 @@ export const EarningsDashboard = () => {
         {/* Total Earning Card */}
         <div className="w-full p-6 earning-cards bg-[#161628] rounded-lg">
           <div className="flex gap-3 items-center">
-            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2">
+            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2 flex-shrink-0">
               <img
                 src="/images/coins.png"
                 alt="SP"
                 className="w-8 h-9 relative z-10"
               />
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm text-[#515194]">Available Balance (SP)</span>
-              <span className="text-xl font-bold text-white">
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-sm text-[#515194]">
+                Available Balance (SP)
+              </span>
+              <span className="text-xl font-bold text-white break-words">
                 {isLoadingEarnings ? (
                   <div className="flex items-center">
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -437,16 +445,18 @@ export const EarningsDashboard = () => {
         {/* Total Earnings Card */}
         <div className="flex flex-col p-4 earning-cards bg-[#161628] rounded-lg">
           <div className="flex gap-3 items-center">
-            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2">
+            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2 flex-shrink-0">
               <img
                 src="/images/dollar.png"
                 alt="NLOV"
                 className="w-8 h-9 relative z-10"
               />
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm text-[#515194]">Total Earnings (NLOV)</span>
-              <span className="text-xl font-bold text-white">
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-sm text-[#515194]">
+                Total Earnings (NLOV)
+              </span>
+              <span className="text-xl font-bold text-white break-words">
                 {isLoadingEarnings ? (
                   <div className="flex items-center">
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -467,16 +477,16 @@ export const EarningsDashboard = () => {
         {/* Total Tasks Card */}
         <div className="flex flex-col p-4 earning-cards bg-[#161628] rounded-lg">
           <div className="flex gap-3 items-center">
-            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2">
+            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2 flex-shrink-0">
               <img
                 src="/images/menu.png"
                 alt="NLOV"
                 className="w-8 h-7 relative z-10"
               />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0 flex-1">
               <span className="text-sm text-[#515194]">Total Tasks</span>
-              <span className="text-xl font-bold text-white">
+              <span className="text-xl font-bold text-white break-words">
                 {isLoadingTaskStats ? (
                   <div className="flex items-center">
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -493,19 +503,19 @@ export const EarningsDashboard = () => {
         {/* Monthly Expected Card */}
         <div className="flex flex-col p-4 earning-cards bg-[#161628] rounded-lg">
           <div className="flex gap-3 items-center">
-            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2">
+            <div className="icon-bg icon-container flex items-center justify-center rounded-md p-2 flex-shrink-0">
               <img
                 src="/images/coins.png"
                 alt="NLOV"
                 className="w-8 h-8 relative z-10"
               />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center gap-1">
                 <span className="text-sm text-[#515194]">Monthly Expected</span>
                 <InfoTooltip content="Projected monthly earnings based on your recent performance" />
               </div>
-              <span className="text-xl font-bold text-white">
+              <span className="text-xl font-bold text-white break-words">
                 {calculateMonthlyExpectedEarnings().toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -551,35 +561,55 @@ export const EarningsDashboard = () => {
               <div className="h-full">
                 <svg width="100%" height="100%" className="overflow-visible">
                   <defs>
-                    <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <linearGradient
+                      id="chartGradient"
+                      x1="0%"
+                      y1="0%"
+                      x2="0%"
+                      y2="100%"
+                    >
                       <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
                       <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
                     </linearGradient>
                   </defs>
-                  
+
                   {/* Chart area */}
                   <path
-                    d={chartData.map((point, index) => {
-                      const x = (index / (chartData.length - 1)) * 90 + 5;
-                      const maxEarnings = Math.max(...chartData.map(d => d.earnings));
-                      const minEarnings = Math.min(...chartData.map(d => d.earnings));
-                      const range = maxEarnings - minEarnings || 1;
-                      const y = 90 - ((point.earnings - minEarnings) / range) * 70 + 5;
-                      return `${index === 0 ? 'M' : 'L'} ${x}% ${y}%`;
-                    }).join(' ')}
+                    d={chartData
+                      .map((point, index) => {
+                        const x = (index / (chartData.length - 1)) * 90 + 5;
+                        const maxEarnings = Math.max(
+                          ...chartData.map((d) => d.earnings)
+                        );
+                        const minEarnings = Math.min(
+                          ...chartData.map((d) => d.earnings)
+                        );
+                        const range = maxEarnings - minEarnings || 1;
+                        const y =
+                          90 -
+                          ((point.earnings - minEarnings) / range) * 70 +
+                          5;
+                        return `${index === 0 ? "M" : "L"} ${x}% ${y}%`;
+                      })
+                      .join(" ")}
                     fill="none"
                     stroke="#3b82f6"
                     strokeWidth="3"
                     vectorEffect="non-scaling-stroke"
                   />
-                  
+
                   {/* Data points */}
                   {chartData.map((point, index) => {
                     const x = (index / (chartData.length - 1)) * 90 + 5;
-                    const maxEarnings = Math.max(...chartData.map(d => d.earnings));
-                    const minEarnings = Math.min(...chartData.map(d => d.earnings));
+                    const maxEarnings = Math.max(
+                      ...chartData.map((d) => d.earnings)
+                    );
+                    const minEarnings = Math.min(
+                      ...chartData.map((d) => d.earnings)
+                    );
                     const range = maxEarnings - minEarnings || 1;
-                    const y = 90 - ((point.earnings - minEarnings) / range) * 70 + 5;
+                    const y =
+                      90 - ((point.earnings - minEarnings) / range) * 70 + 5;
                     return (
                       <circle
                         key={index}
@@ -593,11 +623,13 @@ export const EarningsDashboard = () => {
                     );
                   })}
                 </svg>
-                
+
                 {/* Chart summary */}
                 {chartSummary && (
                   <div className="absolute bottom-2 left-2 text-xs text-slate-400">
-                    <div>Period: +{chartSummary.periodEarnings.toFixed(2)} SP</div>
+                    <div>
+                      Period: +{chartSummary.periodEarnings.toFixed(2)} SP
+                    </div>
                     <div>Avg Daily: {chartSummary.avgDaily.toFixed(2)} SP</div>
                   </div>
                 )}
@@ -607,12 +639,14 @@ export const EarningsDashboard = () => {
                 <div>
                   <TrendingUp className="w-16 h-16 mx-auto mb-4 opacity-50" />
                   <p>No earnings data available</p>
-                  <p className="text-sm mt-2">Complete tasks to see your earnings graph</p>
+                  <p className="text-sm mt-2">
+                    Complete tasks to see your earnings graph
+                  </p>
                 </div>
               </div>
             )}
           </div>
-          
+
           {/* Background effect for chart */}
           <div className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-transparent opacity-30 z-0"></div>
           <div className="absolute inset-0 bg-grid opacity-10 z-0"></div>
@@ -684,7 +718,7 @@ export const EarningsDashboard = () => {
 
       {/* Daily Rewards */}
       <div className="w-full p-4 bg-[#161628] rounded-lg data-panel mt-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
           <div className="flex gap-2 items-center">
             <div className="icon-container">
               <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -692,15 +726,13 @@ export const EarningsDashboard = () => {
             <div className="flex items-center">
               <h3 className="text-lg font-medium">Daily Rewards</h3>
               <div className="ml-2 mt-2">
-                <InfoTooltip 
-                  content="Check in daily to earn rewards! Rewards increase with consecutive days."
-                />
+                <InfoTooltip content="Check in daily to earn rewards! Rewards increase with consecutive days." />
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {userId && streakData && (
-              <div className="flex items-center bg-blue-900/20 px-3 py-1 rounded-full">
+              <div className="flex items-center bg-blue-900/20 px-3 py-1 rounded-full w-full sm:w-auto justify-center sm:justify-start">
                 <span className="text-xs text-blue-300 mr-1">
                   Current streak:
                 </span>
@@ -710,28 +742,43 @@ export const EarningsDashboard = () => {
               </div>
             )}
             <Button
-              className="gradient-button rounded-full"
+              className="gradient-button rounded-full w-full sm:w-auto"
               onClick={handleDailyCheckIn}
-              disabled={checkInLoading || !userId || !streakData?.canCheckIn || isLoadingStreak}
+              disabled={
+                checkInLoading ||
+                !userId ||
+                !streakData?.canCheckIn ||
+                isLoadingStreak
+              }
             >
               {checkInLoading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : null}
-              {isLoadingStreak ? "Loading..." : 
-               streakData?.hasCheckedInToday ? "Checked In" : "Check In"}
+              {isLoadingStreak
+                ? "Loading..."
+                : streakData?.hasCheckedInToday
+                ? "Checked In"
+                : "Check In"}
             </Button>
           </div>
         </div>
 
         {/* Daily reward cards */}
-        <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 sm:gap-4">
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 sm:gap-4">
           {[1, 2, 3, 4, 5, 6, 7].map((day) => (
             <DailyRewardCard
               key={day}
               day={day}
               points={day * 10}
-              isActive={streakData ? !streakData.hasCheckedInToday && ((streakData.currentStreak % 7) + 1) === day : false}
-              isCompleted={streakData ? (streakData.currentStreak % 7) >= day : false}
+              isActive={
+                streakData
+                  ? !streakData.hasCheckedInToday &&
+                    (streakData.currentStreak % 7) + 1 === day
+                  : false
+              }
+              isCompleted={
+                streakData ? streakData.currentStreak % 7 >= day : false
+              }
               description="Earn instantly"
             />
           ))}
@@ -792,17 +839,21 @@ export const EarningsDashboard = () => {
                       {formatDate(tx.created_at)}
                     </span>
                     <span className="text-xs text-[#515194]">
-                      {tx.earning_type === "task" ? "Task completed" : "Referral reward"}
+                      {tx.earning_type === "task"
+                        ? "Task completed"
+                        : "Referral reward"}
                     </span>
                   </div>
 
                   <div className="flex flex-col items-end">
                     <div className="transaction-amount">
                       <span className="text-sm font-medium text-green-500">
-                        +{Number(tx.amount).toLocaleString(undefined, {
+                        +
+                        {Number(tx.amount).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
-                        })} SP
+                        })}{" "}
+                        SP
                       </span>
                       {tx.transaction_hash && (
                         <a
@@ -836,15 +887,15 @@ export const EarningsDashboard = () => {
               </h4>
               <pre className="text-xs bg-[#0D0D1A] p-2 rounded overflow-auto max-h-40 text-white">
                 {JSON.stringify(
-                  { 
-                    earningsData, 
-                    transactions: transactions.length, 
+                  {
+                    earningsData,
+                    transactions: transactions.length,
                     streakData,
                     taskCompleted,
                     isLoadingTaskStats,
                     isLoadingStreak,
                     chartData: chartData.length,
-                    chartSummary
+                    chartSummary,
                   },
                   null,
                   2

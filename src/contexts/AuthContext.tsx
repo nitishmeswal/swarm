@@ -2,7 +2,11 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { User as SupabaseUser, Session, AuthChangeEvent } from "@supabase/supabase-js";
+import {
+  User as SupabaseUser,
+  Session,
+  AuthChangeEvent,
+} from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { stopTaskEngine } from "@/lib/store/taskEngine";
 
@@ -69,9 +73,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     console.log("📊 Fetching user profile for user ID:", userId);
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
+        .from("user_profiles")
+        .select("*")
+        .eq("id", userId)
         .single();
 
       if (error) {
@@ -88,30 +92,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   // Create user profile in the database if it doesn't exist
-  const createUserProfile = async (userId: string, userData: { email: string; user_name?: string }) => {
+  const createUserProfile = async (
+    userId: string,
+    userData: { email: string; user_name?: string }
+  ) => {
     console.log("🆕 Creating user profile for:", userId, userData);
     try {
       // Generate a unique referral code
       const referralCode = generateReferralCode();
-      
+
       // Create the profile
       const profileData = {
         id: userId,
         email: userData.email,
-        user_name: userData.user_name || userData.email.split('@')[0],
+        user_name: userData.user_name || userData.email.split("@")[0],
         joined_at: new Date().toISOString(),
         referral_code: referralCode,
         freedom_ai_credits: 10000,
         music_video_credits: 0,
         deepfake_credits: 0,
         video_generator_credits: 0,
-        plan: 'free',
-        reputation_score: 0
+        plan: "free",
+        reputation_score: 0,
       };
 
       console.log("📝 Attempting to create profile with data:", profileData);
-      
-      const { data, error } = await supabase.from('user_profiles').insert(profileData).select().single();
+
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .insert(profileData)
+        .select()
+        .single();
 
       if (error) {
         console.error("❌ Error creating user profile:", error);
@@ -130,17 +141,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     let isMounted = true;
     console.log("🔄 Initializing auth context");
-    
+
     const initializeAuth = async () => {
       try {
         // Prevent race conditions by checking mount status
         if (!isMounted) return;
-        
+
         console.log("🔍 Checking for existing session");
-        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-        
+        const {
+          data: { session: currentSession },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
         if (!isMounted) return;
-        
+
         if (sessionError) {
           console.error("❌ Session error:", sessionError);
           // Don't throw error, just set loading to false
@@ -155,23 +169,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
           // Only fetch profile if we don't already have one for this user
           if (!profile || profile.id !== currentSession.user.id) {
-            console.log("👤 Fetching user profile for:", currentSession.user.email);
+            console.log(
+              "👤 Fetching user profile for:",
+              currentSession.user.email
+            );
             const userProfile = await fetchUserProfile(currentSession.user.id);
-            
+
             if (!isMounted) return;
-            
+
             if (userProfile) {
               console.log("✅ User profile found:", userProfile.user_name);
               setProfile(userProfile);
             } else {
               console.log("⚠️ No user profile found, creating new one");
-              const newProfile = await createUserProfile(currentSession.user.id, {
-                email: currentSession.user.email!,
-                user_name: currentSession.user.user_metadata.username || currentSession.user.email!.split('@')[0]
-              });
-              
+              const newProfile = await createUserProfile(
+                currentSession.user.id,
+                {
+                  email: currentSession.user.email!,
+                  user_name:
+                    currentSession.user.user_metadata.username ||
+                    currentSession.user.email!.split("@")[0],
+                }
+              );
+
               if (!isMounted) return;
-              
+
               if (newProfile) {
                 console.log("✅ New profile created:", newProfile.user_name);
                 setProfile(newProfile);
@@ -197,62 +219,156 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     initializeAuth();
 
-    // Set up auth state change listener with debouncing
+    // Set up auth state change listener with non-blocking callbacks
     console.log("📡 Setting up auth state change listener");
     let lastEventTime = 0;
     const DEBOUNCE_MS = 100; // Prevent rapid-fire events
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, currentSession: Session | null) => {
-        const now = Date.now();
-        if (now - lastEventTime < DEBOUNCE_MS) {
-          console.log("🔕 Debouncing auth state change");
-          return;
-        }
-        lastEventTime = now;
-        
-        if (!isMounted) return;
-        
-        console.log("🔔 Auth state change:", event, currentSession?.user?.email);
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
 
-        if (event === 'SIGNED_IN') {
-          console.log("🔑 User signed in:", currentSession?.user?.email);
-          if (currentSession?.user) {
-            const userProfile = await fetchUserProfile(currentSession.user.id);
-            
-            if (!isMounted) return;
-            
-            if (userProfile) {
-              console.log("✅ Profile retrieved after sign-in:", userProfile.user_name);
-              setProfile(userProfile);
-            } else {
-              console.log("⚠️ Creating profile after sign-in");
-              const newProfile = await createUserProfile(currentSession.user.id, {
-                email: currentSession.user.email!,
-                user_name: currentSession.user.user_metadata.username || currentSession.user.email!.split('@')[0]
-              });
-              
-              if (isMounted && newProfile) {
-                console.log("✅ Profile created after sign-in:", newProfile.user_name);
-                setProfile(newProfile);
-              }
-            }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      (event: AuthChangeEvent, currentSession: Session | null) => {
+        try {
+          const now = Date.now();
+          if (now - lastEventTime < DEBOUNCE_MS) {
+            console.log("🔕 Debouncing auth state change");
+            return;
           }
-          // Only refresh on actual sign-in, not token refresh
-          router.refresh();
-        } else if (event === 'TOKEN_REFRESHED') {
-          // Don't fetch profile again on token refresh if we already have it
-          console.log("🔄 Token refreshed for:", currentSession?.user?.email);
-          // No additional actions needed - session and user are already updated
-        } else if (event === 'SIGNED_OUT') {
-          console.log("🚪 User signed out");
-          setProfile(null);
-        }
-        
-        if (isMounted) {
-          setIsLoading(false);
+          lastEventTime = now;
+
+          if (!isMounted) return;
+
+          console.log(
+            "🔔 Auth state change:",
+            event,
+            currentSession?.user?.email
+          );
+
+          // Non-blocking session and user updates
+          setTimeout(() => {
+            try {
+              if (isMounted) {
+                setSession(currentSession);
+                setUser(currentSession?.user || null);
+              }
+            } catch (error) {
+              console.error("❌ Error updating session/user state:", error);
+            }
+          }, 0);
+
+          if (event === "SIGNED_IN") {
+            console.log("🔑 User signed in:", currentSession?.user?.email);
+            if (currentSession?.user) {
+              // Non-blocking profile fetch
+              setTimeout(() => {
+                try {
+                  if (!isMounted) return;
+
+                  fetchUserProfile(currentSession.user.id)
+                    .then((userProfile) => {
+                      try {
+                        if (!isMounted) return;
+
+                        if (userProfile) {
+                          console.log(
+                            "✅ Profile retrieved after sign-in:",
+                            userProfile.user_name
+                          );
+                          setProfile(userProfile);
+                        } else {
+                          console.log("⚠️ Creating profile after sign-in");
+                          return createUserProfile(currentSession.user.id, {
+                            email: currentSession.user.email!,
+                            user_name:
+                              currentSession.user.user_metadata.username ||
+                              currentSession.user.email!.split("@")[0],
+                          });
+                        }
+                      } catch (error) {
+                        console.error(
+                          "❌ Error in profile fetch callback:",
+                          error
+                        );
+                      }
+                    })
+                    .then((newProfile) => {
+                      try {
+                        if (isMounted && newProfile) {
+                          console.log(
+                            "✅ Profile created after sign-in:",
+                            newProfile.user_name
+                          );
+                          setProfile(newProfile);
+                        }
+                      } catch (error) {
+                        console.error(
+                          "❌ Error in profile creation callback:",
+                          error
+                        );
+                      }
+                    })
+                    .catch((error) => {
+                      console.error(
+                        "❌ Error handling profile after sign-in:",
+                        error
+                      );
+                    });
+                } catch (error) {
+                  console.error("❌ Error in profile fetch setTimeout:", error);
+                }
+              }, 0);
+            }
+            // Only refresh on actual sign-in, not token refresh
+            setTimeout(() => {
+              try {
+                if (isMounted) {
+                  router.refresh();
+                }
+              } catch (error) {
+                console.error("❌ Error refreshing router:", error);
+              }
+            }, 0);
+          } else if (event === "TOKEN_REFRESHED") {
+            // Don't fetch profile again on token refresh if we already have it
+            console.log("🔄 Token refreshed for:", currentSession?.user?.email);
+            // No additional actions needed - session and user are already updated
+          } else if (event === "SIGNED_OUT") {
+            console.log("🚪 User signed out");
+            setTimeout(() => {
+              try {
+                if (isMounted) {
+                  setProfile(null);
+                }
+              } catch (error) {
+                console.error("❌ Error clearing profile on sign out:", error);
+              }
+            }, 0);
+          }
+
+          setTimeout(() => {
+            try {
+              if (isMounted) {
+                setIsLoading(false);
+              }
+            } catch (error) {
+              console.error("❌ Error setting loading state:", error);
+            }
+          }, 0);
+        } catch (error) {
+          console.error("❌ Error in auth state change handler:", error);
+          // Ensure loading state is set to false even if there's an error
+          setTimeout(() => {
+            try {
+              if (isMounted) {
+                setIsLoading(false);
+              }
+            } catch (setError) {
+              console.error(
+                "❌ Error setting loading state after error:",
+                setError
+              );
+            }
+          }, 0);
         }
       }
     );
@@ -270,7 +386,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
 
       if (error) {
@@ -296,10 +412,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         password,
         options: {
           data: {
-            username: username
+            username: username,
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
 
       if (error) {
@@ -308,27 +424,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       console.log("✅ Sign up successful:", data);
-      console.log("🔧 Auth state after signup:", { user: data.user, session: data.session });
+      console.log("🔧 Auth state after signup:", {
+        user: data.user,
+        session: data.session,
+      });
       // Note: Profile creation will be handled by the auth state change listener
 
       // If email confirmation is not required (session is present), create profile now
       if (data.session && data.user) {
         console.log("📧 Email confirmation not required, creating profile now");
         const userProfile = await fetchUserProfile(data.user.id);
-        
+
         if (!userProfile) {
           const newProfile = await createUserProfile(data.user.id, {
             email,
-            user_name: username
+            user_name: username,
           });
-          
+
           if (newProfile) {
-            console.log("✅ User profile created immediately after signup:", newProfile);
+            console.log(
+              "✅ User profile created immediately after signup:",
+              newProfile
+            );
             setProfile(newProfile);
           }
         }
       } else {
-        console.log("📧 Email confirmation required, profile will be created on first login");
+        console.log(
+          "📧 Email confirmation required, profile will be created on first login"
+        );
       }
     } catch (error) {
       console.error("❌ Sign up error:", error);
@@ -362,56 +486,59 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     console.log("🚪 Logout attempt");
-    
+
     // Always perform cleanup, regardless of Supabase errors
     const performCleanup = () => {
       // Clear auth state
       setProfile(null);
       setUser(null);
       setSession(null);
-      
+
       // Stop background task engine
       try {
         stopTaskEngine();
       } catch (e) {
         console.warn("Failed to stop task engine:", e);
       }
-      
+
       // Clear localStorage completely
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         try {
           const keysToRemove = [];
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key && (
-              key.startsWith('node_') ||
-              key.startsWith('task_') ||
-              key.startsWith('earnings_') ||
-              key.startsWith('swarm_') ||
-              key === 'node-state' ||
-              key === 'task-state' ||
-              key === 'earnings-state'
-            )) {
+            if (
+              key &&
+              (key.startsWith("node_") ||
+                key.startsWith("task_") ||
+                key.startsWith("earnings_") ||
+                key.startsWith("swarm_") ||
+                key === "node-state" ||
+                key === "task-state" ||
+                key === "earnings-state")
+            ) {
               keysToRemove.push(key);
             }
           }
-          keysToRemove.forEach(key => localStorage.removeItem(key));
+          keysToRemove.forEach((key) => localStorage.removeItem(key));
         } catch (e) {
           console.warn("Failed to clear localStorage:", e);
         }
       }
-      
+
       console.log("✅ Local cleanup completed");
-      
+
       // Force redirect
-      router.push('/');
+      router.push("/");
       router.refresh();
     };
 
     try {
       // Try to sign out from Supabase, but don't let errors block cleanup
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+
       if (currentSession) {
         await supabase.auth.signOut();
         console.log("📝 Supabase signout successful");
@@ -422,7 +549,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Ignore all Supabase errors - just log them
       console.warn("⚠️ Supabase logout error (ignored):", error);
     }
-    
+
     // Always perform cleanup regardless of Supabase result
     performCleanup();
   };
@@ -433,12 +560,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return;
     }
 
-    console.log("✏️ Updating profile for user:", user.id, "with data:", updates);
+    console.log(
+      "✏️ Updating profile for user:",
+      user.id,
+      "with data:",
+      updates
+    );
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
+        .from("user_profiles")
         .update(updates)
-        .eq('id', user.id)
+        .eq("id", user.id)
         .select()
         .single();
 
@@ -460,7 +592,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log("⚠️ Cannot refresh profile: no user logged in");
       return;
     }
-    
+
     console.log("🔄 Refreshing profile for user:", user.id);
     try {
       const updatedProfile = await fetchUserProfile(user.id);
@@ -477,8 +609,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Helper functions
   const generateReferralCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let result = "";
     for (let i = 0; i < 8; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -486,12 +618,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return result;
   };
 
-  console.log("🔄 Auth context current state:", { 
+  console.log("🔄 Auth context current state:", {
     isLoggedIn: !!user,
     user: user?.id,
     email: user?.email,
     hasProfile: !!profile,
-    isLoading
+    isLoading,
   });
 
   const value: AuthContextType = {
@@ -505,12 +637,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loginWithGoogle,
     logout,
     updateProfile,
-    refreshProfile
+    refreshProfile,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
