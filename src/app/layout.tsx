@@ -4,6 +4,7 @@ import "./globals.css";
 import { Layout } from "@/components/Layout";
 import { ReduxProvider } from "@/components/providers/ReduxProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { PlanProvider } from "@/contexts/PlanContext";
 import { AuthDebugger } from "@/components/AuthDebugger";
 import { AnalyticsProvider } from "@/components/analytics/AnalyticsProvider";
 import { GA_MEASUREMENT_ID } from "@/lib/analytics";
@@ -26,11 +27,13 @@ export default function RootLayout({
       <body className={inter.className}>
         <ReduxProvider>
           <AuthProvider>
-            <Layout>{children}</Layout>
-            {/* <AuthDebugger /> */}
-            {GA_MEASUREMENT_ID && (
-              <AnalyticsProvider GA_MEASUREMENT_ID={GA_MEASUREMENT_ID} />
-            )}
+            <PlanProvider>
+              <Layout>{children}</Layout>
+              {/* <AuthDebugger /> */}
+              {GA_MEASUREMENT_ID && (
+                <AnalyticsProvider GA_MEASUREMENT_ID={GA_MEASUREMENT_ID} />
+              )}
+            </PlanProvider>
           </AuthProvider>
         </ReduxProvider>
       </body>

@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { ArrowUpIcon, ClockIcon } from "@heroicons/react/24/outline";
 import { InfoTooltip } from "./InfoTooltip";
 import { formatNumber } from "@/lib/utils";
+import { usePlan } from "@/contexts/PlanContext";
 
 // Token constant is no longer needed as authentication is handled server-side
 
@@ -91,7 +92,7 @@ export const NetworkStats = () => {
     total_tasks: 0
   });
   const [loading, setLoading] = useState(true);
-  const [subscriptionTier] = useState("Free");
+  const { currentPlan, isLoading: planLoading } = usePlan();
   const fetchedRef = useRef(false);
 
   useEffect(() => {
@@ -148,7 +149,7 @@ export const NetworkStats = () => {
       />
       <StatCard
         title="Your Plan"
-        value={subscriptionTier}
+        value={planLoading ? "Loading..." : currentPlan || "Free"}
         unit=""
         info="Current subscription plan"
       />
