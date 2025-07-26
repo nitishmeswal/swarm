@@ -1,36 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 // GET - Load user earnings
 export async function GET(request: NextRequest) {
   try {
+    console.log('Starting /api/earnings GET request');
     const supabase = await createClient();
     
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
+    if (userError || !user) {
+      console.error('User authentication error:', userError);
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+        { totalEarnings: 0 },
+        { headers: { 'Cache-Control': 'private, no-cache' } }
+      );
+    }
+    
+    console.log('User authenticated:', user.id);
+
+    // Check if we have the service role key
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable');
+      // Fall back to regular client if service role key is missing
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('earnings_leaderboard')
+        .select('total_earnings')
+        .eq('user_id', user.id)
+        .single();
+        
+      if (fallbackError) {
+        console.log('Fallback query error:', fallbackError);
+        return NextResponse.json(
+          { totalEarnings: 0 },
+          { headers: { 'Cache-Control': 'private, no-cache' } }
+        );
+      }
+      
+      return NextResponse.json(
+        { totalEarnings: fallbackData?.total_earnings || 0 },
+        { headers: { 'Cache-Control': 'private, no-cache' } }
       );
     }
 
-    const { data, error } = await supabase
-      .from('earnings_history')
-      .select('total_amount')
-      .eq('user_id', session.user.id)
-      .order('timestamp', { ascending: false })
-      .limit(1);
+    // Create an admin client with the service role key to access the view
+    console.log('Creating admin client with service role key');
+    const adminClient = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+
+    // Fetch from earnings_leaderboard which has the correct total earnings
+    console.log('Fetching earnings for user:', user.id);
+    const { data, error } = await adminClient
+      .from('earnings_leaderboard')
+      .select('total_earnings')
+      .eq('user_id', user.id)
+      .single();
     
     if (error) {
       console.error('Error loading earnings:', error);
+      
+      // If no record exists yet, return 0
+      if (error.code === 'PGRST116') {
+        console.log('No earnings record found, returning 0');
+        return NextResponse.json(
+          { totalEarnings: 0 },
+          { headers: { 'Cache-Control': 'private, no-cache' } }
+        );
+      }
+      
+      // For any other error, return 0 instead of error to avoid breaking the UI
+      console.error('Returning 0 due to error:', error);
       return NextResponse.json(
-        { error: 'Failed to load earnings' },
-        { status: 500 }
+        { totalEarnings: 0 },
+        { headers: { 'Cache-Control': 'private, no-cache' } }
       );
     }
     
-    const totalEarnings = data && data.length > 0 ? Number(data[0].total_amount) : 0;
+    const totalEarnings = data?.total_earnings || 0;
+    console.log('Successfully fetched earnings:', totalEarnings);
     
     return NextResponse.json(
       { totalEarnings },

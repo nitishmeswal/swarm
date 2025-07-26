@@ -988,15 +988,15 @@ export const NodeControlPanel = () => {
               <div className="flex flex-col sm:flex-row sm:items-center">
                 <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2 mx-auto sm:mx-0">
                   <img
-                    src="/images/cpu_usage.png"
+                    src="/images/coins.png"
                     alt="NLOV"
                     className="w-8 h-8 object-contain"
                   />
                 </div>
                 <div className="text-lg font-medium text-white mt-2 text-center sm:text-left sm:ml-3">
                   {isMounted
-                    ? (selectedNode?.rewardTier || "CPU").toUpperCase()
-                    : "CPU"}
+                    ? (selectedNode?.rewardTier || "N/A").toUpperCase()
+                    : "N/A"}
                 </div>
               </div>
             </div>
@@ -1012,11 +1012,7 @@ export const NodeControlPanel = () => {
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center">
                 <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2 mx-auto sm:mx-0">
-                  <img
-                    src="/images/active_nodes.png"
-                    alt="NLOV"
-                    className="w-8 h-8 object-contain"
-                  />
+                <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white z-10" />
                 </div>
                 <div className="flex flex-col mt-2 sm:ml-3 w-full">
                   <div className={`text-lg font-medium text-center sm:text-left ${
@@ -1149,7 +1145,7 @@ export const NodeControlPanel = () => {
                       : "text-white/90"
                   }`}
                 >
-                  {sessionEarnings + dbUnclaimedRewards > 0 ? "SP" : "NLOV"}
+                  SP
                 </span>
               </div>
             </div>
@@ -1261,7 +1257,7 @@ export const NodeControlPanel = () => {
             {sessionEarnings + dbUnclaimedRewards <= 0 && (
               <div className="flex items-center justify-center border-t border-blue-800/30 pt-3">
                 <span className="text-white/50 text-sm">
-                  Complete tasks to earn rewards
+                <i>*All Swarm Points will be converted to $NLOV after TGE </i>
                 </span>
               </div>
             )}

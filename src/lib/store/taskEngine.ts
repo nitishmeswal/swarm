@@ -81,25 +81,38 @@ class TaskProcessingEngine {
     const now = Date.now();
 
     const processingTasks = tasks.tasks.filter(task => task.status === 'processing');
+    
+    // Process tasks sequentially to avoid overwhelming the API
+    const processTasksSequentially = async () => {
+      for (const task of processingTasks) {
+        if (!task.processing_start) continue;
 
-    processingTasks.forEach(task => {
-      if (!task.processing_start) return;
+        const processingStart = new Date(task.processing_start).getTime();
+        const elapsed = now - processingStart;
+        const completionTime = TASK_CONFIG.COMPLETION_TIMES[hardwareTier][task.type] * 1000;
 
-      const processingStart = new Date(task.processing_start).getTime();
-      const elapsed = now - processingStart;
-      const completionTime = TASK_CONFIG.COMPLETION_TIMES[hardwareTier][task.type] * 1000;
-
-      // Complete task if enough time has passed
-      if (elapsed >= completionTime) {
-        this.completeTask(task, hardwareTier);
+        // Complete task if enough time has passed
+        if (elapsed >= completionTime) {
+          try {
+            await this.completeTask(task, hardwareTier);
+          } catch (error) {
+            logger.error(`Error completing task: ${error}`);
+            // Continue with next task even if this one fails
+          }
+        }
       }
+      
+      // Update processing tasks in store after all completions are processed
+      this.dispatch(updateProcessingTasks(hardwareTier));
+    };
+    
+    // Start sequential processing but don't block the main thread
+    processTasksSequentially().catch(error => {
+      logger.error(`Error in task processing sequence: ${error}`);
     });
-
-    // Update processing tasks in store
-    this.dispatch(updateProcessingTasks(hardwareTier));
   }
 
-  private completeTask(task: ProxyTask, hardwareTier: 'webgpu' | 'wasm' | 'webgl' | 'cpu') {
+  private async completeTask(task: ProxyTask, hardwareTier: 'webgpu' | 'wasm' | 'webgl' | 'cpu') {
     const baseReward = TASK_CONFIG.BASE_REWARDS[task.type];
     const multiplier = TASK_CONFIG.HARDWARE_MULTIPLIERS[hardwareTier];
     const rewardAmount = Math.round(baseReward * multiplier * 100) / 100; // Round to 2 decimal places
@@ -116,10 +129,32 @@ class TaskProcessingEngine {
       timestamp: new Date().toISOString()
     };
 
-    // Add reward to earnings
-    this.dispatch(addReward(reward));
+    try {
+      // Call local API route that will proxy to Supabase edge function
+      const response = await fetch('/api/complete-task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          increment_amount: rewardAmount,
+          task_id: task.id,
+          task_type: task.type,
+          hardware_tier: hardwareTier,
+          multiplier: multiplier
+        })
+      });
 
-    logger.log(`Task completed: ${task.type} - Reward: ${rewardAmount} NLOV (${multiplier}x multiplier)`);
+      if (!response.ok) {
+        throw new Error(`Failed to record task completion: ${response.status}`);
+      }
+
+      logger.log(`Task completed and recorded in Supabase: ${task.type} - Reward: ${rewardAmount} SP (${multiplier}x multiplier)`);
+    } catch (error) {
+      // Fallback to local storage if API call fails
+      logger.error(`Failed to record task in Supabase, falling back to local storage: ${error}`);
+      this.dispatch(addReward(reward));
+    }
   }
 
   // Manual task generation trigger

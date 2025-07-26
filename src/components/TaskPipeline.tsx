@@ -384,28 +384,8 @@ export const TaskPipeline = () => {
       <div className="flex gap-2">
         {node.isActive ? (
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
-              onClick={handleGenerateTasks}
-              disabled={tasks.isGenerating}
-            >
-              {tasks.isGenerating ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Zap className="w-4 h-4 mr-2" />
-              )}
-              {tasks.isGenerating ? 'Generating...' : 'Generate Tasks'}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-slate-600 text-slate-300 hover:bg-slate-700"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              View All ({tasks.tasks.length})
-            </Button>
+            
+            
           </>
         ) : (
           <div className="flex-1 text-center text-slate-400 text-sm py-2">

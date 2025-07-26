@@ -85,7 +85,6 @@ export const EarningsDashboard = () => {
   const [debugMode, setDebugMode] = useState<boolean>(false);
   const [checkInLoading, setCheckInLoading] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
-  const [walletAddress] = useState<string>("SOL1234...5678");
   const [taskCompleted, setTaskCompleted] = useState<number>(0);
   const [isLoadingTaskStats, setIsLoadingTaskStats] = useState<boolean>(true);
   const [streakData, setStreakData] = useState<StreakData | null>(null);
@@ -105,10 +104,11 @@ export const EarningsDashboard = () => {
   const [isLoadingChart, setIsLoadingChart] = useState(true);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
 
-  // Get user from auth context
-  const { user } = useAuth();
+  // Get user and profile from auth context
+  const { user, profile } = useAuth();
   const userId = user?.id;
-  const hasWallet = true;
+  const walletAddress = profile?.wallet_address || '';
+  const hasWallet = !!walletAddress;
 
   // API functions
   const fetchEarningsData = async () => {
@@ -375,38 +375,6 @@ export const EarningsDashboard = () => {
     <div className="flex flex-col stat-card max-w-full overflow-x-hidden">
       <div className="flex justify-between items-center mb-8 flex-wrap gap-2">
         <h2 className="text-xl">Earnings Dashboard</h2>
-        <div className="flex gap-2">
-          <Select value={timeRange} onValueChange={handleTimeRangeChange}>
-            <SelectTrigger className="w-[80px] h-8 m-0 bg-[#1D1D33] rounded-full">
-              <SelectValue placeholder="Time Range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="weekly">Weekly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="all-time">All Time</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant="outline"
-            className="h-8 m-0 bg-[#1D1D33] rounded-full font-md font-thin"
-            size="sm"
-            onClick={() => setDebugMode(!debugMode)}
-          >
-            <Bug className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="outline"
-            className="h-8 m-0 bg-[#1D1D33] rounded-full font-md font-thin"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={loading}
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
-          </Button>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -422,7 +390,7 @@ export const EarningsDashboard = () => {
             </div>
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-sm text-[#515194]">
-                Available Balance (SP)
+                Unclaimed Rewards (SP)
               </span>
               <span className="text-xl font-bold text-white break-words">
                 {isLoadingEarnings ? (
@@ -454,7 +422,7 @@ export const EarningsDashboard = () => {
             </div>
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-sm text-[#515194]">
-                Total Earnings (NLOV)
+                Total Earnings (SP)
               </span>
               <span className="text-xl font-bold text-white break-words">
                 {isLoadingEarnings ? (
@@ -541,14 +509,7 @@ export const EarningsDashboard = () => {
               <h3 className="text-lg font-medium">Earning History</h3>
             </div>
             <Select value={chartPeriod} onValueChange={handleChartPeriodChange}>
-              <SelectTrigger className="w-[100px] gradient-button border-1 border-[#1a1a36] rounded-full h-8 text-sm">
-                <SelectValue placeholder="Period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-              </SelectContent>
+
             </Select>
           </div>
 
@@ -638,10 +599,7 @@ export const EarningsDashboard = () => {
               <div className="text-slate-400 text-center h-full flex items-center justify-center">
                 <div>
                   <TrendingUp className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p>No earnings data available</p>
-                  <p className="text-sm mt-2">
-                    Complete tasks to see your earnings graph
-                  </p>
+                  <p>Earning history coming soon...</p>
                 </div>
               </div>
             )}
@@ -681,11 +639,6 @@ export const EarningsDashboard = () => {
             <div>
               <div className="text-sm text-[#515194] mb-1">Network</div>
               <div className="font-medium text-white">SOLANA</div>
-            </div>
-
-            <div>
-              <div className="text-sm text-[#515194] mb-1">Minimum Payout</div>
-              <div className="font-medium text-white">10,000 Swarm Point</div>
             </div>
 
             <div>
