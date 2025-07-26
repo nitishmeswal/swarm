@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserPlanFromTaskSupabase, syncPlanToUserProfile } from '@/lib/taskSupabase';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize your main Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+import { createClient } from '@/utils/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,6 +24,18 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
+    
+    // Get Supabase client
+    const supabase = await createClient();
+    
+    // Update user profile with the plan (optional sync)
+    await supabase
+      .from('user_profiles')
+      .update({ plan })
+      .eq('id', userId)
+      .then(({ error }) => {
+        if (error) console.error('Error updating user profile:', error);
+      });
 
     return NextResponse.json({
       success: true,
@@ -67,6 +74,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get Supabase client
+    const supabase = await createClient();
+    
     // Update user profile with the plan
     const { error: updateError } = await supabase
       .from('user_profiles')
@@ -109,6 +119,9 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Get Supabase client
+    const supabase = await createClient();
+    
     // Update user profile with the provided plan
     const { error: updateError } = await supabase
       .from('user_profiles')
