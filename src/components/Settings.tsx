@@ -37,15 +37,27 @@ const useTranslation = () => {
       currency_description:
         "Select your preferred currency for displaying values.",
       reset_password_description:
-        "Send a secure reset link to your email address.",
+        "Send a secure OTP to your email address to reset your password.",
       delete_warning:
         "This action is permanent and cannot be undone. All your data, earnings, and referrals will be permanently deleted.",
       interface_language: "Interface Language",
       display_currency: "Display Currency",
       your_email_address: "Your Email Address",
       enter_email: "Enter your email",
-      send_reset_link: "Send Reset Link",
+      send_otp: "Send OTP",
       sending: "Sending...",
+      verify_otp: "Verify OTP",
+      verifying: "Verifying...",
+      new_password: "New Password",
+      confirm_password: "Confirm Password",
+      update_password: "Update Password",
+      updating: "Updating...",
+      enter_otp: "Enter OTP",
+      enter_new_password: "Enter new password",
+      confirm_new_password: "Confirm new password",
+      resend_otp: "Resend OTP",
+      otp_sent_to: "OTP sent to",
+      enter_otp_sent_to: "Enter the OTP sent to your email",
       delete_my_account: "Delete My Account",
       confirm_deletion: "Confirm Deletion",
       delete_confirmation:
@@ -53,7 +65,13 @@ const useTranslation = () => {
       permanently_delete: "Permanently Delete",
       deleting_account: "Deleting Account...",
       cancel: "Cancel",
-      reset_link_sent: "Password reset link sent to your email!",
+      otp_sent: "OTP sent to your email!",
+      otp_verified: "OTP verified successfully!",
+      password_updated: "Password updated successfully!",
+      invalid_otp: "Invalid OTP. Please try again.",
+      passwords_not_match: "Passwords do not match.",
+      password_too_short: "Password must be at least 6 characters long.",
+      otp_expired: "OTP has expired. Please request a new one.",
     };
     return translations[key] || key;
   };
@@ -175,12 +193,42 @@ const Settings: React.FC = () => {
   const [isDeleteAccountLoading, setIsDeleteAccountLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  
+  // OTP reset password states with localStorage persistence
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpEmail, setOtpEmail] = useState("");
 
   const { t, i18n } = useTranslation();
   const supabase = createClient();
 
   useEffect(() => {
     setLanguage(i18n.language);
+    
+    // Restore OTP dialog state from localStorage
+    const savedOtpState = localStorage.getItem('otp_reset_state');
+    if (savedOtpState) {
+      try {
+        const state = JSON.parse(savedOtpState);
+        if (state.otpSent && state.email) {
+          setOtpSent(true);
+          setOtpEmail(state.email);
+          setShowOtpModal(true);
+          if (state.otpVerified) {
+            setOtpVerified(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing saved OTP state:', error);
+        localStorage.removeItem('otp_reset_state');
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -246,8 +294,22 @@ const Settings: React.FC = () => {
     );
   };
 
-  // Updated reset password function - sends link instead of OTP
-  const handleResetPassword = async () => {
+  // Save OTP state to localStorage
+  const saveOtpState = (state: any) => {
+    localStorage.setItem('otp_reset_state', JSON.stringify(state));
+  };
+
+  // Clear OTP state from localStorage
+  const clearOtpState = () => {
+    localStorage.removeItem('otp_reset_state');
+  };
+
+  // Send OTP for password reset
+  const handleSendOtp = async (event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     if (!email.trim()) {
       toast.error("Please enter your email address");
       return;
@@ -256,24 +318,163 @@ const Settings: React.FC = () => {
     try {
       setIsResetPasswordLoading(true);
 
-      // Send password reset email with link to reset-password page
+      // Send OTP using Supabase's resetPasswordForEmail with OTP template
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: undefined, // No redirect needed for OTP
       });
 
       if (error) {
-        console.error("Password reset error:", error);
-        toast.error(`Failed to send reset email: ${error.message}`);
+        console.error("OTP send error:", error);
+        toast.error(`Failed to send OTP: ${error.message}`);
         return;
       }
 
-      toast.success(t("reset_link_sent"));
+      toast.success(t("otp_sent"));
+      setShowOtpModal(true);
+      setOtpSent(true);
+      setOtpEmail(email);
+      
+      // Save state to localStorage
+      saveOtpState({
+        otpSent: true,
+        email: email,
+        otpVerified: false
+      });
     } catch (error) {
-      console.error("Password reset error:", error);
-      toast.error("Failed to send reset email");
+      console.error("OTP send error:", error);
+      toast.error("Failed to send OTP");
     } finally {
       setIsResetPasswordLoading(false);
     }
+  };
+
+  // Resend OTP functionality
+  const handleResendOtp = async (event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
+    setOtp(""); // Clear previous OTP
+    await handleSendOtp(); // Reuse the send OTP function
+  };
+
+  // Verify OTP and enable password update
+  const handleVerifyOtp = async (event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!otp.trim()) {
+      toast.error("Please enter the OTP");
+      return;
+    }
+
+    try {
+      setIsVerifyingOtp(true);
+
+      // Verify OTP using Supabase's verifyOtp method
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: 'recovery'
+      });
+
+      if (error) {
+        console.error("OTP verification error:", error);
+        if (error.message.includes('expired')) {
+          toast.error(t("otp_expired"));
+        } else {
+          toast.error(t("invalid_otp"));
+        }
+        return;
+      }
+
+      toast.success(t("otp_verified"));
+      setOtpVerified(true);
+      
+      // Update localStorage state
+      saveOtpState({
+        otpSent: true,
+        email: otpEmail || email,
+        otpVerified: true
+      });
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      toast.error(t("invalid_otp"));
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  // Update password after OTP verification
+  const handleUpdatePassword = async (event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!newPassword.trim()) {
+      toast.error("Please enter a new password");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error(t("password_too_short"));
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error(t("passwords_not_match"));
+      return;
+    }
+
+    try {
+      setIsUpdatingPassword(true);
+
+      // Update password using Supabase
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        console.error("Password update error:", error);
+        toast.error(`Failed to update password: ${error.message}`);
+        return;
+      }
+
+      toast.success(t("password_updated"));
+      
+      // Reset all states and close modal
+      setShowOtpModal(false);
+      setOtp("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setOtpVerified(false);
+      setOtpSent(false);
+      setOtpEmail("");
+      
+      // Clear localStorage state
+      clearOtpState();
+    } catch (error) {
+      console.error("Password update error:", error);
+      toast.error("Failed to update password");
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  // Close OTP modal and reset states
+  const handleCloseOtpModal = () => {
+    setShowOtpModal(false);
+    setOtp("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setOtpVerified(false);
+    setOtpSent(false);
+    setOtpEmail("");
+    
+    // Clear localStorage state
+    clearOtpState();
   };
 
   const handleDeleteAccount = async () => {
@@ -435,20 +636,32 @@ const Settings: React.FC = () => {
                   className="bg-[#0A1A2F] border-[#112544] text-white flex-1"
                   disabled={isLoadingUser}
                 />
-                <Button
-                  onClick={handleResetPassword}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white whitespace-nowrap"
-                  disabled={isResetPasswordLoading || isLoadingUser}
-                >
+                {!otpSent ? (
+                  <Button
+                    type="button"
+                    onClick={handleSendOtp}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white whitespace-nowrap"
+                    disabled={isResetPasswordLoading || isLoadingUser}
+                  >
                   {isResetPasswordLoading ? (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                       {t("sending")}
                     </>
                   ) : (
-                    t("send_reset_link")
-                  )}
-                </Button>
+                    t("send_otp")
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => setShowOtpModal(true)}
+                    className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap"
+                    disabled={isLoadingUser}
+                  >
+                    {t("verify_otp")}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -483,6 +696,155 @@ const Settings: React.FC = () => {
               onConfirm={handleDeleteAccount}
               isLoading={isDeleteAccountLoading}
             />
+
+            {/* OTP Verification Modal */}
+            <Dialog open={showOtpModal} onOpenChange={(open) => !open && handleCloseOtpModal()}>
+              <DialogContent className="bg-[#161628] border border-[#112544] text-white max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-yellow-400 flex items-center gap-2">
+                    <Key className="w-5 h-5" />
+                    {otpVerified ? "Set New Password" : "Verify OTP"}
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  {!otpVerified ? (
+                    // OTP Verification Step
+                    <>
+                      <div className="bg-yellow-900/20 p-3 rounded-lg border border-yellow-500/20">
+                        <p className="text-sm text-yellow-300">
+                          {t("enter_otp_sent_to")} <strong>{otpEmail || email}</strong>
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm text-white">
+                          {t("enter_otp")}
+                        </label>
+                        <Input
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value)}
+                          placeholder="Enter 6-digit OTP"
+                          className="bg-[#0A1A2F] border-yellow-500/30 text-white text-center text-lg tracking-widest"
+                          maxLength={6}
+                          autoFocus
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          type="button"
+                          onClick={handleVerifyOtp}
+                          className="bg-yellow-600 hover:bg-yellow-700 text-white w-full"
+                          disabled={isVerifyingOtp || otp.length !== 6}
+                        >
+                          {isVerifyingOtp ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              {t("verifying")}
+                            </>
+                          ) : (
+                            t("verify_otp")
+                          )}
+                        </Button>
+
+                        <Button
+                          type="button"
+                          onClick={handleResendOtp}
+                          variant="outline"
+                          className="text-yellow-400 hover:text-yellow-300 border-yellow-600 w-full"
+                          disabled={isResetPasswordLoading}
+                        >
+                          {isResetPasswordLoading ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              {t("sending")}
+                            </>
+                          ) : (
+                            t("resend_otp")
+                          )}
+                        </Button>
+
+                        <Button
+                          type="button"
+                          onClick={handleCloseOtpModal}
+                          variant="outline"
+                          className="text-gray-400 hover:text-gray-300 border-gray-600 w-full"
+                          disabled={isVerifyingOtp}
+                        >
+                          {t("cancel")}
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    // Password Update Step
+                    <>
+                      <div className="bg-green-900/20 p-3 rounded-lg border border-green-500/20">
+                        <p className="text-sm text-green-300">
+                          OTP verified! Now set your new password.
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-sm text-white">
+                            {t("new_password")}
+                          </label>
+                          <Input
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder={t("enter_new_password")}
+                            className="bg-[#0A1A2F] border-green-500/30 text-white"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm text-white">
+                            {t("confirm_password")}
+                          </label>
+                          <Input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder={t("confirm_new_password")}
+                            className="bg-[#0A1A2F] border-green-500/30 text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          type="button"
+                          onClick={handleUpdatePassword}
+                          className="bg-green-600 hover:bg-green-700 text-white w-full"
+                          disabled={isUpdatingPassword || !newPassword || !confirmPassword}
+                        >
+                          {isUpdatingPassword ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              {t("updating")}
+                            </>
+                          ) : (
+                            t("update_password")
+                          )}
+                        </Button>
+
+                        <Button
+                          type="button"
+                          onClick={handleCloseOtpModal}
+                          variant="outline"
+                          className="text-gray-400 hover:text-gray-300 border-gray-600 w-full"
+                          disabled={isUpdatingPassword}
+                        >
+                          {t("cancel")}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </SettingsCard>
       </div>
