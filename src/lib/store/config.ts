@@ -26,30 +26,31 @@ export const TASK_CONFIG = {
 
   COMPLETION_TIMES: {
     webgpu: {
-      image: 30,
-      text: 15,
-      three_d: 60,
-      video: 120
+      image: 130,
+      text: 65,
+      three_d: 195,
+      video: 390
     },
     wasm: {
-      image: 45,
-      text: 20,
-      three_d: 90,
-      video: 180
+      image: 156,
+      text: 78,
+      three_d: 233,
+      video: 465
     },
     webgl: {
-      image: 60,
-      text: 30,
-      three_d: 120,
-      video: 240
+      image: 178,
+      text: 89,
+      three_d: 266,
+      video: 533
     },
     cpu: {
-      image: 90,
-      text: 45,
-      three_d: 180,
-      video: 360
+      image: 200,
+      text: 100,
+      three_d: 300,
+      video: 600
     }
   },
+  
 
 
   // Task completion times based on hardware tier (in seconds)
