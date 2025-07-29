@@ -94,18 +94,18 @@ export const TaskPipeline = () => {
         return <Clock className="w-5 h-5 text-gray-400" />;
     }
   };
-  
+
   const handleAutoModeToggle = (checked: boolean) => {
     dispatch(setAutoMode(checked));
   };
-  
+
   const handleGenerateTasks = () => {
     const engine = getTaskEngine();
     if (engine) {
       engine.generateTasksManually();
     }
   };
-  
+
   const getHardwareTierColor = (tier: string) => {
     switch (tier) {
       case 'webgpu': return 'text-purple-400';
@@ -207,18 +207,19 @@ export const TaskPipeline = () => {
         <div className="mb-4 sm:mb-6">
           <h3 className="text-sm font-medium text-white/90 mb-3">Node Status</h3>
           <div className="p-3 sm:p-4 rounded-xl bg-[#1D1D33] border border-green-500/30">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <span className="text-sm text-white">Node Active</span>
               </div>
+
               <div className={`text-xs font-medium ${getHardwareTierColor(node.hardwareInfo?.rewardTier || 'cpu')}`}>
+                <span className=" text-xs text-white/40 mr-2">Multiplier: {TASK_CONFIG.HARDWARE_MULTIPLIERS[node.hardwareInfo?.rewardTier || 'cpu']}x</span>
                 {(node.hardwareInfo?.rewardTier || 'cpu').toUpperCase()} Tier
               </div>
             </div>
             <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>Uptime: {formatUptimeShort(currentUptime)}</span>
-              <span>Multiplier: {TASK_CONFIG.HARDWARE_MULTIPLIERS[node.hardwareInfo?.rewardTier || 'cpu']}x</span>
+
             </div>
           </div>
         </div>
@@ -230,7 +231,7 @@ export const TaskPipeline = () => {
           <h3 className="text-sm font-medium text-white/90 mb-3">Current Task</h3>
           {processingTasks.slice(0, 1).map(task => {
             const progress = selectTaskProgress(task, node.hardwareInfo?.rewardTier || 'cpu');
-            
+
             return (
               <div key={task.id} className="rounded-xl overflow-hidden bg-[#1D1D33] border border-[#252547] transition-all duration-200 hover:border-blue-600/30">
                 <div className="p-3 sm:p-4">
@@ -245,10 +246,10 @@ export const TaskPipeline = () => {
                             {task.type === "image"
                               ? "neuro-image-gen"
                               : task.type === "text"
-                              ? "freedomai-llm"
-                              : task.type === "video"
-                              ? "video-gen"
-                              : "3d-model-gen"}
+                                ? "freedomai-llm"
+                                : task.type === "video"
+                                  ? "video-gen"
+                                  : "3d-model-gen"}
                           </span>
                         </div>
                         <div className="border rounded-full border-blue-500 bg-blue-500/10 text-blue-400 text-[10px] sm:text-xs font-medium px-1.5 sm:px-3 py-0.5 sm:py-1">
@@ -262,7 +263,7 @@ export const TaskPipeline = () => {
                         Processing...
                       </p>
                       <div className="w-full h-1.5 bg-[#1A1A4C] rounded-full overflow-hidden mt-2">
-                        <div 
+                        <div
                           className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 rounded-full"
                           style={{ width: `${Math.round(progress)}%` }}
                         ></div>
@@ -282,10 +283,10 @@ export const TaskPipeline = () => {
         <div className="space-y-2 max-h-[500px] sm:max-h-[600px] overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
           {pendingTasks.length > 0 ? (
             pendingTasks.map(task => {
-              const timeAgo = task.completed_at 
+              const timeAgo = task.completed_at
                 ? Math.floor((Date.now() - new Date(task.completed_at).getTime()) / 1000 / 60)
                 : Math.floor((Date.now() - new Date(task.updated_at).getTime()) / 1000 / 60);
-              
+
               return (
                 <div key={task.id} className="rounded-xl overflow-hidden bg-[#1D1D33] border border-[#252547] transition-all duration-200 hover:border-blue-600/30">
                   <div className="p-2 sm:p-4">
@@ -300,10 +301,10 @@ export const TaskPipeline = () => {
                               {task.type === "image"
                                 ? "neuro-image-gen"
                                 : task.type === "text"
-                                ? "freedomai-llm"
-                                : task.type === "video"
-                                ? "video-gen"
-                                : "3d-model-gen"}
+                                  ? "freedomai-llm"
+                                  : task.type === "video"
+                                    ? "video-gen"
+                                    : "3d-model-gen"}
                             </span>
                           </div>
                           <div className="border border-amber-500 bg-amber-500/10 text-amber-400 text-[10px] sm:text-xs font-medium px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-full">
@@ -349,7 +350,7 @@ export const TaskPipeline = () => {
           )}
         </div>
       </div>
-      
+
       {/* Pending Rewards Section */}
       {sessionEarnings > 0 && node.isActive && (
         <div className="mb-4 p-4 rounded-xl bg-blue-900/20 border border-blue-700/30">
@@ -377,8 +378,8 @@ export const TaskPipeline = () => {
       <div className="flex gap-2">
         {node.isActive ? (
           <>
-            
-            
+
+
           </>
         ) : (
           <div className="flex-1 text-center text-slate-400 text-sm py-2">

@@ -55,6 +55,7 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlan } from "@/contexts/PlanContext";
+import { extractGPUModel } from "@/lib/gpuUtils";
 
 interface NodeInfo {
   id: string;
@@ -413,9 +414,8 @@ export const NodeControlPanel = () => {
             id: device.id,
             name:
               device.device_name ||
-              `My ${
-                device.device_type.charAt(0).toUpperCase() +
-                device.device_type.slice(1)
+              `My ${device.device_type.charAt(0).toUpperCase() +
+              device.device_type.slice(1)
               }`,
             type: device.device_type,
             rewardTier: device.reward_tier || "cpu",
@@ -423,8 +423,8 @@ export const NodeControlPanel = () => {
               device.status === "online"
                 ? "running"
                 : device.status === "offline"
-                ? "idle"
-                : "offline",
+                  ? "idle"
+                  : "offline",
             gpuInfo: device.gpu_model,
           })
         );
@@ -443,7 +443,7 @@ export const NodeControlPanel = () => {
             deviceMemory: "8GB",
             deviceGroup:
               firstDevice.device_type === "mobile" ||
-              firstDevice.device_type === "tablet"
+                firstDevice.device_type === "tablet"
                 ? "mobile_tablet"
                 : "desktop_laptop",
           };
@@ -553,18 +553,18 @@ export const NodeControlPanel = () => {
     if (selectedNodeId) {
       const isUptimeExceeded = checkUptimeLimit();
       setUptimeExceeded(isUptimeExceeded);
-      
+
       // Auto-stop node if uptime limit is exceeded and node is currently running
       // Use ref to prevent multiple auto-stop calls
-      if (isUptimeExceeded && 
-          (node.isActive || isDeviceRunning(selectedNodeId)) && 
-          !autoStopInProgressRef.current && 
-          !isStopping) {
-        
+      if (isUptimeExceeded &&
+        (node.isActive || isDeviceRunning(selectedNodeId)) &&
+        !autoStopInProgressRef.current &&
+        !isStopping) {
+
         console.log('⏰ Uptime limit exceeded, automatically stopping node...');
         autoStopInProgressRef.current = true; // Set flag to prevent multiple calls
         setIsStopping(true);
-        
+
         const autoStopNode = async () => {
           try {
             // Save any unsaved session earnings before stopping the node
@@ -580,10 +580,10 @@ export const NodeControlPanel = () => {
                 );
               }
             }
-    
+
             // Stop uptime tracking and update server
             const result = await stopDeviceUptime(selectedNodeId);
-    
+
             if (result.success) {
               console.log("Node auto-stopped and uptime updated successfully");
             } else {
@@ -592,7 +592,7 @@ export const NodeControlPanel = () => {
           } catch (error) {
             console.error("Error during auto-stop:", error);
           }
-    
+
           setTimeout(() => {
             dispatch(stopNode());
             dispatch(resetTasks()); // Clear all proxy tasks when node stops
@@ -602,7 +602,7 @@ export const NodeControlPanel = () => {
             console.log(`✅ Auto-stop completed. Uptime limit (${formatUptime(getMaxUptime())}) reached for ${currentPlan.toLowerCase()} plan.`);
           }, 2000);
         };
-        
+
         autoStopNode();
       }
     }
@@ -715,9 +715,8 @@ export const NodeControlPanel = () => {
           id: newDevice.id,
           name:
             newDevice.device_name ||
-            `My ${
-              newDevice.device_type.charAt(0).toUpperCase() +
-              newDevice.device_type.slice(1)
+            `My ${newDevice.device_type.charAt(0).toUpperCase() +
+            newDevice.device_type.slice(1)
             }`,
           type: newDevice.device_type,
           rewardTier: newDevice.reward_tier || "cpu",
@@ -843,7 +842,7 @@ export const NodeControlPanel = () => {
               </h2>
               <InfoTooltip content="Manage your computing nodes, start or stop them, and view performance metrics" />
             </div>
-            
+
             <Button
               variant="outline"
               size="sm"
@@ -855,40 +854,39 @@ export const NodeControlPanel = () => {
                 setShowScanDialog(true);
               }}
               disabled={deviceLimitExceeded || !isLoggedIn}
-              className={`gradient-button rounded-full text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2 ${
-                deviceLimitExceeded || !isLoggedIn
-                  ? 'opacity-50 cursor-not-allowed text-gray-400' 
-                  : 'text-[#8BBEFF]'
-              }`}
+              className={`gradient-button rounded-full text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2 ${deviceLimitExceeded || !isLoggedIn
+                ? 'opacity-50 cursor-not-allowed text-gray-400'
+                : 'text-[#8BBEFF]'
+                }`}
             >
               <Scan className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               Scan Device
             </Button>
           </div>
 
-          <div className="flex flex-row gap-2 sm:gap-4 items-center mb-3 sm:mb-6">
+          <div className="flex flex-row justify-between gap-2 sm:gap-4 items-center mb-3 sm:mb-6">
             <Select
               value={selectedNodeId}
               onValueChange={handleNodeSelect}
               open={isOpen}
               onOpenChange={setIsOpen}
             >
-              <SelectTrigger className="w-full bg-[#1D1D33] border-0 rounded-full text-[#515194] text-xs sm:text-sm h-9 sm:h-10">
+              <SelectTrigger className="w-[75%] bg-[#1D1D33] border-0 rounded-full text-[#515194] text-xs sm:text-sm h-9 sm:h-10">
                 <div className="flex items-center gap-2">
                   {selectedNode && (
                     <>
                       {getDeviceIcon(selectedNode.type)}
-                      <span>{selectedNode.name}</span>
+                      <span className="truncate">{selectedNode.name}</span>
                       {isDeviceRunning(selectedNodeId) && (
                         <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse ml-1"></div>
                       )}
                     </>
                   )}
                   {!selectedNode && (
-                    <span>
+                    <span className="truncate">
                       {isLoadingDevices
-                        ? "Loading nodes..."
-                        : "No nodes available"}
+                        ? "Loading..."
+                        : "No nodes"}
                     </span>
                   )}
                 </div>
@@ -938,17 +936,16 @@ export const NodeControlPanel = () => {
             <Button
               variant="default"
               disabled={
-                isStarting || isStopping || isUpdatingUptime || !selectedNodeId || 
+                isStarting || isStopping || isUpdatingUptime || !selectedNodeId ||
                 (uptimeExceeded && !(node.isActive || isDeviceRunning(selectedNodeId)))
               }
               onClick={toggleNodeStatus}
-              className={`rounded-full transition-all duration-300 shadow-md hover:shadow-lg text-white text-xs sm:text-sm px-3 py-1 sm:px-4 sm:py-2 h-9 sm:h-10 hover:translate-y-[-0.5px] ${
-                node.isActive || isDeviceRunning(selectedNodeId)
-                  ? "bg-red-600 hover:bg-red-700 hover:shadow-red-500/30 shadow-red-500"
-                  : uptimeExceeded 
+              className={`w-[22%] rounded-full transition-all duration-300 shadow-md hover:shadow-lg text-white text-xs sm:text-sm px-3 py-1 sm:px-4 sm:py-2 h-9 sm:h-10 hover:translate-y-[-0.5px] ${node.isActive || isDeviceRunning(selectedNodeId)
+                ? "bg-red-600 hover:bg-red-700 hover:shadow-red-500/30 shadow-red-500"
+                : uptimeExceeded
                   ? "bg-gray-600 hover:bg-gray-700 cursor-not-allowed opacity-50"
                   : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
-              }`}
+                }`}
             >
               {(isStarting || isUpdatingUptime) && (
                 <>
@@ -967,8 +964,8 @@ export const NodeControlPanel = () => {
                   {node.isActive || isDeviceRunning(selectedNodeId)
                     ? "Stop Node"
                     : uptimeExceeded
-                    ? "Uptime Limit Reached"
-                    : "Start Node"}
+                      ? "Uptime Limit Reached"
+                      : "Start Node"}
                   {!node.isActive && !isDeviceRunning(selectedNodeId) ? (
                     uptimeExceeded ? (
                       <AlertTriangle className="text-white/90 ml-1 sm:ml-2" />
@@ -982,7 +979,7 @@ export const NodeControlPanel = () => {
               )}
             </Button>
           </div>
-          
+
           {/* Login Required Warning */}
           {!isLoggedIn && (
             <div className="mb-4 p-3 rounded-full bg-yellow-900/20 border border-yellow-500/30 flex items-center gap-2">
@@ -990,7 +987,7 @@ export const NodeControlPanel = () => {
               <span className="text-xs text-yellow-200">Login required to start node</span>
             </div>
           )}
-          
+
           <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-6">
             <div className="p-4 rounded-xl bg-[#1D1D33] flex flex-col">
               <div className="text-[#515194] text-xs mb-1">Reward Tier</div>
@@ -1010,9 +1007,8 @@ export const NodeControlPanel = () => {
               </div>
             </div>
 
-            <div className={`p-4 rounded-xl flex flex-col ${
-              uptimeExceeded ? 'bg-red-900/20 border border-red-500/30' : 'bg-[#1D1D33]'
-            }`}>
+            <div className={`p-4 rounded-xl flex flex-col ${uptimeExceeded ? 'bg-red-900/20 border border-red-500/30' : 'bg-[#1D1D33]'
+              }`}>
               <div className="text-[#515194] text-xs mb-1 flex items-center justify-between">
                 <span>Device Uptime</span>
                 {uptimeExceeded && (
@@ -1021,12 +1017,11 @@ export const NodeControlPanel = () => {
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center">
                 <div className="icon-bg mt-2 icon-container flex items-center justify-center rounded-md p-2 mx-auto sm:mx-0">
-                <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white z-10" />
+                  <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white z-10" />
                 </div>
                 <div className="flex flex-col mt-2 sm:ml-3 w-full">
-                  <div className={`text-lg font-medium text-center sm:text-left ${
-                    uptimeExceeded ? 'text-red-400' : 'text-white'
-                  }`}>
+                  <div className={`text-lg font-medium text-center sm:text-left ${uptimeExceeded ? 'text-red-400' : 'text-white'
+                    }`}>
                     {formatUptime(displayUptime)}
                   </div>
                   <div className="text-xs text-white/50 text-center sm:text-left">
@@ -1034,10 +1029,9 @@ export const NodeControlPanel = () => {
                   </div>
                   {/* Progress bar */}
                   <div className="w-full bg-gray-700 rounded-full h-1.5 mt-1">
-                    <div 
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
-                        uptimeExceeded ? 'bg-red-500' : displayUptime / getMaxUptime() > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
-                      }`}
+                    <div
+                      className={`h-1.5 rounded-full transition-all duration-300 ${uptimeExceeded ? 'bg-red-500' : displayUptime / getMaxUptime() > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
                       style={{ width: `${Math.min((displayUptime / getMaxUptime()) * 100, 100)}%` }}
                     ></div>
                   </div>
@@ -1060,9 +1054,8 @@ export const NodeControlPanel = () => {
                   />
                 </div>
                 <div className="flex flex-col mt-2 sm:ml-3">
-                  <div className={`text-lg font-medium text-center sm:text-left ${
-                    deviceLimitExceeded ? 'text-red-400' : 'text-white'
-                  }`}>
+                  <div className={`text-lg font-medium text-center sm:text-left ${deviceLimitExceeded ? 'text-red-400' : 'text-white'
+                    }`}>
                     {nodes.length}
                   </div>
                   <div className="text-xs text-white/50 text-center sm:text-left">
@@ -1088,21 +1081,20 @@ export const NodeControlPanel = () => {
                   />
                 </div>
                 <div
-                  className="text-sm text-white mt-2 text-center sm:text-left sm:ml-3 overflow-hidden w-full sm:w-[75%]"
+                  className="text-lg  text-white mt-3 text-center sm:text-left sm:ml-3 overflow-hidden w-full sm:w-[75%]"
                   title={selectedNode?.gpuInfo || "N/A"}
                 >
-                  {selectedNode?.gpuInfo || "N/A"}
+                  {extractGPUModel(selectedNode?.gpuInfo || "N/A")}
                 </div>
               </div>
             </div>
           </div>
 
           <div
-            className={`p-4 sm:p-6 flex flex-col rounded-xl sm:rounded-2xl border relative overflow-hidden gap-4 transition-all duration-300 ${
-              sessionEarnings + dbUnclaimedRewards > 0
-                ? "border-yellow-500/30 bg-yellow-900/10"
-                : "border-blue-800/30 bg-blue-900/10"
-            }`}
+            className={`p-4 sm:p-6 flex flex-col rounded-xl sm:rounded-2xl border relative overflow-hidden gap-4 transition-all duration-300 ${sessionEarnings + dbUnclaimedRewards > 0
+              ? "border-yellow-500/30 bg-yellow-900/10"
+              : "border-blue-800/30 bg-blue-900/10"
+              }`}
           >
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-4 z-10">
@@ -1135,24 +1127,22 @@ export const NodeControlPanel = () => {
               </div>
               <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
                 <span
-                  className={`font-medium text-2xl sm:text-3xl lg:text-4xl transition-all duration-300 ${
-                    sessionEarnings + dbUnclaimedRewards > 0
-                      ? "text-yellow-400"
-                      : "text-blue-400"
-                  } leading-none`}
+                  className={`font-medium text-2xl sm:text-3xl lg:text-4xl transition-all duration-300 ${sessionEarnings + dbUnclaimedRewards > 0
+                    ? "text-yellow-400"
+                    : "text-blue-400"
+                    } leading-none`}
                 >
                   {isLoggedIn ? isLoadingEarnings
                     ? "..."
                     : sessionEarnings + dbUnclaimedRewards > 0
-                    ? (sessionEarnings + dbUnclaimedRewards).toFixed(2)
-                    : totalEarnings.toFixed(2) : 0}
+                      ? (sessionEarnings + dbUnclaimedRewards).toFixed(2)
+                      : totalEarnings.toFixed(2) : 0}
                 </span>
                 <span
-                  className={`text-sm transition-all duration-300 ${
-                    sessionEarnings + dbUnclaimedRewards > 0
-                      ? "text-yellow-300"
-                      : "text-white/90"
-                  }`}
+                  className={`text-sm transition-all duration-300 ${sessionEarnings + dbUnclaimedRewards > 0
+                    ? "text-yellow-300"
+                    : "text-white/90"
+                    }`}
                 >
                   SP
                 </span>
@@ -1234,11 +1224,10 @@ export const NodeControlPanel = () => {
                       node.isActive ||
                       isDeviceRunning(selectedNodeId)
                     }
-                    className={`rounded-full text-white px-4 py-2 w-full sm:w-auto transition-all duration-300 ${
-                      node.isActive || isDeviceRunning(selectedNodeId)
-                        ? "bg-gray-600 hover:bg-gray-700 cursor-not-allowed"
-                        : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
-                    }`}
+                    className={`rounded-full text-white px-4 py-2 w-full sm:w-auto transition-all duration-300 ${node.isActive || isDeviceRunning(selectedNodeId)
+                      ? "bg-gray-600 hover:bg-gray-700 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
+                      }`}
                   >
                     {isClaimingReward ? (
                       <div className="flex items-center justify-center">
@@ -1266,7 +1255,7 @@ export const NodeControlPanel = () => {
             {sessionEarnings + dbUnclaimedRewards <= 0 && (
               <div className="flex items-center justify-center border-t border-blue-800/30 pt-3">
                 <span className="text-white/50 text-sm">
-                <i>*All Swarm Points will be converted to $NLOV after TGE </i>
+                  <i>*All Swarm Points will be converted to $NLOV after TGE </i>
                 </span>
               </div>
             )}

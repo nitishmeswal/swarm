@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { detectHardware } from "@/lib/hardwareDetection";
+import { extractGPUModel } from "@/lib/gpuUtils";
 
 interface HardwareInfo {
   cpuCores: number;
@@ -43,7 +44,7 @@ const ScanningDialog = ({ step, onClose }: { step: ScanStep; onClose: () => void
         <DialogTitle className="text-lg font-semibold">
           {step === 'scanning' ? 'Analyzing system capabilities...' : 'Analyzing system capabilities...'}
         </DialogTitle>
-    
+
       </DialogHeader>
 
       <div className="py-8 text-center">
@@ -51,7 +52,7 @@ const ScanningDialog = ({ step, onClose }: { step: ScanStep; onClose: () => void
         <p className="mt-4 text-sm text-gray-300">
           Please wait while we analyze your device. Do not close this window.
         </p>
-        
+
         {step === 'analyzing' && (
           <div className="mt-4 bg-blue-500/20 border border-blue-500/30 rounded-lg p-3">
             <div className="flex items-center justify-center gap-2">
@@ -67,20 +68,18 @@ const ScanningDialog = ({ step, onClose }: { step: ScanStep; onClose: () => void
   );
 };
 
-const ResultsDialog = ({ 
-  hardwareInfo, 
-  onClose, 
-  onRegister, 
-  onScanAgain 
-}: { 
-  hardwareInfo: HardwareInfo; 
+const ResultsDialog = ({
+  hardwareInfo,
+  onClose,
+  onRegister,
+  onScanAgain
+}: {
+  hardwareInfo: HardwareInfo;
   onClose: () => void;
   onRegister: (deviceName: string) => void;
   onScanAgain: () => void;
 }) => {
-  const [deviceName, setDeviceName] = useState(
-    `My ${hardwareInfo.deviceType?.charAt(0).toUpperCase() || 'D'}${hardwareInfo.deviceType?.slice(1) || 'evice'}`
-  );
+  const [deviceName, setDeviceName] = useState("");
 
   const getTierColor = (tier: string) => {
     switch (tier) {
@@ -113,7 +112,7 @@ const ResultsDialog = ({
       <div className="p-6">
         <div className="flex justify-between items-center mb-5">
           <h2 className="text-white text-xl font-medium">Hardware Scan Results</h2>
-      
+
         </div>
 
         {/* Success icon */}
@@ -124,7 +123,7 @@ const ResultsDialog = ({
             </div>
           </div>
         </div>
-        
+
         {/* Device tier heading */}
         <div className="text-center mb-5">
           <h3 className="text-white text-xl">
@@ -134,7 +133,7 @@ const ResultsDialog = ({
             {getTierDescription(hardwareInfo.rewardTier)}
           </p>
         </div>
-        
+
         {/* Hardware specs box */}
         <div className="bg-[#111827] rounded-lg p-4 mb-6 space-y-3">
           <div className="flex justify-between items-center">
@@ -148,19 +147,19 @@ const ResultsDialog = ({
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Memory:</span>
             <span className="text-white text-right">
-              {typeof hardwareInfo.deviceMemory === 'number' 
-                ? `${hardwareInfo.deviceMemory} GB` 
+              {typeof hardwareInfo.deviceMemory === 'number'
+                ? `${hardwareInfo.deviceMemory} GB`
                 : hardwareInfo.deviceMemory}
             </span>
           </div>
           <div className="flex justify-between items-start">
             <span className="text-gray-400">GPU:</span>
             <span className="text-white text-right max-w-[60%] break-words" title={hardwareInfo.gpuInfo}>
-              {hardwareInfo.gpuInfo}
+              {extractGPUModel(hardwareInfo.gpuInfo)}
             </span>
           </div>
         </div>
-        
+
         {/* Device name input */}
         <div className="mb-6">
           <Label htmlFor="deviceName" className="text-white mb-2 block text-sm">Device Name</Label>
@@ -168,7 +167,7 @@ const ResultsDialog = ({
             id="deviceName"
             value={deviceName}
             onChange={(e) => setDeviceName(e.target.value)}
-            placeholder="Enter a name for your device"
+            placeholder="Name your device as you want"
             className="bg-[#111827] border-[#334155] text-white w-full focus:ring-1 focus:ring-blue-500 focus-visible:ring-offset-0 py-2 px-3 rounded-md"
           />
         </div>
@@ -190,7 +189,7 @@ const ResultsDialog = ({
             Scan Again
           </Button>
         </div>
-        
+
         {/* Form link */}
         <div className="text-center text-xs text-gray-500">
           Think this scan result is incorrect?
@@ -213,21 +212,21 @@ export const HardwareScanDialog: React.FC<HardwareScanDialogProps> = ({
 
   const startScan = async () => {
     if (isScanning) return;
-    
+
     setIsScanning(true);
     setScanStep('scanning');
-    
+
     try {
       // Simulate scanning delay
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       setScanStep('analyzing');
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       const result = await detectHardware();
       setHardwareInfo(result);
       setScanStep('complete');
-      
+
     } catch (error) {
       console.error('Hardware scan failed:', error);
       // Fallback to basic detection if scan fails

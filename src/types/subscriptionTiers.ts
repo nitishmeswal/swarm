@@ -60,7 +60,7 @@ export const subscriptionTiers: SubscriptionTier[] = [
   {
     name: "Enterprise",
     price: 50,
-    maxUptime: 6 * 60 * 60, // 24 hours
+    maxUptime: 24 * 60 * 60, // 24 hours
     deviceLimit: 6,
     aiCredits: {
       neuroImageGen: "unlimited",
@@ -82,7 +82,7 @@ export const subscriptionTiers: SubscriptionTier[] = [
   }
 ];
 
-export const getTierByName = (name: string): SubscriptionTier => 
+export const getTierByName = (name: string): SubscriptionTier =>
   subscriptionTiers.find((tier) => tier.name.toLowerCase() === name.toLowerCase()) ?? freeSubscriptionTier;
 
 // Optional: Add a default free tier

@@ -57,13 +57,13 @@ export const ReferralProgram = () => {
   const [referrerInfo, setReferrerInfo] = useState<any>(null);
 
   const { user, profile: userProfile } = useAuth();
-  const { 
-    verifyReferralCode, 
+  const {
+    verifyReferralCode,
     createReferralRelationship,
     getMyReferrals,
     isVerifying,
     isCreating,
-    isFetching 
+    isFetching
   } = useReferrals();
   const { claimTaskRewards } = useEarnings();
 
@@ -81,7 +81,7 @@ export const ReferralProgram = () => {
       // Get my referrals using API route
       const { data: myReferrals } = await getMyReferrals(user!.id);
       setReferralData(myReferrals);
-  
+
       // Get referral data using API route
       const response = await fetch('/api/referrals', {
         method: 'GET',
@@ -110,7 +110,7 @@ export const ReferralProgram = () => {
   // Add function to check if user is referred
   const checkIfUserIsReferred = async () => {
     if (!user?.id) return;
-    
+
     try {
       const response = await fetch('/api/referrals/check-referred', {
         method: 'GET',
@@ -169,15 +169,49 @@ export const ReferralProgram = () => {
     }
   };
 
+  // Function to extract referral code from URL or return the input as-is
+  const extractReferralCodeFromInput = (input: string): string => {
+    if (!input.trim()) return '';
+
+    // Check if input looks like a URL
+    if (input.includes('://') || input.includes('?ref=')) {
+      try {
+        // Handle cases where input might not have protocol
+        let urlString = input;
+        if (!input.startsWith('http://') && !input.startsWith('https://')) {
+          urlString = 'https://' + input;
+        }
+
+        const url = new URL(urlString);
+        const refParam = url.searchParams.get('ref');
+
+        if (refParam) {
+          return refParam.trim().toUpperCase();
+        }
+      } catch (error) {
+        // If URL parsing fails, try to extract using regex
+        const refMatch = input.match(/[?&]ref=([^&\s]+)/i);
+        if (refMatch && refMatch[1]) {
+          return refMatch[1].trim().toUpperCase();
+        }
+      }
+    }
+
+    // If not a URL or no ref parameter found, return the input as-is (assuming it's a direct code)
+    return input.trim().toUpperCase();
+  };
+
   const handleVerifyReferralCode = async () => {
-    if (!referralCode.trim()) {
-      setReferralError("Please enter a referral code");
+    const extractedCode = extractReferralCodeFromInput(referralCode);
+
+    if (!extractedCode) {
+      setReferralError("Please enter a referral code or link");
       return;
     }
 
     try {
-      const { referrerId, error } = await verifyReferralCode(referralCode);
-      
+      const { referrerId, error } = await verifyReferralCode(extractedCode);
+
       if (error) {
         setReferralError(error.message);
         setReferralSuccess(false);
@@ -192,7 +226,7 @@ export const ReferralProgram = () => {
 
       // Create referral relationship
       const { success, error: createError } = await createReferralRelationship(
-        referralCode,
+        extractedCode,
         user!.id
       );
 
@@ -210,7 +244,7 @@ export const ReferralProgram = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            referralCode,
+            referralCode: extractedCode,
             userId: user!.id,
           }),
         });
@@ -241,7 +275,7 @@ export const ReferralProgram = () => {
 
   const handleClaimReward = async (rewardId: string, amount: number) => {
     if (isClaimingReward) return;
-    
+
     setIsClaimingReward(true);
     try {
       // Use the new referrals API to claim rewards
@@ -256,7 +290,7 @@ export const ReferralProgram = () => {
       });
 
       const apiResult = await response.json();
-      
+
       if (apiResult.success) {
         setClaimSuccess(true);
         setTimeout(() => setClaimSuccess(false), 3000);
@@ -464,9 +498,9 @@ export const ReferralProgram = () => {
             isLoading
               ? "..."
               : `${totalReferralEarnings.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })} SP`
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })} SP`
           }
           backgroundImage={"/images/flower_2.png"}
           highlight
@@ -485,7 +519,7 @@ export const ReferralProgram = () => {
           >
             <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
             <div className="relative w-36 text-center">
-              <motion.span 
+              <motion.span
                 className="text-sm sm:text-base absolute left-0 right-0 whitespace-nowrap"
                 variants={{
                   initial: { opacity: 1 },
@@ -495,7 +529,7 @@ export const ReferralProgram = () => {
               >
                 Promotional Period
               </motion.span>
-              <motion.span 
+              <motion.span
                 className="text-sm sm:text-base whitespace-nowrap"
                 variants={{
                   initial: { opacity: 0 },
@@ -521,7 +555,7 @@ export const ReferralProgram = () => {
           >
             <FaSquareXTwitter className="w-4 h-4 sm:w-5 sm:h-5" />
             <div className="relative w-36 text-center">
-              <motion.span 
+              <motion.span
                 className="text-sm sm:text-base absolute left-0 right-0 whitespace-nowrap"
                 variants={{
                   initial: { opacity: 1 },
@@ -531,7 +565,7 @@ export const ReferralProgram = () => {
               >
                 Promotional Period
               </motion.span>
-              <motion.span 
+              <motion.span
                 className="text-sm sm:text-base whitespace-nowrap"
                 variants={{
                   initial: { opacity: 0 },
@@ -554,12 +588,12 @@ export const ReferralProgram = () => {
           </p>
         </div>
       )}
-      
+
       {/* Share Modal */}
-      <ShareModal 
-        isOpen={isShareModalOpen} 
-        onClose={() => setIsShareModalOpen(false)} 
-        referralLink={referralLink} 
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        referralLink={referralLink}
       />
 
       {/* Referral Code Input Section - Updated Logic */}
@@ -585,7 +619,7 @@ export const ReferralProgram = () => {
                     value={referralCode}
                     onChange={(e) => setReferralCode(e.target.value)}
                     className="pl-10 py-3 bg-[#111827]/50 border-blue-500/20 focus:border-blue-400 text-white rounded-xl focus-visible:ring-blue-500/30 focus-visible:ring-offset-0 w-full"
-                    placeholder="Enter referral code"
+                    placeholder="Enter referral code or paste referral link"
                   />
                 </div>
                 <Button
@@ -608,7 +642,7 @@ export const ReferralProgram = () => {
                   {referralError}
                 </p>
               )}
-              
+
               {referralSuccess && (
                 <p className="text-green-400 text-sm mt-2 flex items-center">
                   <CheckCircle className="w-3 h-3 mr-1" />
@@ -637,14 +671,14 @@ export const ReferralProgram = () => {
                 </p>
               </div>
             </div>
-            
+
             {/* Social Sharing Section */}
             <div className="bg-black/20 p-4 rounded-lg border border-green-500/20">
               <div className="flex items-center gap-2 mb-3">
                 <Share2 className="w-4 h-4 text-green-400" />
                 <span className="text-green-400 text-sm font-medium">Share & Earn More</span>
               </div>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
                 {/* Telegram Share */}
                 <motion.button
@@ -660,7 +694,7 @@ export const ReferralProgram = () => {
                   <FaTelegram className="w-4 h-4" />
                   <span className="text-xs">Telegram</span>
                 </motion.button>
-                
+
                 {/* WhatsApp Share */}
                 <motion.button
                   onClick={() => {
@@ -675,7 +709,7 @@ export const ReferralProgram = () => {
                   <FaWhatsapp className="w-4 h-4" />
                   <span className="text-xs">WhatsApp</span>
                 </motion.button>
-                
+
                 {/* Twitter Share */}
                 <motion.button
                   onClick={() => {
@@ -690,7 +724,7 @@ export const ReferralProgram = () => {
                   <FaSquareXTwitter className="w-4 h-4" />
                   <span className="text-xs">Twitter</span>
                 </motion.button>
-                
+
                 {/* Copy Link */}
                 <motion.button
                   onClick={async () => {
@@ -721,7 +755,7 @@ export const ReferralProgram = () => {
                   )}
                 </motion.button>
               </div>
-              
+
               {/* Referral Link Display */}
               <div className="bg-black/30 p-3 rounded-lg border border-green-500/10">
                 <div className="flex items-center justify-between gap-2">
@@ -925,7 +959,7 @@ export const ReferralProgram = () => {
                       <p className="text-[#515194] text-xs">
                         {ref.tier_level.replace('_', ' ').toUpperCase()}
                       </p>
-                     
+
                       <span className="text-[#515194]">•</span>
                       <p className="text-[#515194] text-xs">
                         Referred {new Date(ref.referred_at).toLocaleDateString()}

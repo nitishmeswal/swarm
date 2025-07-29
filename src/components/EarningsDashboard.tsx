@@ -236,17 +236,15 @@ export const EarningsDashboard = () => {
 
       if (response.ok) {
         const result = await response.json();
-        alert(result.message);
         // Refresh streak data and task stats
         fetchStreakData();
         fetchTaskStats();
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to check in");
+        console.error("Check-in failed:", error.error || "Failed to check in");
       }
     } catch (error) {
       console.error("Error during check-in:", error);
-      alert("Failed to check in. Please try again.");
     } finally {
       setCheckInLoading(false);
     }
@@ -710,8 +708,8 @@ export const EarningsDashboard = () => {
               {isLoadingStreak
                 ? "Loading..."
                 : streakData?.hasCheckedInToday
-                ? "Checked In"
-                : "Check In"}
+                  ? "Checked In"
+                  : "Check In"}
             </Button>
           </div>
         </div>
@@ -726,7 +724,7 @@ export const EarningsDashboard = () => {
               isActive={
                 streakData
                   ? !streakData.hasCheckedInToday &&
-                    (streakData.currentStreak % 7) + 1 === day
+                  (streakData.currentStreak % 7) + 1 === day
                   : false
               }
               isCompleted={
@@ -743,7 +741,7 @@ export const EarningsDashboard = () => {
             <div className="text-xs text-slate-400">
               Last check-in:{" "}
               {streakData.lastCheckinDate ===
-              new Date().toISOString().split("T")[0] ? (
+                new Date().toISOString().split("T")[0] ? (
                 <span className="text-green-400">Today</span>
               ) : (
                 new Date(streakData.lastCheckinDate).toLocaleDateString()
@@ -878,17 +876,15 @@ const DailyRewardCard = ({
 }) => {
   return (
     <div
-      className={`relative group transition-all duration-300 ${
-        isActive ? "scale-105" : ""
-      }`}
+      className={`relative group transition-all duration-300 ${isActive ? "scale-105" : ""
+        }`}
     >
       <div
         className={`
           relative overflow-hidden rounded-2xl p-2 sm:p-4 
-          ${
-            isActive
-              ? "bg-gradient-to-br from-blue-500/20 to-purple-600/20 border-2 border-blue-500/50"
-              : isCompleted
+          ${isActive
+            ? "bg-gradient-to-br from-blue-500/20 to-purple-600/20 border-2 border-blue-500/50"
+            : isCompleted
               ? "bg-[#161628] border-2 border-green-500/50"
               : "bg-gradient-to-br from-[#1a1a36] to-[#090C18] border-2 border-[#1a1a36]"
           }
@@ -898,9 +894,8 @@ const DailyRewardCard = ({
       >
         <div className="text-center">
           <div
-            className={`text-sm sm:text-lg font-medium ${
-              isActive ? "text-blue-400" : "text-white"
-            }`}
+            className={`text-sm sm:text-lg font-medium ${isActive ? "text-blue-400" : "text-white"
+              }`}
           >
             Day {day}
           </div>
