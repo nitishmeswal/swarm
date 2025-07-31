@@ -186,7 +186,7 @@ export const ReferralProgram = () => {
         const refParam = url.searchParams.get('ref');
 
         if (refParam) {
-          return refParam.trim().toUpperCase();
+          return refParam.trim();
         }
       } catch (error) {
         // If URL parsing fails, try to extract using regex

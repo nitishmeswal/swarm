@@ -5,9 +5,9 @@ import { createClient } from '@/utils/supabase/server';
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
+
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     if (sessionError || !session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     // Call the RPC function to verify referral code
     const { data: referrerId, error } = await supabase.rpc('verify_referral_code', {
-      code: code.trim().toUpperCase()
+      code: code.trim()
     });
 
     if (error) {
@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         referrerId,
         message: 'Referral code verified successfully'
       },
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         },
       }
     );
-    
+
   } catch (error) {
     console.error('Referral verify API error:', error);
     return NextResponse.json(
