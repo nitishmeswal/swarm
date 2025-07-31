@@ -34,6 +34,8 @@ import {
   ResponsiveContainer,
   Area,
   AreaChart,
+  BarChart,
+  Bar,
 } from "recharts";
 
 type TimeRange = "daily" | "weekly" | "monthly" | "all-time";
@@ -517,82 +519,43 @@ export const EarningsDashboard = () => {
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
               </div>
             ) : chartData.length > 0 ? (
-              <div className="h-full">
-                <svg width="100%" height="100%" className="overflow-visible">
-                  <defs>
-                    <linearGradient
-                      id="chartGradient"
-                      x1="0%"
-                      y1="0%"
-                      x2="0%"
-                      y2="100%"
-                    >
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Chart area */}
-                  <path
-                    d={chartData
-                      .map((point, index) => {
-                        const x = (index / (chartData.length - 1)) * 90 + 5;
-                        const maxEarnings = Math.max(
-                          ...chartData.map((d) => d.earnings)
-                        );
-                        const minEarnings = Math.min(
-                          ...chartData.map((d) => d.earnings)
-                        );
-                        const range = maxEarnings - minEarnings || 1;
-                        const y =
-                          90 -
-                          ((point.earnings - minEarnings) / range) * 70 +
-                          5;
-                        return `${index === 0 ? "M" : "L"} ${x}% ${y}%`;
-                      })
-                      .join(" ")}
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="3"
-                    vectorEffect="non-scaling-stroke"
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1a1a36" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#515194"
+                    fontSize={12}
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return `${date.getMonth() + 1}/${date.getDate()}`;
+                    }}
                   />
-
-                  {/* Data points */}
-                  {chartData.map((point, index) => {
-                    const x = (index / (chartData.length - 1)) * 90 + 5;
-                    const maxEarnings = Math.max(
-                      ...chartData.map((d) => d.earnings)
-                    );
-                    const minEarnings = Math.min(
-                      ...chartData.map((d) => d.earnings)
-                    );
-                    const range = maxEarnings - minEarnings || 1;
-                    const y =
-                      90 - ((point.earnings - minEarnings) / range) * 70 + 5;
-                    return (
-                      <circle
-                        key={index}
-                        cx={`${x}%`}
-                        cy={`${y}%`}
-                        r="4"
-                        fill={point.highlight ? "#fbbf24" : "#3b82f6"}
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                    );
-                  })}
-                </svg>
-
-                {/* Chart summary */}
-                {chartSummary && (
-                  <div className="absolute bottom-2 left-2 text-xs text-slate-400">
-                    <div>
-                      Period: +{chartSummary.periodEarnings.toFixed(2)} SP
-                    </div>
-                    <div>Avg Daily: {chartSummary.avgDaily.toFixed(2)} SP</div>
-                  </div>
-                )}
-              </div>
+                  <YAxis
+                    stroke="#515194"
+                    fontSize={12}
+                    tickFormatter={(value) => `${value} SP`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#161628',
+                      border: '1px solid #1a1a36',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                    formatter={(value: any) => [`${Number(value).toFixed(2)} SP`, 'Earnings']}
+                    labelFormatter={(label) => {
+                      const date = new Date(label);
+                      return date.toLocaleDateString();
+                    }}
+                  />
+                  <Bar
+                    dataKey="earnings"
+                    fill="#3b82f6"
+                    radius={[2, 2, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
               <div className="text-slate-400 text-center h-full flex items-center justify-center">
                 <div>
@@ -784,39 +747,45 @@ export const EarningsDashboard = () => {
           <div className="flex flex-col">
             <div className="space-y-2 h-[320px] overflow-y-auto pr-1 custom-scrollbar">
               {transactions.map((tx) => (
-                <div key={tx.id} className="transaction-item p-3">
+                <div key={tx.id} className="transaction-item p-3 flex justify-between items-center">
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium transaction-date">
-                      {formatDate(tx.created_at)}
+                    <span className="text-sm font-medium transaction-date text-white">
+                      {new Date(tx.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </span>
-                    <span className="text-xs text-[#515194]">
+                    <span className="text-xs text-[#515194] mt-1">
                       {tx.earning_type === "task"
-                        ? "Task completed"
-                        : "Referral reward"}
+                        ? `Task completed${tx.task_count ? ` (${tx.task_count} tasks)` : ''}`
+                        : tx.earning_type === "referral"
+                          ? "Referral reward"
+                          : tx.earning_type === "other"
+                            ? "Daily check-in"
+                            : "Other reward"}
                     </span>
                   </div>
 
-                  <div className="flex flex-col items-end">
-                    <div className="transaction-amount">
-                      <span className="text-sm font-medium text-green-500">
-                        +
-                        {Number(tx.amount).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        SP
-                      </span>
-                      {tx.transaction_hash && (
-                        <a
-                          href={`https://solscan.io/tx/${tx.transaction_hash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 ml-2"
-                        >
-                          <ArrowUpRight className="w-4 h-4" />
-                        </a>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-green-500">
+                      +{Number(tx.amount).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })} SP
+                    </span>
+                    {tx.transaction_hash && (
+                      <a
+                        href={`https://solscan.io/tx/${tx.transaction_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
                   </div>
                 </div>
               ))}
