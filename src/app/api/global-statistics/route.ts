@@ -15,6 +15,13 @@ interface LeaderboardFunctionResult {
   user_rank: LeaderboardEntry | null;
 }
 
+// Interface for edge function response
+interface EdgeFunctionStats {
+  global_sp: number;
+  total_users: number;
+  global_compute_generated: number;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -26,23 +33,16 @@ export async function GET(request: NextRequest) {
       console.error('Session error:', sessionError);
     }
 
-    // Fetch all required data in parallel with optimized queries
-    const [
-      { count: totalUsers, error: usersError },
-      { data: totalEarningsData, error: earningsError },
-      { data: leaderboardFunctionData, error: leaderboardFunctionError }
-    ] = await Promise.all([
-      // Get total users count efficiently
-      supabase
-        .from('user_profiles')
-        .select('*', { count: 'exact', head: true }),
-
-      // Get latest total earnings efficiently - fallback to top earner if RPC doesn't exist
-      supabase
-        .from('earnings_history')
-        .select('total_amount')
-        .order('total_amount', { ascending: false })
-        .limit(50), // Limit to top 50 for calculation
+    // Fetch data from edge function and leaderboard in parallel
+    const [edgeFunctionResponse, leaderboardFunctionData] = await Promise.all([
+      // Get global statistics from edge function
+      fetch('https://phpaoasgtqsnwohtevwf.supabase.co/functions/v1/global_statistics_data', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || ''}`,
+        },
+      }),
 
       // Use the get_top10_with_user_rank function to get consistent leaderboard data
       supabase
@@ -51,42 +51,20 @@ export async function GET(request: NextRequest) {
         })
     ]);
 
-    // Handle errors
-    if (usersError) {
-      console.error('Error fetching users count:', usersError);
-      return NextResponse.json({ error: 'Failed to fetch users data' }, { status: 500 });
+    // Handle edge function response
+    if (!edgeFunctionResponse.ok) {
+      console.error('Edge function error:', edgeFunctionResponse.status, edgeFunctionResponse.statusText);
+      return NextResponse.json({ error: 'Failed to fetch global statistics' }, { status: 500 });
     }
 
-    if (earningsError) {
-      console.error('Error fetching total earnings:', earningsError);
-      return NextResponse.json({ error: 'Failed to fetch earnings data' }, { status: 500 });
-    }
+    const edgeFunctionData: EdgeFunctionStats = await edgeFunctionResponse.json();
+    console.log('Debug - Edge function data:', edgeFunctionData);
 
-    if (leaderboardFunctionError) {
-      console.error('Error fetching leaderboard from function:', leaderboardFunctionError);
+    // Handle leaderboard function error
+    if (leaderboardFunctionData.error) {
+      console.error('Error fetching leaderboard from function:', leaderboardFunctionData.error);
       return NextResponse.json({ error: 'Failed to fetch leaderboard' }, { status: 500 });
     }
-
-    // Get total users count from efficient query
-    console.log('Debug - totalUsers from count:', totalUsers);
-    const userCount = totalUsers ?? 0;
-
-    // Get total earnings - fallback to calculation if RPC doesn't exist
-    let totalEarnings = 0;
-    if (totalEarningsData !== null && typeof totalEarningsData === 'number') {
-      totalEarnings = totalEarningsData;
-    } else if (Array.isArray(totalEarningsData)) {
-      // Fallback calculation if RPC function doesn't exist
-      totalEarnings = totalEarningsData.reduce((sum: number, record: any) => {
-        return sum + (Number(record.total_amount) || 0);
-      }, 0);
-    }
-    console.log('Debug - totalEarnings calculated:', totalEarnings);
-
-    // Calculate global compute generated based on user activity
-    // Since we don't have access to global_stats table, use estimated values based on total earnings
-    const globalComputeGenerated = Math.round(totalEarnings * 0.1); // Estimate based on earnings
-    const totalTasksCount = Math.round((userCount || 0) * 15.5); // Ensure userCount is not null
 
     // Parse the leaderboard data from the function
     console.log('Debug - leaderboardFunctionData:', leaderboardFunctionData);
@@ -94,9 +72,9 @@ export async function GET(request: NextRequest) {
     let leaderboard: LeaderboardEntry[] = [];
     let currentUserRank: LeaderboardEntry | null = null;
 
-    if (leaderboardFunctionData) {
+    if (leaderboardFunctionData.data) {
       // Extract top10 and user_rank from the function result
-      const { top10, user_rank } = leaderboardFunctionData as LeaderboardFunctionResult;
+      const { top10, user_rank } = leaderboardFunctionData.data as LeaderboardFunctionResult;
       
       // Format the top10 leaderboard
       if (top10 && Array.isArray(top10)) {
@@ -122,7 +100,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fallback: If function fails, use the old method
-    if (!leaderboardFunctionData || leaderboard.length === 0) {
+    if (!leaderboardFunctionData.data || leaderboard.length === 0) {
       console.log('Fallback: Using manual leaderboard query');
       
       // Get top 10 leaderboard with user names - FALLBACK
@@ -200,12 +178,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Prepare the response data
+    // Calculate total tasks based on global compute generated (estimate)
+    const totalTasksCount = Math.round((edgeFunctionData.global_compute_generated || 0) * 10);
+
+    // Prepare the response data using edge function stats
     const responseData = {
       stats: {
-        totalUsers: userCount,
-        totalEarnings,
-        globalComputeGenerated,
+        totalUsers: edgeFunctionData.total_users || 0,
+        totalEarnings: edgeFunctionData.global_sp || 0,
+        globalComputeGenerated: edgeFunctionData.global_compute_generated || 0,
         totalTasks: totalTasksCount
       },
       leaderboard,
@@ -215,8 +196,9 @@ export async function GET(request: NextRequest) {
     console.log('Debug - Final response data:', {
       leaderboardLength: leaderboard.length,
       currentUserRank: currentUserRank ? 'Found' : 'Not found',
-      totalUsers: userCount,
-      totalEarnings
+      totalUsers: edgeFunctionData.total_users,
+      totalEarnings: edgeFunctionData.global_sp,
+      globalComputeGenerated: edgeFunctionData.global_compute_generated
     });
 
     // Return the data with aggressive caching for memory optimization

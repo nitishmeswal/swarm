@@ -366,6 +366,227 @@ export const NodeControlPanel = () => {
     }
   };
 
+  // FIX: NEW - Real-time uptime monitoring with immediate auto-stop
+  const startUptimeMonitoring = useCallback(() => {
+    if (!selectedNodeId || !isDeviceRunning(selectedNodeId)) return null;
+
+    console.log("🚨 Starting real-time uptime monitoring for auto-stop...");
+    
+    const monitoringInterval = setInterval(async () => {
+      try {
+        const currentUptime = getCurrentUptime(selectedNodeId);
+        const maxUptime = getMaxUptime();
+        const remainingTime = maxUptime - currentUptime;
+
+        // FIX: Immediate auto-stop when limit is reached
+        if (currentUptime >= maxUptime && !autoStopInProgressRef.current) {
+          console.log('🚨 UPTIME LIMIT EXCEEDED - IMMEDIATE AUTO-STOP TRIGGERED');
+          
+          autoStopInProgressRef.current = true;
+          setIsStopping(true);
+
+          try {
+            // Save session earnings before stopping
+            if (sessionEarnings > 0) {
+              console.log("🛑 Auto-stop: Saving session earnings to DB:", sessionEarnings);
+              const saveSuccess = await saveSessionEarningsToDb(true);
+              if (!saveSuccess) {
+                console.error("❌ Failed to save session earnings before auto-stopping node");
+              }
+            }
+
+            // Update device status to offline
+            await updateDeviceStatus(selectedNodeId, 'offline');
+
+            // Stop uptime tracking and update server
+            const result = await stopDeviceUptime(selectedNodeId);
+
+            if (result.success) {
+              console.log("✅ Node auto-stopped and uptime updated successfully");
+            } else {
+              console.error("❌ Failed to update uptime during auto-stop:", result.error);
+            }
+
+            // Stop Redux state and tasks
+            dispatch(stopNode());
+            dispatch(resetTasks());
+            
+            setShowUptimeLimitDialog(true);
+            console.log(`🚫 Auto-stop completed. Final uptime: ${currentUptime}s exceeded limit: ${maxUptime}s`);
+
+          } catch (error) {
+            console.error("❌ Error during auto-stop:", error);
+          } finally {
+            setIsStopping(false);
+            autoStopInProgressRef.current = false;
+          }
+
+          // Clear the monitoring interval
+          clearInterval(monitoringInterval);
+          return;
+        }
+
+        // FIX: Early warning system
+        if (remainingTime <= 60 && remainingTime > 0) {
+          console.warn(`🚨 WARNING: Only ${remainingTime} seconds remaining before auto-stop!`);
+        }
+
+        // FIX: Sync with server when approaching limit (within 2 minutes or 95% of limit)
+        if (remainingTime <= 120 || currentUptime >= maxUptime * 0.95) {
+          console.log("⚠️ Approaching uptime limit - syncing with server for accuracy...");
+          await syncDeviceUptime(selectedNodeId, true);
+        }
+
+      } catch (error) {
+        console.error("❌ Error in uptime monitoring:", error);
+      }
+    }, 5000); // Check every 5 seconds for immediate response
+
+    return monitoringInterval;
+  }, [selectedNodeId, isDeviceRunning, getCurrentUptime, getMaxUptime, sessionEarnings, saveSessionEarningsToDb, updateDeviceStatus, stopDeviceUptime, syncDeviceUptime]);
+
+  // FIX: Enhanced auto-stop logic with real-time monitoring
+  useEffect(() => {
+    if (!selectedNodeId) return;
+
+    let monitoringInterval: NodeJS.Timeout | null = null;
+
+    const checkAndSetupMonitoring = async () => {
+      // FIX: Check if device is running and start monitoring
+      if (isDeviceRunning(selectedNodeId) || node.isActive) {
+        console.log("🔄 Device is running - starting uptime monitoring...");
+        monitoringInterval = startUptimeMonitoring();
+      }
+
+      // FIX: Also check current uptime status for immediate action
+      const isUptimeExceeded = await checkUptimeLimit(false);
+      setUptimeExceeded(isUptimeExceeded);
+
+      // FIX: Immediate auto-stop if already exceeded and device is running
+      if (isUptimeExceeded && (isDeviceRunning(selectedNodeId) || node.isActive) && !autoStopInProgressRef.current) {
+        console.log('🚨 UPTIME ALREADY EXCEEDED - IMMEDIATE AUTO-STOP');
+        
+        autoStopInProgressRef.current = true;
+        setIsStopping(true);
+
+        try {
+          // Save session earnings before stopping
+          if (sessionEarnings > 0) {
+            console.log("🛑 Auto-stop: Saving session earnings to DB:", sessionEarnings);
+            const saveSuccess = await saveSessionEarningsToDb(true);
+            if (!saveSuccess) {
+              console.error("❌ Failed to save session earnings before auto-stopping node");
+            }
+          }
+
+          // Update device status to offline
+          await updateDeviceStatus(selectedNodeId, 'offline');
+
+          // Stop uptime tracking and update server
+          const result = await stopDeviceUptime(selectedNodeId);
+
+          if (result.success) {
+            console.log("✅ Node auto-stopped and uptime updated successfully");
+          } else {
+            console.error("❌ Failed to update uptime during auto-stop:", result.error);
+          }
+
+          // Stop Redux state and tasks
+          dispatch(stopNode());
+          dispatch(resetTasks());
+          
+          setShowUptimeLimitDialog(true);
+
+        } catch (error) {
+          console.error("❌ Error during immediate auto-stop:", error);
+        } finally {
+          setIsStopping(false);
+          autoStopInProgressRef.current = false;
+        }
+      }
+    };
+
+    checkAndSetupMonitoring();
+    setDeviceLimitExceeded(checkDeviceLimit());
+
+    // FIX: Cleanup monitoring interval on unmount or when device changes
+    return () => {
+      if (monitoringInterval) {
+        clearInterval(monitoringInterval);
+        console.log("🔄 Stopped uptime monitoring");
+      }
+    };
+  }, [selectedNodeId, node.isActive, isDeviceRunning, checkUptimeLimit, startUptimeMonitoring, sessionEarnings, saveSessionEarningsToDb, updateDeviceStatus, stopDeviceUptime]);
+
+  // FIX: Enhanced periodic validation for running devices (backup monitoring)
+  useEffect(() => {
+    if (!selectedNodeId || !isDeviceRunning(selectedNodeId)) return;
+
+    console.log("⏱️ Starting backup periodic uptime validation for running device...");
+
+    // FIX: More frequent validation for running devices
+    const validateUptime = setInterval(async () => {
+      try {
+        const currentUptime = getCurrentUptime(selectedNodeId);
+        const maxUptime = getMaxUptime();
+        const remainingTime = maxUptime - currentUptime;
+
+        console.log(`⏱️ Backup check - Uptime: ${currentUptime}s, Remaining: ${remainingTime}s`);
+
+        // FIX: Emergency stop if somehow the main monitoring missed it
+        if (currentUptime >= maxUptime && !autoStopInProgressRef.current) {
+          console.log('🚨 EMERGENCY STOP - Uptime limit exceeded in backup check');
+          
+          autoStopInProgressRef.current = true;
+          setIsStopping(true);
+
+          try {
+            // Save session earnings before stopping
+            if (sessionEarnings > 0) {
+              console.log("🛑 Emergency stop: Saving session earnings to DB:", sessionEarnings);
+              const saveSuccess = await saveSessionEarningsToDb(true);
+              if (!saveSuccess) {
+                console.error("❌ Failed to save session earnings before emergency stop");
+              }
+            }
+
+            // Update device status to offline
+            await updateDeviceStatus(selectedNodeId, 'offline');
+
+            // Stop uptime tracking and update server
+            const result = await stopDeviceUptime(selectedNodeId);
+
+            if (result.success) {
+              console.log("✅ Emergency stop completed successfully");
+            } else {
+              console.error("❌ Failed to update uptime during emergency stop:", result.error);
+            }
+
+            // Stop Redux state and tasks
+            dispatch(stopNode());
+            dispatch(resetTasks());
+            
+            setShowUptimeLimitDialog(true);
+
+          } catch (error) {
+            console.error("❌ Error during emergency stop:", error);
+          } finally {
+            setIsStopping(false);
+            autoStopInProgressRef.current = false;
+          }
+        }
+
+      } catch (error) {
+        console.error("Error in backup uptime validation:", error);
+      }
+    }, 30000); // Every 30 seconds as backup
+
+    return () => {
+      clearInterval(validateUptime);
+      console.log("⏱️ Stopped backup periodic uptime validation");
+    };
+  }, [selectedNodeId, isDeviceRunning, getCurrentUptime, getMaxUptime, sessionEarnings, saveSessionEarningsToDb, updateDeviceStatus, stopDeviceUptime]);
+
   // FIX: Enhanced unclaimed rewards management
   const resetAllUnclaimedRewards = async () => {
     if (!user?.id) return false;
@@ -695,83 +916,84 @@ export const NodeControlPanel = () => {
     }, 100);
   };
 
-  // FIX: Enhanced auto-stop logic with server verification
+  // FIX: Enhanced auto-stop logic with real-time monitoring
   useEffect(() => {
     if (!selectedNodeId) return;
 
-    const checkAndAutoStop = async () => {
-      // FIX: Use server-validated uptime for critical decisions
-      const isUptimeExceeded = await checkUptimeLimit(false); // Start with local check
+    let monitoringInterval: NodeJS.Timeout | null = null;
+
+    const checkAndSetupMonitoring = async () => {
+      // FIX: Check if device is running and start monitoring
+      if (isDeviceRunning(selectedNodeId) || node.isActive) {
+        console.log("🔄 Device is running - starting uptime monitoring...");
+        monitoringInterval = startUptimeMonitoring();
+      }
+
+      // FIX: Also check current uptime status for immediate action
+      const isUptimeExceeded = await checkUptimeLimit(false);
       setUptimeExceeded(isUptimeExceeded);
 
-      // Auto-stop logic with server verification
-      if (isUptimeExceeded &&
-        (node.isActive || isDeviceRunning(selectedNodeId)) &&
-        !autoStopInProgressRef.current &&
-        !isStopping) {
+      // FIX: Immediate auto-stop if already exceeded and device is running
+      if (isUptimeExceeded && (isDeviceRunning(selectedNodeId) || node.isActive) && !autoStopInProgressRef.current) {
+        console.log('🚨 UPTIME ALREADY EXCEEDED - IMMEDIATE AUTO-STOP');
+        
+        autoStopInProgressRef.current = true;
+        setIsStopping(true);
 
-        console.log('⏰ Local uptime check shows limit exceeded, verifying with server...');
-
-        // FIX: Verify with server before auto-stopping
-        const serverValidatedExceeded = await checkUptimeLimit(true);
-
-        if (serverValidatedExceeded) {
-          console.log('✅ Server confirmed uptime limit exceeded, auto-stopping...');
-          autoStopInProgressRef.current = true;
-          setIsStopping(true);
-
-          const autoStopNode = async () => {
-            try {
-              // Save session earnings before stopping
-              if (sessionEarnings > 0) {
-                console.log("🛑 Auto-stop: Saving session earnings to DB:", sessionEarnings);
-                const saveSuccess = await saveSessionEarningsToDb(true);
-                if (!saveSuccess) {
-                  console.error("❌ Failed to save session earnings before auto-stopping node");
-                }
-              }
-
-              // Stop uptime tracking and update server
-              const result = await stopDeviceUptime(selectedNodeId);
-
-              if (result.success) {
-                console.log("✅ Node auto-stopped and uptime updated successfully");
-              } else {
-                console.error("❌ Failed to update uptime during auto-stop:", result.error);
-              }
-            } catch (error) {
-              console.error("Error during auto-stop:", error);
+        try {
+          // Save session earnings before stopping
+          if (sessionEarnings > 0) {
+            console.log("🛑 Auto-stop: Saving session earnings to DB:", sessionEarnings);
+            const saveSuccess = await saveSessionEarningsToDb(true);
+            if (!saveSuccess) {
+              console.error("❌ Failed to save session earnings before auto-stopping node");
             }
+          }
 
-            setTimeout(() => {
-              dispatch(stopNode());
-              dispatch(resetTasks());
-              setIsStopping(false);
-              autoStopInProgressRef.current = false;
-              setShowUptimeLimitDialog(true);
+          // Update device status to offline
+          await updateDeviceStatus(selectedNodeId, 'offline');
 
-              const finalUptime = getCurrentUptime(selectedNodeId);
-              console.log(`🚫 Auto-stop completed. Final uptime: ${finalUptime}s exceeded limit: ${getMaxUptime()}s`);
-            }, 2000);
-          };
+          // Stop uptime tracking and update server
+          const result = await stopDeviceUptime(selectedNodeId);
 
-          autoStopNode();
-        } else {
-          console.log('✅ Server validation shows uptime within limits - no auto-stop needed');
-          setUptimeExceeded(false); // Update UI state
+          if (result.success) {
+            console.log("✅ Node auto-stopped and uptime updated successfully");
+          } else {
+            console.error("❌ Failed to update uptime during auto-stop:", result.error);
+          }
+
+          // Stop Redux state and tasks
+          dispatch(stopNode());
+          dispatch(resetTasks());
+          
+          setShowUptimeLimitDialog(true);
+
+        } catch (error) {
+          console.error("❌ Error during immediate auto-stop:", error);
+        } finally {
+          setIsStopping(false);
+          autoStopInProgressRef.current = false;
         }
       }
     };
 
-    checkAndAutoStop();
+    checkAndSetupMonitoring();
     setDeviceLimitExceeded(checkDeviceLimit());
-  }, [selectedNodeId, nodes.length, deviceUptimeList, node.isActive, sessionEarnings, checkUptimeLimit]);
 
-  // FIX: Enhanced periodic validation for running devices
+    // FIX: Cleanup monitoring interval on unmount or when device changes
+    return () => {
+      if (monitoringInterval) {
+        clearInterval(monitoringInterval);
+        console.log("🔄 Stopped uptime monitoring");
+      }
+    };
+  }, [selectedNodeId, node.isActive, isDeviceRunning, checkUptimeLimit, startUptimeMonitoring, sessionEarnings, saveSessionEarningsToDb, updateDeviceStatus, stopDeviceUptime]);
+
+  // FIX: Enhanced periodic validation for running devices (backup monitoring)
   useEffect(() => {
     if (!selectedNodeId || !isDeviceRunning(selectedNodeId)) return;
 
-    console.log("⏱️ Starting periodic uptime validation for running device...");
+    console.log("⏱️ Starting backup periodic uptime validation for running device...");
 
     // FIX: More frequent validation for running devices
     const validateUptime = setInterval(async () => {
@@ -780,29 +1002,61 @@ export const NodeControlPanel = () => {
         const maxUptime = getMaxUptime();
         const remainingTime = maxUptime - currentUptime;
 
-        console.log(`⏱️ Periodic check - Uptime: ${currentUptime}s, Remaining: ${remainingTime}s`);
+        console.log(`⏱️ Backup check - Uptime: ${currentUptime}s, Remaining: ${remainingTime}s`);
 
-        // FIX: Sync with server when approaching limit (within 2 minutes or 95% of limit)
-        if (remainingTime <= 120 || currentUptime >= maxUptime * 0.95) {
-          console.log("⚠️ Approaching uptime limit - syncing with server for accuracy...");
-          await syncDeviceUptime(selectedNodeId, true);
-        }
+        // FIX: Emergency stop if somehow the main monitoring missed it
+        if (currentUptime >= maxUptime && !autoStopInProgressRef.current) {
+          console.log('🚨 EMERGENCY STOP - Uptime limit exceeded in backup check');
+          
+          autoStopInProgressRef.current = true;
+          setIsStopping(true);
 
-        // FIX: Early warning when very close to limit
-        if (remainingTime <= 60 && remainingTime > 0) {
-          console.warn(`🚨 WARNING: Only ${remainingTime} seconds remaining before auto-stop!`);
+          try {
+            // Save session earnings before stopping
+            if (sessionEarnings > 0) {
+              console.log("🛑 Emergency stop: Saving session earnings to DB:", sessionEarnings);
+              const saveSuccess = await saveSessionEarningsToDb(true);
+              if (!saveSuccess) {
+                console.error("❌ Failed to save session earnings before emergency stop");
+              }
+            }
+
+            // Update device status to offline
+            await updateDeviceStatus(selectedNodeId, 'offline');
+
+            // Stop uptime tracking and update server
+            const result = await stopDeviceUptime(selectedNodeId);
+
+            if (result.success) {
+              console.log("✅ Emergency stop completed successfully");
+            } else {
+              console.error("❌ Failed to update uptime during emergency stop:", result.error);
+            }
+
+            // Stop Redux state and tasks
+            dispatch(stopNode());
+            dispatch(resetTasks());
+            
+            setShowUptimeLimitDialog(true);
+
+          } catch (error) {
+            console.error("❌ Error during emergency stop:", error);
+          } finally {
+            setIsStopping(false);
+            autoStopInProgressRef.current = false;
+          }
         }
 
       } catch (error) {
-        console.error("Error in periodic uptime validation:", error);
+        console.error("Error in backup uptime validation:", error);
       }
-    }, 30000); // Every 30 seconds
+    }, 30000); // Every 30 seconds as backup
 
     return () => {
       clearInterval(validateUptime);
-      console.log("⏱️ Stopped periodic uptime validation");
+      console.log("⏱️ Stopped backup periodic uptime validation");
     };
-  }, [selectedNodeId, isDeviceRunning, getCurrentUptime, getMaxUptime, syncDeviceUptime]);
+  }, [selectedNodeId, isDeviceRunning, getCurrentUptime, getMaxUptime, sessionEarnings, saveSessionEarningsToDb, updateDeviceStatus, stopDeviceUptime]);
 
   // FIX: ENHANCED toggle node status with pre-validation and server sync
   const toggleNodeStatus = async () => {
