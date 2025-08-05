@@ -140,7 +140,8 @@ export const NodeControlPanel = () => {
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   const [displayUptime, setDisplayUptime] = useState(0);
   const [dbUnclaimedRewards, setDbUnclaimedRewards] = useState(0);
-  const [isLoadingUnclaimedRewards, setIsLoadingUnclaimedRewards] = useState(true);
+  const [isLoadingUnclaimedRewards, setIsLoadingUnclaimedRewards] =
+    useState(true);
   const [lastSavedSessionEarnings, setLastSavedSessionEarnings] = useState(0);
   const [isSavingToDb, setIsSavingToDb] = useState(false);
 
@@ -170,29 +171,32 @@ export const NodeControlPanel = () => {
   };
 
   // FIX: Enhanced device status update function
-  const updateDeviceStatus = async (deviceId: string, status: 'online' | 'offline' | 'busy') => {
+  const updateDeviceStatus = async (
+    deviceId: string,
+    status: "online" | "offline" | "busy"
+  ) => {
     try {
-      const response = await fetch('/api/devices', {
-        method: 'PATCH',
+      const response = await fetch("/api/devices", {
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           device_id: deviceId,
           status: status,
-          last_seen: new Date().toISOString()
+          last_seen: new Date().toISOString(),
         }),
       });
 
       if (!response.ok) {
-        console.error('Failed to update device status:', response.status);
+        console.error("Failed to update device status:", response.status);
         return false;
       }
 
       console.log(`✅ Device ${deviceId} status updated to ${status}`);
       return true;
     } catch (error) {
-      console.error('Error updating device status:', error);
+      console.error("Error updating device status:", error);
       return false;
     }
   };
@@ -218,11 +222,17 @@ export const NodeControlPanel = () => {
       });
 
       if (!response.ok) {
-        console.error("Error deleting device:", response.status, response.statusText);
+        console.error(
+          "Error deleting device:",
+          response.status,
+          response.statusText
+        );
         return false;
       } else {
         // Remove the node from the list
-        setNodes((prevNodes) => prevNodes.filter((node) => node.id !== deviceId));
+        setNodes((prevNodes) =>
+          prevNodes.filter((node) => node.id !== deviceId)
+        );
 
         // FIX: Better handling of selected node after deletion
         if (deviceId === selectedNodeId) {
@@ -249,31 +259,38 @@ export const NodeControlPanel = () => {
   // FIX: Enhanced device limit checking
   const checkDeviceLimit = useCallback(() => {
     const exceeded = !canAddDevice(nodes.length);
-    console.log(`📱 Device limit check - Current: ${nodes.length}, Limit: ${planDetails.deviceLimit}, Exceeded: ${exceeded}`);
+    console.log(
+      `📱 Device limit check - Current: ${nodes.length}, Limit: ${planDetails.deviceLimit}, Exceeded: ${exceeded}`
+    );
     return exceeded;
   }, [nodes.length, canAddDevice, planDetails.deviceLimit]);
 
   // FIX: CRITICAL - Enhanced uptime limit checking with server validation
-  const checkUptimeLimit = useCallback(async (validateWithServer: boolean = false): Promise<boolean> => {
-    if (!selectedNodeId) return false;
+  const checkUptimeLimit = useCallback(
+    async (validateWithServer: boolean = false): Promise<boolean> => {
+      if (!selectedNodeId) return false;
 
-    let currentUptime;
+      let currentUptime;
 
-    if (validateWithServer) {
-      // FIX: Get server-validated uptime
-      console.log("📡 Validating uptime with server...");
-      currentUptime = await validateCurrentUptime(selectedNodeId);
-    } else {
-      currentUptime = getCurrentUptime(selectedNodeId);
-    }
+      if (validateWithServer) {
+        // FIX: Get server-validated uptime
+        console.log("📡 Validating uptime with server...");
+        currentUptime = await validateCurrentUptime(selectedNodeId);
+      } else {
+        currentUptime = getCurrentUptime(selectedNodeId);
+      }
 
-    const maxUptime = getMaxUptime();
-    const exceeded = currentUptime >= maxUptime;
+      const maxUptime = getMaxUptime();
+      const exceeded = currentUptime >= maxUptime;
 
-    console.log(`📊 Uptime check - Current: ${currentUptime}s, Max: ${maxUptime}s, Exceeded: ${exceeded}`);
+      console.log(
+        `📊 Uptime check - Current: ${currentUptime}s, Max: ${maxUptime}s, Exceeded: ${exceeded}`
+      );
 
-    return exceeded;
-  }, [selectedNodeId, getCurrentUptime, getMaxUptime, validateCurrentUptime]);
+      return exceeded;
+    },
+    [selectedNodeId, getCurrentUptime, getMaxUptime, validateCurrentUptime]
+  );
 
   // FIX: Enhanced fetch unclaimed rewards with better error handling
   const fetchUnclaimedRewards = async () => {
@@ -343,7 +360,9 @@ export const NodeControlPanel = () => {
       });
 
       if (response.ok) {
-        console.log(`✅ Saved session earnings to DB: ${currentSessionEarnings} (new total: ${newDbTotal})`);
+        console.log(
+          `✅ Saved session earnings to DB: ${currentSessionEarnings} (new total: ${newDbTotal})`
+        );
 
         // Update local state to reflect the save
         setDbUnclaimedRewards(newDbTotal);
@@ -355,7 +374,10 @@ export const NodeControlPanel = () => {
 
         return true;
       } else {
-        console.error("❌ Failed to save session earnings to DB:", response.status);
+        console.error(
+          "❌ Failed to save session earnings to DB:",
+          response.status
+        );
         return false;
       }
     } catch (error) {
@@ -371,7 +393,7 @@ export const NodeControlPanel = () => {
     if (!selectedNodeId || !isDeviceRunning(selectedNodeId)) return null;
 
     console.log("🚨 Starting real-time uptime monitoring for auto-stop...");
-    
+
     const monitoringInterval = setInterval(async () => {
       try {
         const currentUptime = getCurrentUptime(selectedNodeId);
@@ -380,40 +402,53 @@ export const NodeControlPanel = () => {
 
         // FIX: Immediate auto-stop when limit is reached
         if (currentUptime >= maxUptime && !autoStopInProgressRef.current) {
-          console.log('🚨 UPTIME LIMIT EXCEEDED - IMMEDIATE AUTO-STOP TRIGGERED');
-          
+          console.log(
+            "🚨 UPTIME LIMIT EXCEEDED - IMMEDIATE AUTO-STOP TRIGGERED"
+          );
+
           autoStopInProgressRef.current = true;
           setIsStopping(true);
 
           try {
             // Save session earnings before stopping
             if (sessionEarnings > 0) {
-              console.log("🛑 Auto-stop: Saving session earnings to DB:", sessionEarnings);
+              console.log(
+                "🛑 Auto-stop: Saving session earnings to DB:",
+                sessionEarnings
+              );
               const saveSuccess = await saveSessionEarningsToDb(true);
               if (!saveSuccess) {
-                console.error("❌ Failed to save session earnings before auto-stopping node");
+                console.error(
+                  "❌ Failed to save session earnings before auto-stopping node"
+                );
               }
             }
 
             // Update device status to offline
-            await updateDeviceStatus(selectedNodeId, 'offline');
+            await updateDeviceStatus(selectedNodeId, "offline");
 
             // Stop uptime tracking and update server
             const result = await stopDeviceUptime(selectedNodeId);
 
             if (result.success) {
-              console.log("✅ Node auto-stopped and uptime updated successfully");
+              console.log(
+                "✅ Node auto-stopped and uptime updated successfully"
+              );
             } else {
-              console.error("❌ Failed to update uptime during auto-stop:", result.error);
+              console.error(
+                "❌ Failed to update uptime during auto-stop:",
+                result.error
+              );
             }
 
             // Stop Redux state and tasks
             dispatch(stopNode());
             dispatch(resetTasks());
-            
-            setShowUptimeLimitDialog(true);
-            console.log(`🚫 Auto-stop completed. Final uptime: ${currentUptime}s exceeded limit: ${maxUptime}s`);
 
+            setShowUptimeLimitDialog(true);
+            console.log(
+              `🚫 Auto-stop completed. Final uptime: ${currentUptime}s exceeded limit: ${maxUptime}s`
+            );
           } catch (error) {
             console.error("❌ Error during auto-stop:", error);
           } finally {
@@ -428,22 +463,35 @@ export const NodeControlPanel = () => {
 
         // FIX: Early warning system
         if (remainingTime <= 60 && remainingTime > 0) {
-          console.warn(`🚨 WARNING: Only ${remainingTime} seconds remaining before auto-stop!`);
+          console.warn(
+            `🚨 WARNING: Only ${remainingTime} seconds remaining before auto-stop!`
+          );
         }
 
         // FIX: Sync with server when approaching limit (within 2 minutes or 95% of limit)
         if (remainingTime <= 120 || currentUptime >= maxUptime * 0.95) {
-          console.log("⚠️ Approaching uptime limit - syncing with server for accuracy...");
+          console.log(
+            "⚠️ Approaching uptime limit - syncing with server for accuracy..."
+          );
           await syncDeviceUptime(selectedNodeId, true);
         }
-
       } catch (error) {
         console.error("❌ Error in uptime monitoring:", error);
       }
     }, 5000); // Check every 5 seconds for immediate response
 
     return monitoringInterval;
-  }, [selectedNodeId, isDeviceRunning, getCurrentUptime, getMaxUptime, sessionEarnings, saveSessionEarningsToDb, updateDeviceStatus, stopDeviceUptime, syncDeviceUptime]);
+  }, [
+    selectedNodeId,
+    isDeviceRunning,
+    getCurrentUptime,
+    getMaxUptime,
+    sessionEarnings,
+    saveSessionEarningsToDb,
+    updateDeviceStatus,
+    stopDeviceUptime,
+    syncDeviceUptime,
+  ]);
 
   // FIX: Enhanced auto-stop logic with real-time monitoring
   useEffect(() => {
@@ -463,24 +511,33 @@ export const NodeControlPanel = () => {
       setUptimeExceeded(isUptimeExceeded);
 
       // FIX: Immediate auto-stop if already exceeded and device is running
-      if (isUptimeExceeded && (isDeviceRunning(selectedNodeId) || node.isActive) && !autoStopInProgressRef.current) {
-        console.log('🚨 UPTIME ALREADY EXCEEDED - IMMEDIATE AUTO-STOP');
-        
+      if (
+        isUptimeExceeded &&
+        (isDeviceRunning(selectedNodeId) || node.isActive) &&
+        !autoStopInProgressRef.current
+      ) {
+        console.log("🚨 UPTIME ALREADY EXCEEDED - IMMEDIATE AUTO-STOP");
+
         autoStopInProgressRef.current = true;
         setIsStopping(true);
 
         try {
           // Save session earnings before stopping
           if (sessionEarnings > 0) {
-            console.log("🛑 Auto-stop: Saving session earnings to DB:", sessionEarnings);
+            console.log(
+              "🛑 Auto-stop: Saving session earnings to DB:",
+              sessionEarnings
+            );
             const saveSuccess = await saveSessionEarningsToDb(true);
             if (!saveSuccess) {
-              console.error("❌ Failed to save session earnings before auto-stopping node");
+              console.error(
+                "❌ Failed to save session earnings before auto-stopping node"
+              );
             }
           }
 
           // Update device status to offline
-          await updateDeviceStatus(selectedNodeId, 'offline');
+          await updateDeviceStatus(selectedNodeId, "offline");
 
           // Stop uptime tracking and update server
           const result = await stopDeviceUptime(selectedNodeId);
@@ -488,15 +545,17 @@ export const NodeControlPanel = () => {
           if (result.success) {
             console.log("✅ Node auto-stopped and uptime updated successfully");
           } else {
-            console.error("❌ Failed to update uptime during auto-stop:", result.error);
+            console.error(
+              "❌ Failed to update uptime during auto-stop:",
+              result.error
+            );
           }
 
           // Stop Redux state and tasks
           dispatch(stopNode());
           dispatch(resetTasks());
-          
-          setShowUptimeLimitDialog(true);
 
+          setShowUptimeLimitDialog(true);
         } catch (error) {
           console.error("❌ Error during immediate auto-stop:", error);
         } finally {
@@ -516,13 +575,25 @@ export const NodeControlPanel = () => {
         console.log("🔄 Stopped uptime monitoring");
       }
     };
-  }, [selectedNodeId, node.isActive, isDeviceRunning, checkUptimeLimit, startUptimeMonitoring, sessionEarnings, saveSessionEarningsToDb, updateDeviceStatus, stopDeviceUptime]);
+  }, [
+    selectedNodeId,
+    node.isActive,
+    isDeviceRunning,
+    checkUptimeLimit,
+    startUptimeMonitoring,
+    sessionEarnings,
+    saveSessionEarningsToDb,
+    updateDeviceStatus,
+    stopDeviceUptime,
+  ]);
 
   // FIX: Enhanced periodic validation for running devices (backup monitoring)
   useEffect(() => {
     if (!selectedNodeId || !isDeviceRunning(selectedNodeId)) return;
 
-    console.log("⏱️ Starting backup periodic uptime validation for running device...");
+    console.log(
+      "⏱️ Starting backup periodic uptime validation for running device..."
+    );
 
     // FIX: More frequent validation for running devices
     const validateUptime = setInterval(async () => {
@@ -531,27 +602,36 @@ export const NodeControlPanel = () => {
         const maxUptime = getMaxUptime();
         const remainingTime = maxUptime - currentUptime;
 
-        console.log(`⏱️ Backup check - Uptime: ${currentUptime}s, Remaining: ${remainingTime}s`);
+        console.log(
+          `⏱️ Backup check - Uptime: ${currentUptime}s, Remaining: ${remainingTime}s`
+        );
 
         // FIX: Emergency stop if somehow the main monitoring missed it
         if (currentUptime >= maxUptime && !autoStopInProgressRef.current) {
-          console.log('🚨 EMERGENCY STOP - Uptime limit exceeded in backup check');
-          
+          console.log(
+            "🚨 EMERGENCY STOP - Uptime limit exceeded in backup check"
+          );
+
           autoStopInProgressRef.current = true;
           setIsStopping(true);
 
           try {
             // Save session earnings before stopping
             if (sessionEarnings > 0) {
-              console.log("🛑 Emergency stop: Saving session earnings to DB:", sessionEarnings);
+              console.log(
+                "🛑 Emergency stop: Saving session earnings to DB:",
+                sessionEarnings
+              );
               const saveSuccess = await saveSessionEarningsToDb(true);
               if (!saveSuccess) {
-                console.error("❌ Failed to save session earnings before emergency stop");
+                console.error(
+                  "❌ Failed to save session earnings before emergency stop"
+                );
               }
             }
 
             // Update device status to offline
-            await updateDeviceStatus(selectedNodeId, 'offline');
+            await updateDeviceStatus(selectedNodeId, "offline");
 
             // Stop uptime tracking and update server
             const result = await stopDeviceUptime(selectedNodeId);
@@ -559,15 +639,17 @@ export const NodeControlPanel = () => {
             if (result.success) {
               console.log("✅ Emergency stop completed successfully");
             } else {
-              console.error("❌ Failed to update uptime during emergency stop:", result.error);
+              console.error(
+                "❌ Failed to update uptime during emergency stop:",
+                result.error
+              );
             }
 
             // Stop Redux state and tasks
             dispatch(stopNode());
             dispatch(resetTasks());
-            
-            setShowUptimeLimitDialog(true);
 
+            setShowUptimeLimitDialog(true);
           } catch (error) {
             console.error("❌ Error during emergency stop:", error);
           } finally {
@@ -575,7 +657,6 @@ export const NodeControlPanel = () => {
             autoStopInProgressRef.current = false;
           }
         }
-
       } catch (error) {
         console.error("Error in backup uptime validation:", error);
       }
@@ -585,7 +666,16 @@ export const NodeControlPanel = () => {
       clearInterval(validateUptime);
       console.log("⏱️ Stopped backup periodic uptime validation");
     };
-  }, [selectedNodeId, isDeviceRunning, getCurrentUptime, getMaxUptime, sessionEarnings, saveSessionEarningsToDb, updateDeviceStatus, stopDeviceUptime]);
+  }, [
+    selectedNodeId,
+    isDeviceRunning,
+    getCurrentUptime,
+    getMaxUptime,
+    sessionEarnings,
+    saveSessionEarningsToDb,
+    updateDeviceStatus,
+    stopDeviceUptime,
+  ]);
 
   // FIX: Enhanced unclaimed rewards management
   const resetAllUnclaimedRewards = async () => {
@@ -622,9 +712,13 @@ export const NodeControlPanel = () => {
 
     // FIX: Clean up old storage keys on mount
     const migrateOldData = () => {
-      const oldKeys = ['_device_metrics_store', '_device_metrics_store_v1', '_device_metrics_store_v2'];
+      const oldKeys = [
+        "_device_metrics_store",
+        "_device_metrics_store_v1",
+        "_device_metrics_store_v2",
+      ];
 
-      oldKeys.forEach(key => {
+      oldKeys.forEach((key) => {
         try {
           const oldData = localStorage.getItem(key);
           if (oldData) {
@@ -660,7 +754,10 @@ export const NodeControlPanel = () => {
 
         // FIX: Only auto-save if enough time has passed and not currently saving
         if (timeSinceLastSave >= 45000 && !isSavingToDb) {
-          console.log("🔄 Auto-save interval triggered - Session earnings:", sessionEarnings);
+          console.log(
+            "🔄 Auto-save interval triggered - Session earnings:",
+            sessionEarnings
+          );
           saveSessionEarningsToDb(false);
         }
       }
@@ -695,9 +792,14 @@ export const NodeControlPanel = () => {
 
           // Primary method: sendBeacon
           const blob = new Blob([data], { type: "application/json" });
-          const beaconSent = navigator.sendBeacon("/api/unclaimed-rewards", blob);
+          const beaconSent = navigator.sendBeacon(
+            "/api/unclaimed-rewards",
+            blob
+          );
 
-          console.log(`📤 Page unload: Beacon sent: ${beaconSent}, Session earnings: ${sessionEarnings}`);
+          console.log(
+            `📤 Page unload: Beacon sent: ${beaconSent}, Session earnings: ${sessionEarnings}`
+          );
 
           // FIX: Fallback method if beacon fails
           if (!beaconSent) {
@@ -706,7 +808,7 @@ export const NodeControlPanel = () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: data,
-                keepalive: true
+                keepalive: true,
               });
               console.log("📤 Fallback fetch completed");
             } catch (fetchError) {
@@ -721,13 +823,16 @@ export const NodeControlPanel = () => {
 
     const handleVisibilityChange = async () => {
       if (document.visibilityState === "hidden" && sessionEarnings > 0) {
-        console.log("📱 Page hidden: Saving session earnings:", sessionEarnings);
+        console.log(
+          "📱 Page hidden: Saving session earnings:",
+          sessionEarnings
+        );
 
         // FIX: Force save with timeout protection
         try {
           const savePromise = saveSessionEarningsToDb(true);
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Save timeout')), 5000)
+            setTimeout(() => reject(new Error("Save timeout")), 5000)
           );
 
           await Promise.race([savePromise, timeoutPromise]);
@@ -817,23 +922,37 @@ export const NodeControlPanel = () => {
         });
 
         if (!response.ok) {
-          console.error("Error fetching devices:", response.status, response.statusText);
+          console.error(
+            "Error fetching devices:",
+            response.status,
+            response.statusText
+          );
           return;
         }
 
         const { devices } = await response.json();
         console.log(`📱 Fetched ${devices.length} devices from server`);
 
-        const mappedNodes: NodeInfo[] = devices.map((device: SupabaseDevice) => ({
-          id: device.id,
-          name: device.device_name ||
-            `My ${device.device_type.charAt(0).toUpperCase() + device.device_type.slice(1)}`,
-          type: device.device_type,
-          rewardTier: device.reward_tier || "cpu",
-          status: device.status === "online" ? "running" :
-            device.status === "offline" ? "idle" : "offline",
-          gpuInfo: device.gpu_model,
-        }));
+        const mappedNodes: NodeInfo[] = devices.map(
+          (device: SupabaseDevice) => ({
+            id: device.id,
+            name:
+              device.device_name ||
+              `My ${
+                device.device_type.charAt(0).toUpperCase() +
+                device.device_type.slice(1)
+              }`,
+            type: device.device_type,
+            rewardTier: device.reward_tier || "cpu",
+            status:
+              device.status === "online"
+                ? "running"
+                : device.status === "offline"
+                ? "idle"
+                : "offline",
+            gpuInfo: device.gpu_model,
+          })
+        );
 
         setNodes(mappedNodes);
 
@@ -846,8 +965,11 @@ export const NodeControlPanel = () => {
             deviceType: firstDevice.device_type,
             cpuCores: 4,
             deviceMemory: "8GB",
-            deviceGroup: firstDevice.device_type === "mobile" ||
-              firstDevice.device_type === "tablet" ? "mobile_tablet" : "desktop_laptop",
+            deviceGroup:
+              firstDevice.device_type === "mobile" ||
+              firstDevice.device_type === "tablet"
+                ? "mobile_tablet"
+                : "desktop_laptop",
           };
           dispatch(registerDevice(hardwareInfo));
         }
@@ -855,17 +977,21 @@ export const NodeControlPanel = () => {
         // FIX: CRITICAL - Sequential device initialization with server-authoritative uptime
         for (const mappedNode of mappedNodes) {
           if (!initializedDevicesRef.current.has(mappedNode.id)) {
-            const serverDevice = devices.find((d: SupabaseDevice) => d.id === mappedNode.id);
+            const serverDevice = devices.find(
+              (d: SupabaseDevice) => d.id === mappedNode.id
+            );
             const serverUptime = Number(serverDevice?.uptime) || 0;
 
-            console.log(`🔧 Initializing device ${mappedNode.id} with SERVER uptime: ${serverUptime}s`);
+            console.log(
+              `🔧 Initializing device ${mappedNode.id} with SERVER uptime: ${serverUptime}s`
+            );
 
             // Initialize with server uptime as the ONLY source of truth
             await initializeDeviceUptime(mappedNode.id, serverUptime);
             initializedDevicesRef.current.add(mappedNode.id);
 
             // FIX: Small delay between device initializations to prevent conflicts
-            await new Promise(resolve => setTimeout(resolve, 150));
+            await new Promise((resolve) => setTimeout(resolve, 150));
           }
         }
 
@@ -882,8 +1008,9 @@ export const NodeControlPanel = () => {
         }
 
         setHasFetchedDevices(true);
-        console.log("✅ All devices initialized with server-authoritative uptime");
-
+        console.log(
+          "✅ All devices initialized with server-authoritative uptime"
+        );
       } catch (err) {
         console.error("Exception while fetching devices:", err);
       } finally {
@@ -896,17 +1023,7 @@ export const NodeControlPanel = () => {
 
   // FIX: Enhanced node selection with better validation
   const handleNodeSelect = (nodeId: string) => {
-    // FIX: Check ALL devices for running state, not just selected one
-    const anyDeviceRunning = deviceUptimeList.some(device => device.isRunning);
-
-    if (node.isActive || anyDeviceRunning) {
-      const runningDevice = deviceUptimeList.find(d => d.isRunning);
-      const runningDeviceName = nodes.find(n => n.id === runningDevice?.deviceId)?.name || 'Unknown Device';
-
-      alert(`Cannot switch nodes while "${runningDeviceName}" is running. Please stop the current node first.`);
-      return;
-    }
-
+    // Allow switching devices for viewing purposes
     console.log(`🔄 Switching to device: ${nodeId}`);
     setSelectedNodeId(nodeId);
 
@@ -934,24 +1051,33 @@ export const NodeControlPanel = () => {
       setUptimeExceeded(isUptimeExceeded);
 
       // FIX: Immediate auto-stop if already exceeded and device is running
-      if (isUptimeExceeded && (isDeviceRunning(selectedNodeId) || node.isActive) && !autoStopInProgressRef.current) {
-        console.log('🚨 UPTIME ALREADY EXCEEDED - IMMEDIATE AUTO-STOP');
-        
+      if (
+        isUptimeExceeded &&
+        (isDeviceRunning(selectedNodeId) || node.isActive) &&
+        !autoStopInProgressRef.current
+      ) {
+        console.log("🚨 UPTIME ALREADY EXCEEDED - IMMEDIATE AUTO-STOP");
+
         autoStopInProgressRef.current = true;
         setIsStopping(true);
 
         try {
           // Save session earnings before stopping
           if (sessionEarnings > 0) {
-            console.log("🛑 Auto-stop: Saving session earnings to DB:", sessionEarnings);
+            console.log(
+              "🛑 Auto-stop: Saving session earnings to DB:",
+              sessionEarnings
+            );
             const saveSuccess = await saveSessionEarningsToDb(true);
             if (!saveSuccess) {
-              console.error("❌ Failed to save session earnings before auto-stopping node");
+              console.error(
+                "❌ Failed to save session earnings before auto-stopping node"
+              );
             }
           }
 
           // Update device status to offline
-          await updateDeviceStatus(selectedNodeId, 'offline');
+          await updateDeviceStatus(selectedNodeId, "offline");
 
           // Stop uptime tracking and update server
           const result = await stopDeviceUptime(selectedNodeId);
@@ -959,15 +1085,17 @@ export const NodeControlPanel = () => {
           if (result.success) {
             console.log("✅ Node auto-stopped and uptime updated successfully");
           } else {
-            console.error("❌ Failed to update uptime during auto-stop:", result.error);
+            console.error(
+              "❌ Failed to update uptime during auto-stop:",
+              result.error
+            );
           }
 
           // Stop Redux state and tasks
           dispatch(stopNode());
           dispatch(resetTasks());
-          
-          setShowUptimeLimitDialog(true);
 
+          setShowUptimeLimitDialog(true);
         } catch (error) {
           console.error("❌ Error during immediate auto-stop:", error);
         } finally {
@@ -987,13 +1115,25 @@ export const NodeControlPanel = () => {
         console.log("🔄 Stopped uptime monitoring");
       }
     };
-  }, [selectedNodeId, node.isActive, isDeviceRunning, checkUptimeLimit, startUptimeMonitoring, sessionEarnings, saveSessionEarningsToDb, updateDeviceStatus, stopDeviceUptime]);
+  }, [
+    selectedNodeId,
+    node.isActive,
+    isDeviceRunning,
+    checkUptimeLimit,
+    startUptimeMonitoring,
+    sessionEarnings,
+    saveSessionEarningsToDb,
+    updateDeviceStatus,
+    stopDeviceUptime,
+  ]);
 
   // FIX: Enhanced periodic validation for running devices (backup monitoring)
   useEffect(() => {
     if (!selectedNodeId || !isDeviceRunning(selectedNodeId)) return;
 
-    console.log("⏱️ Starting backup periodic uptime validation for running device...");
+    console.log(
+      "⏱️ Starting backup periodic uptime validation for running device..."
+    );
 
     // FIX: More frequent validation for running devices
     const validateUptime = setInterval(async () => {
@@ -1002,27 +1142,36 @@ export const NodeControlPanel = () => {
         const maxUptime = getMaxUptime();
         const remainingTime = maxUptime - currentUptime;
 
-        console.log(`⏱️ Backup check - Uptime: ${currentUptime}s, Remaining: ${remainingTime}s`);
+        console.log(
+          `⏱️ Backup check - Uptime: ${currentUptime}s, Remaining: ${remainingTime}s`
+        );
 
         // FIX: Emergency stop if somehow the main monitoring missed it
         if (currentUptime >= maxUptime && !autoStopInProgressRef.current) {
-          console.log('🚨 EMERGENCY STOP - Uptime limit exceeded in backup check');
-          
+          console.log(
+            "🚨 EMERGENCY STOP - Uptime limit exceeded in backup check"
+          );
+
           autoStopInProgressRef.current = true;
           setIsStopping(true);
 
           try {
             // Save session earnings before stopping
             if (sessionEarnings > 0) {
-              console.log("🛑 Emergency stop: Saving session earnings to DB:", sessionEarnings);
+              console.log(
+                "🛑 Emergency stop: Saving session earnings to DB:",
+                sessionEarnings
+              );
               const saveSuccess = await saveSessionEarningsToDb(true);
               if (!saveSuccess) {
-                console.error("❌ Failed to save session earnings before emergency stop");
+                console.error(
+                  "❌ Failed to save session earnings before emergency stop"
+                );
               }
             }
 
             // Update device status to offline
-            await updateDeviceStatus(selectedNodeId, 'offline');
+            await updateDeviceStatus(selectedNodeId, "offline");
 
             // Stop uptime tracking and update server
             const result = await stopDeviceUptime(selectedNodeId);
@@ -1030,15 +1179,17 @@ export const NodeControlPanel = () => {
             if (result.success) {
               console.log("✅ Emergency stop completed successfully");
             } else {
-              console.error("❌ Failed to update uptime during emergency stop:", result.error);
+              console.error(
+                "❌ Failed to update uptime during emergency stop:",
+                result.error
+              );
             }
 
             // Stop Redux state and tasks
             dispatch(stopNode());
             dispatch(resetTasks());
-            
-            setShowUptimeLimitDialog(true);
 
+            setShowUptimeLimitDialog(true);
           } catch (error) {
             console.error("❌ Error during emergency stop:", error);
           } finally {
@@ -1046,7 +1197,6 @@ export const NodeControlPanel = () => {
             autoStopInProgressRef.current = false;
           }
         }
-
       } catch (error) {
         console.error("Error in backup uptime validation:", error);
       }
@@ -1056,7 +1206,16 @@ export const NodeControlPanel = () => {
       clearInterval(validateUptime);
       console.log("⏱️ Stopped backup periodic uptime validation");
     };
-  }, [selectedNodeId, isDeviceRunning, getCurrentUptime, getMaxUptime, sessionEarnings, saveSessionEarningsToDb, updateDeviceStatus, stopDeviceUptime]);
+  }, [
+    selectedNodeId,
+    isDeviceRunning,
+    getCurrentUptime,
+    getMaxUptime,
+    sessionEarnings,
+    saveSessionEarningsToDb,
+    updateDeviceStatus,
+    stopDeviceUptime,
+  ]);
 
   // FIX: ENHANCED toggle node status with pre-validation and server sync
   const toggleNodeStatus = async () => {
@@ -1072,14 +1231,19 @@ export const NodeControlPanel = () => {
         console.log(`🛑 Stopping node ${selectedNodeId}...`);
 
         // Update device status to offline
-        await updateDeviceStatus(selectedNodeId, 'offline');
+        await updateDeviceStatus(selectedNodeId, "offline");
 
         // Save any unsaved session earnings before stopping the node
         if (sessionEarnings > 0) {
-          console.log("🛑 Node stopping: Saving session earnings to DB:", sessionEarnings);
+          console.log(
+            "🛑 Node stopping: Saving session earnings to DB:",
+            sessionEarnings
+          );
           const saveSuccess = await saveSessionEarningsToDb(true);
           if (!saveSuccess) {
-            console.error("❌ Failed to save session earnings before stopping node");
+            console.error(
+              "❌ Failed to save session earnings before stopping node"
+            );
           }
         }
 
@@ -1101,8 +1265,24 @@ export const NodeControlPanel = () => {
         setIsStopping(false);
         console.log("🛑 Node stop completed");
       }, 2000);
-
     } else {
+      // START LOGIC - Check if any other device is running first
+      const anyOtherDeviceRunning = deviceUptimeList.some(
+        (device) => device.isRunning && device.deviceId !== selectedNodeId
+      );
+
+      if (anyOtherDeviceRunning) {
+        const runningDevice = deviceUptimeList.find((d) => d.isRunning);
+        const runningDeviceName =
+          nodes.find((n) => n.id === runningDevice?.deviceId)?.name ||
+          "Unknown Device";
+
+        alert(
+          `Cannot start this device while "${runningDeviceName}" is running. Please stop the current device first.`
+        );
+        return;
+      }
+
       // START LOGIC - CRITICAL FIXES for uptime validation
       setIsStarting(true);
 
@@ -1114,21 +1294,31 @@ export const NodeControlPanel = () => {
         await syncDeviceUptime(selectedNodeId, true); // Force sync
 
         // FIX: Step 2 - Wait for sync to complete properly
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
         setSyncingDeviceId(null);
 
         // FIX: Step 3 - Get server-validated uptime
-        const serverValidatedUptime = await validateCurrentUptime(selectedNodeId);
+        const serverValidatedUptime = await validateCurrentUptime(
+          selectedNodeId
+        );
         const maxUptime = getMaxUptime();
 
-        console.log(`📊 Pre-start validation - Server uptime: ${serverValidatedUptime}s, Max: ${maxUptime}s`);
+        console.log(
+          `📊 Pre-start validation - Server uptime: ${serverValidatedUptime}s, Max: ${maxUptime}s`
+        );
 
         // FIX: Step 4 - Check limits with server-validated data
         if (serverValidatedUptime >= maxUptime) {
           setIsStarting(false);
           setUptimeExceeded(true);
 
-          alert(`❌ Node cannot start. Uptime limit (${formatUptime(maxUptime)}) reached for ${currentPlan.toLowerCase()} plan.\n\nCurrent uptime: ${formatUptime(serverValidatedUptime)}\n\nUpgrade your plan to continue.`);
+          alert(
+            `❌ Node cannot start. Uptime limit (${formatUptime(
+              maxUptime
+            )}) reached for ${currentPlan.toLowerCase()} plan.\n\nCurrent uptime: ${formatUptime(
+              serverValidatedUptime
+            )}\n\nUpgrade your plan to continue.`
+          );
           return;
         }
 
@@ -1142,7 +1332,7 @@ export const NodeControlPanel = () => {
         // FIX: Step 6 - Proceed with start only after all validations pass
         console.log("✅ All pre-start checks passed, starting node...");
 
-        await updateDeviceStatus(selectedNodeId, 'busy');
+        await updateDeviceStatus(selectedNodeId, "busy");
         startDeviceUptime(selectedNodeId);
 
         setTimeout(() => {
@@ -1150,25 +1340,37 @@ export const NodeControlPanel = () => {
           setIsStarting(false);
           console.log("🟢 Node started successfully");
         }, 2000);
-
       } catch (error) {
         console.error("❌ Error starting node:", error);
         setIsStarting(false);
         setSyncingDeviceId(null);
 
         // FIX: Show user-friendly error message
-        alert("Failed to start node. Please check your connection and try again.");
+        alert(
+          "Failed to start node. Please check your connection and try again."
+        );
       }
     }
   };
 
   // FIX: Enhanced scan complete handler with better validation
-  const handleScanComplete = async (hardwareInfo: HardwareInfo, deviceName: string) => {
+  const handleScanComplete = async (
+    hardwareInfo: HardwareInfo,
+    deviceName: string
+  ) => {
     if (!user?.id) return;
 
     // FIX: Double-check device limit before adding
     if (checkDeviceLimit()) {
-      alert(`❌ Device limit reached. Your ${currentPlan.toLowerCase()} plan allows ${planDetails.deviceLimit} device${planDetails.deviceLimit > 1 ? 's' : ''}.\n\nCurrent devices: ${nodes.length}\n\nUpgrade your plan to add more devices.`);
+      alert(
+        `❌ Device limit reached. Your ${currentPlan.toLowerCase()} plan allows ${
+          planDetails.deviceLimit
+        } device${
+          planDetails.deviceLimit > 1 ? "s" : ""
+        }.\n\nCurrent devices: ${
+          nodes.length
+        }\n\nUpgrade your plan to add more devices.`
+      );
       return;
     }
 
@@ -1193,7 +1395,11 @@ export const NodeControlPanel = () => {
       });
 
       if (!response.ok) {
-        console.error("Error saving device:", response.status, response.statusText);
+        console.error(
+          "Error saving device:",
+          response.status,
+          response.statusText
+        );
         alert("❌ Failed to save device. Please try again.");
         return;
       } else {
@@ -1201,8 +1407,12 @@ export const NodeControlPanel = () => {
         const newDevice = device as SupabaseDevice;
         const newNode: NodeInfo = {
           id: newDevice.id,
-          name: newDevice.device_name ||
-            `My ${newDevice.device_type.charAt(0).toUpperCase() + newDevice.device_type.slice(1)}`,
+          name:
+            newDevice.device_name ||
+            `My ${
+              newDevice.device_type.charAt(0).toUpperCase() +
+              newDevice.device_type.slice(1)
+            }`,
           type: newDevice.device_type,
           rewardTier: newDevice.reward_tier || "cpu",
           status: "idle",
@@ -1271,30 +1481,40 @@ export const NodeControlPanel = () => {
 
     try {
       console.log("💰 Starting reward claim process...");
-      console.log(`Total to claim: ${totalUnclaimedRewards} (Session: ${sessionEarnings} + DB: ${dbUnclaimedRewards})`);
+      console.log(
+        `Total to claim: ${totalUnclaimedRewards} (Session: ${sessionEarnings} + DB: ${dbUnclaimedRewards})`
+      );
 
       // FIX: Enhanced pre-claim validation
       if (node.isActive || isDeviceRunning(selectedNodeId)) {
-        alert("❌ Cannot claim rewards while node is running. Please stop the node first.");
+        alert(
+          "❌ Cannot claim rewards while node is running. Please stop the node first."
+        );
         return;
       }
 
       // First, save any unsaved session earnings to ensure we don't lose them
       if (sessionEarnings > 0) {
-        console.log("💾 Saving unsaved session earnings before claiming:", sessionEarnings);
+        console.log(
+          "💾 Saving unsaved session earnings before claiming:",
+          sessionEarnings
+        );
         const saveSuccess = await saveSessionEarningsToDb(true);
         if (!saveSuccess) {
           console.error("❌ Failed to save session earnings before claiming");
-          alert("❌ Failed to save current session earnings. Please try again.");
+          alert(
+            "❌ Failed to save current session earnings. Please try again."
+          );
           return;
         }
 
         // FIX: Wait for save to complete and update state
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
       // Recalculate total after potential save
-      const finalDbRewards = dbUnclaimedRewards + (sessionEarnings > 0 ? sessionEarnings : 0);
+      const finalDbRewards =
+        dbUnclaimedRewards + (sessionEarnings > 0 ? sessionEarnings : 0);
 
       console.log(`💰 Claiming final amount: ${finalDbRewards} SP`);
 
@@ -1310,7 +1530,10 @@ export const NodeControlPanel = () => {
 
         // Process referral rewards
         try {
-          const { error } = await processReferralRewards(user!.id, finalDbRewards);
+          const { error } = await processReferralRewards(
+            user!.id,
+            finalDbRewards
+          );
           if (error) {
             console.error("⚠️ Error processing referral rewards:", error);
           } else {
@@ -1333,10 +1556,15 @@ export const NodeControlPanel = () => {
     const progressPercentage = Math.min((displayUptime / maxUptime) * 100, 100);
 
     return (
-      <div className={`p-4 rounded-xl flex flex-col ${uptimeExceeded ? 'bg-red-900/20 border border-red-500/30' :
-        isNearLimit ? 'bg-yellow-900/20 border border-yellow-500/30' :
-          'bg-[#1D1D33]'
-        }`}>
+      <div
+        className={`p-4 rounded-xl flex flex-col ${
+          uptimeExceeded
+            ? "bg-red-900/20 border border-red-500/30"
+            : isNearLimit
+            ? "bg-yellow-900/20 border border-yellow-500/30"
+            : "bg-[#1D1D33]"
+        }`}
+      >
         <div className="text-[#515194] text-xs mb-1 flex items-center justify-between">
           <span>Device Uptime</span>
           <div className="flex items-center gap-1">
@@ -1345,10 +1573,14 @@ export const NodeControlPanel = () => {
               <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
             )}
             {uptimeExceeded && (
-              <span className="text-red-400 text-xs font-medium">LIMIT REACHED</span>
+              <span className="text-red-400 text-xs font-medium">
+                LIMIT REACHED
+              </span>
             )}
             {isNearLimit && !uptimeExceeded && (
-              <span className="text-yellow-400 text-xs font-medium">NEAR LIMIT</span>
+              <span className="text-yellow-400 text-xs font-medium">
+                NEAR LIMIT
+              </span>
             )}
           </div>
         </div>
@@ -1358,9 +1590,15 @@ export const NodeControlPanel = () => {
             <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white z-10" />
           </div>
           <div className="flex flex-col mt-2 sm:ml-3 w-full">
-            <div className={`text-lg font-medium text-center sm:text-left ${uptimeExceeded ? 'text-red-400' :
-              isNearLimit ? 'text-yellow-400' : 'text-white'
-              }`}>
+            <div
+              className={`text-lg font-medium text-center sm:text-left ${
+                uptimeExceeded
+                  ? "text-red-400"
+                  : isNearLimit
+                  ? "text-yellow-400"
+                  : "text-white"
+              }`}
+            >
               {formatUptime(displayUptime)}
             </div>
             <div className="text-xs text-white/50 text-center sm:text-left">
@@ -1369,9 +1607,13 @@ export const NodeControlPanel = () => {
             {/* FIX: Enhanced progress bar with better visual feedback */}
             <div className="w-full bg-gray-700 rounded-full h-1.5 mt-1">
               <div
-                className={`h-1.5 rounded-full transition-all duration-300 ${uptimeExceeded ? 'bg-red-500' :
-                  isNearLimit ? 'bg-yellow-500' : 'bg-green-500'
-                  }`}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  uptimeExceeded
+                    ? "bg-red-500"
+                    : isNearLimit
+                    ? "bg-yellow-500"
+                    : "bg-green-500"
+                }`}
                 style={{ width: `${progressPercentage}%` }}
               ></div>
             </div>
@@ -1401,8 +1643,12 @@ export const NodeControlPanel = () => {
     const isSyncing = syncingDeviceId === selectedNodeId;
 
     // FIX: Better disabled state logic
-    const isDisabled = isProcessing || !selectedNodeId || isSyncing ||
-      (uptimeExceeded && !isNodeActive) || !isLoggedIn;
+    const isDisabled =
+      isProcessing ||
+      !selectedNodeId ||
+      isSyncing ||
+      (uptimeExceeded && !isNodeActive) ||
+      !isLoggedIn;
 
     const getButtonText = () => {
       if (isUpdatingUptime) return "Updating...";
@@ -1419,7 +1665,9 @@ export const NodeControlPanel = () => {
 
     const getButtonIcon = () => {
       if (isProcessing || isSyncing) {
-        return <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />;
+        return (
+          <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
+        );
       }
 
       if (isNodeActive) {
@@ -1470,12 +1718,12 @@ export const NodeControlPanel = () => {
   // FIX: Enhanced error boundary effect
   useEffect(() => {
     const handleError = (error: ErrorEvent) => {
-      console.error('NodeControlPanel error:', error);
+      console.error("NodeControlPanel error:", error);
       // Could add error reporting here
     };
 
-    window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
+    window.addEventListener("error", handleError);
+    return () => window.removeEventListener("error", handleError);
   }, []);
 
   return (
@@ -1495,16 +1743,23 @@ export const NodeControlPanel = () => {
               size="sm"
               onClick={() => {
                 if (deviceLimitExceeded) {
-                  alert(`Device limit reached. Your ${currentPlan.toLowerCase()} plan allows ${planDetails.deviceLimit} device${planDetails.deviceLimit > 1 ? 's' : ''}. Current: ${nodes.length}`);
+                  alert(
+                    `Device limit reached. Your ${currentPlan.toLowerCase()} plan allows ${
+                      planDetails.deviceLimit
+                    } device${
+                      planDetails.deviceLimit > 1 ? "s" : ""
+                    }. Current: ${nodes.length}`
+                  );
                   return;
                 }
                 setShowScanDialog(true);
               }}
               disabled={deviceLimitExceeded || !isLoggedIn}
-              className={`gradient-button rounded-full text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2 ${deviceLimitExceeded || !isLoggedIn
-                ? 'opacity-50 cursor-not-allowed text-gray-400'
-                : 'text-[#8BBEFF]'
-                }`}
+              className={`gradient-button rounded-full text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2 ${
+                deviceLimitExceeded || !isLoggedIn
+                  ? "opacity-50 cursor-not-allowed text-gray-400"
+                  : "text-[#8BBEFF]"
+              }`}
             >
               <Scan className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               Scan Device
@@ -1517,10 +1772,8 @@ export const NodeControlPanel = () => {
               onValueChange={handleNodeSelect}
               open={isOpen}
               onOpenChange={setIsOpen}
-              disabled={node.isActive || isDeviceRunning(selectedNodeId)}
             >
-              <SelectTrigger className={`w-[75%] bg-[#1D1D33] border-0 rounded-full text-[#515194] text-xs sm:text-sm h-9 sm:h-10 ${node.isActive || isDeviceRunning(selectedNodeId) ? 'opacity-50 cursor-not-allowed' : ''
-                }`}>
+              <SelectTrigger className="w-[75%] bg-[#1D1D33] border-0 rounded-full text-[#515194] text-xs sm:text-sm h-9 sm:h-10">
                 <div className="flex items-center gap-2">
                   {selectedNode && (
                     <>
@@ -1596,7 +1849,9 @@ export const NodeControlPanel = () => {
           {!isLoggedIn && (
             <div className="mb-4 p-3 rounded-full bg-yellow-900/20 border border-yellow-500/30 flex items-center gap-2">
               <AlertTriangle className="w-[15px] h-[15px] text-yellow-500 flex-shrink-0" />
-              <span className="text-xs text-yellow-200">Login required to start node and track uptime</span>
+              <span className="text-xs text-yellow-200">
+                Login required to start node and track uptime
+              </span>
             </div>
           )}
 
@@ -1637,8 +1892,11 @@ export const NodeControlPanel = () => {
                   />
                 </div>
                 <div className="flex flex-col mt-2 sm:ml-3">
-                  <div className={`text-lg font-medium text-center sm:text-left ${deviceLimitExceeded ? 'text-red-400' : 'text-white'
-                    }`}>
+                  <div
+                    className={`text-lg font-medium text-center sm:text-left ${
+                      deviceLimitExceeded ? "text-red-400" : "text-white"
+                    }`}
+                  >
                     {nodes.length}
                   </div>
                   <div className="text-xs text-white/50 text-center sm:text-left">
@@ -1675,10 +1933,11 @@ export const NodeControlPanel = () => {
 
           {/* FIX: Enhanced earnings section with better state tracking */}
           <div
-            className={`p-4 sm:p-6 flex flex-col rounded-xl sm:rounded-2xl border relative overflow-hidden gap-4 transition-all duration-300 ${sessionEarnings + dbUnclaimedRewards > 0
-              ? "border-yellow-500/30 bg-yellow-900/10"
-              : "border-blue-800/30 bg-blue-900/10"
-              }`}
+            className={`p-4 sm:p-6 flex flex-col rounded-xl sm:rounded-2xl border relative overflow-hidden gap-4 transition-all duration-300 ${
+              sessionEarnings + dbUnclaimedRewards > 0
+                ? "border-yellow-500/30 bg-yellow-900/10"
+                : "border-blue-800/30 bg-blue-900/10"
+            }`}
           >
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-4 z-10">
@@ -1712,23 +1971,26 @@ export const NodeControlPanel = () => {
               </div>
               <div className="flex items-baseline gap-2 z-10 flex-shrink-0">
                 <span
-                  className={`font-medium text-2xl sm:text-3xl lg:text-4xl transition-all duration-300 ${sessionEarnings + dbUnclaimedRewards > 0
-                    ? "text-yellow-400"
-                    : "text-blue-400"
-                    } leading-none`}
+                  className={`font-medium text-2xl sm:text-3xl lg:text-4xl transition-all duration-300 ${
+                    sessionEarnings + dbUnclaimedRewards > 0
+                      ? "text-yellow-400"
+                      : "text-blue-400"
+                  } leading-none`}
                 >
-                  {isLoggedIn ?
-                    isLoadingEarnings ? "..." :
-                      sessionEarnings + dbUnclaimedRewards > 0
-                        ? (sessionEarnings + dbUnclaimedRewards).toFixed(2)
-                        : totalEarnings.toFixed(2)
+                  {isLoggedIn
+                    ? isLoadingEarnings
+                      ? "..."
+                      : sessionEarnings + dbUnclaimedRewards > 0
+                      ? (sessionEarnings + dbUnclaimedRewards).toFixed(2)
+                      : totalEarnings.toFixed(2)
                     : "0.00"}
                 </span>
                 <span
-                  className={`text-sm transition-all duration-300 ${sessionEarnings + dbUnclaimedRewards > 0
-                    ? "text-yellow-300"
-                    : "text-white/90"
-                    }`}
+                  className={`text-sm transition-all duration-300 ${
+                    sessionEarnings + dbUnclaimedRewards > 0
+                      ? "text-yellow-300"
+                      : "text-white/90"
+                  }`}
                 >
                   SP
                 </span>
@@ -1748,7 +2010,8 @@ export const NodeControlPanel = () => {
                       <span className="text-white text-base font-medium break-words">
                         Unclaimed:{" "}
                         <span className="text-yellow-400">
-                          +{(sessionEarnings + dbUnclaimedRewards).toFixed(2)} SP
+                          +{(sessionEarnings + dbUnclaimedRewards).toFixed(2)}{" "}
+                          SP
                         </span>
                       </span>
                       {/* FIX: Enhanced earnings breakdown display */}
@@ -1764,13 +2027,22 @@ export const NodeControlPanel = () => {
                             )}
                             {sessionEarnings > 0 && (
                               <div className="flex items-center gap-1">
-                                <span>Session: {sessionEarnings.toFixed(2)} SP</span>
+                                <span>
+                                  Session: {sessionEarnings.toFixed(2)} SP
+                                </span>
                                 {isSavingToDb ? (
-                                  <span className="text-blue-400">(saving...)</span>
-                                ) : node.isActive || isDeviceRunning(selectedNodeId) ? (
-                                  <span className="text-green-400">(auto-saving)</span>
+                                  <span className="text-blue-400">
+                                    (saving...)
+                                  </span>
+                                ) : node.isActive ||
+                                  isDeviceRunning(selectedNodeId) ? (
+                                  <span className="text-green-400">
+                                    (auto-saving)
+                                  </span>
                                 ) : (
-                                  <span className="text-yellow-400">(unsaved)</span>
+                                  <span className="text-yellow-400">
+                                    (unsaved)
+                                  </span>
                                 )}
                               </div>
                             )}
@@ -1783,7 +2055,9 @@ export const NodeControlPanel = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-3 gap-2">
                   <div className="flex flex-col gap-1">
                     {earningsClaimError && (
-                      <span className="text-red-400 text-xs">{earningsClaimError}</span>
+                      <span className="text-red-400 text-xs">
+                        {earningsClaimError}
+                      </span>
                     )}
                     {showClaimSuccess && (
                       <span className="text-green-400 text-xs">
@@ -1803,10 +2077,11 @@ export const NodeControlPanel = () => {
                       node.isActive ||
                       isDeviceRunning(selectedNodeId)
                     }
-                    className={`rounded-full text-white px-4 py-2 w-full sm:w-auto transition-all duration-300 ${node.isActive || isDeviceRunning(selectedNodeId)
-                      ? "bg-gray-600 hover:bg-gray-700 cursor-not-allowed"
-                      : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
-                      }`}
+                    className={`rounded-full text-white px-4 py-2 w-full sm:w-auto transition-all duration-300 ${
+                      node.isActive || isDeviceRunning(selectedNodeId)
+                        ? "bg-gray-600 hover:bg-gray-700 cursor-not-allowed"
+                        : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 shadow-green-500"
+                    }`}
                   >
                     {isClaimingReward ? (
                       <div className="flex items-center justify-center">
@@ -1858,7 +2133,8 @@ export const NodeControlPanel = () => {
           <DialogHeader>
             <DialogTitle className="text-white">Delete Node</DialogTitle>
             <DialogDescription className="text-white/70">
-              Are you sure you want to delete this node? This action cannot be undone.
+              Are you sure you want to delete this node? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
 
@@ -1902,15 +2178,20 @@ export const NodeControlPanel = () => {
               Uptime Limit Exceeded
             </DialogTitle>
             <DialogDescription className="text-white/70">
-              Your node has been automatically stopped because you've reached the uptime limit for your {currentPlan.toLowerCase()} plan.
-              <br /><br />
+              Your node has been automatically stopped because you've reached
+              the uptime limit for your {currentPlan.toLowerCase()} plan.
+              <br />
+              <br />
               <span className="text-yellow-400">
-                Current usage: {formatUptime(displayUptime)} of {formatUptime(getMaxUptime())}
+                Current usage: {formatUptime(displayUptime)} of{" "}
+                {formatUptime(getMaxUptime())}
               </span>
-              <br /><br />
+              <br />
+              <br />
               {/* FIX: Add helpful information about uptime reset */}
               <span className="text-blue-400 text-sm">
-                💡 Tip: Uptime resets daily. You can also upgrade your plan for higher limits.
+                💡 Tip: Uptime resets daily. You can also upgrade your plan for
+                higher limits.
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -1925,7 +2206,7 @@ export const NodeControlPanel = () => {
             </Button>
             <Button
               onClick={() => {
-                window.open('https://app.neurolov.ai/subscription', '_blank');
+                window.open("https://app.neurolov.ai/subscription", "_blank");
                 setShowUptimeLimitDialog(false);
               }}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white w-full sm:w-auto"
@@ -1937,22 +2218,36 @@ export const NodeControlPanel = () => {
       </Dialog>
 
       {/* FIX: Add debug panel for development (can be removed in production) */}
-      {process.env.NODE_ENV === 'development' && selectedNodeId && (
+      {process.env.NODE_ENV === "development" && selectedNodeId && (
         <div className="mt-4 p-3 bg-gray-800 rounded-lg text-xs text-white/70">
           <div className="font-medium mb-2">Debug Info (Dev Only):</div>
           <div>Selected Device: {selectedNodeId}</div>
-          <div>Local Uptime: {formatUptime(getCurrentUptime(selectedNodeId))}</div>
-          <div>Is Running: {isDeviceRunning(selectedNodeId) ? 'Yes' : 'No'}</div>
-          <div>Data Stale: {isDataStale && isDataStale(selectedNodeId) ? 'Yes' : 'No'}</div>
-          <div>Last Sync: {lastSyncTime ? new Date(lastSyncTime).toLocaleTimeString() : 'Never'}</div>
-          <div>Redux Node Active: {node.isActive ? 'Yes' : 'No'}</div>
-          <div>Syncing: {syncingDeviceId === selectedNodeId ? 'Yes' : 'No'}</div>
+          <div>
+            Local Uptime: {formatUptime(getCurrentUptime(selectedNodeId))}
+          </div>
+          <div>
+            Is Running: {isDeviceRunning(selectedNodeId) ? "Yes" : "No"}
+          </div>
+          <div>
+            Data Stale:{" "}
+            {isDataStale && isDataStale(selectedNodeId) ? "Yes" : "No"}
+          </div>
+          <div>
+            Last Sync:{" "}
+            {lastSyncTime
+              ? new Date(lastSyncTime).toLocaleTimeString()
+              : "Never"}
+          </div>
+          <div>Redux Node Active: {node.isActive ? "Yes" : "No"}</div>
+          <div>
+            Syncing: {syncingDeviceId === selectedNodeId ? "Yes" : "No"}
+          </div>
           <button
             onClick={() => syncDeviceUptime(selectedNodeId, true)}
             className="mt-2 px-2 py-1 bg-blue-600 rounded text-white text-xs"
             disabled={syncingDeviceId === selectedNodeId}
           >
-            {syncingDeviceId === selectedNodeId ? 'Syncing...' : 'Force Sync'}
+            {syncingDeviceId === selectedNodeId ? "Syncing..." : "Force Sync"}
           </button>
           <button
             onClick={() => validateCurrentUptime(selectedNodeId)}
