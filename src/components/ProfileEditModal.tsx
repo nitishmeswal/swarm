@@ -22,6 +22,7 @@ import {
   CreditCard,
   AlertCircle,
 } from "lucide-react";
+import { FaFingerprint } from "react-icons/fa";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface ProfileEditModalProps {
@@ -67,7 +68,7 @@ export function ProfileEditModal({
       setSuccessMsg(message);
       setErrorMsg(null);
     }
-    
+
     // Clear message after 3 seconds
     setTimeout(() => {
       if (isError) {
@@ -91,7 +92,7 @@ export function ProfileEditModal({
 
     try {
       setLoading(true);
-      
+
       // Call the API endpoint to update the username
       const response = await fetch('/api/profile/update', {
         method: 'PATCH',
@@ -100,18 +101,18 @@ export function ProfileEditModal({
         },
         body: JSON.stringify({ user_name: username }),
       });
-      
+
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(result.error || 'Failed to update username');
       }
-      
+
       // Update local state via context
       await updateProfile({
         user_name: username
       });
-      
+
       showMessage("Username updated successfully", false);
     } catch (error) {
       console.error("Failed to update username:", error);
@@ -146,7 +147,7 @@ export function ProfileEditModal({
       showMessage("Please enter a wallet address", true);
       return;
     }
-    
+
     if (!user) {
       showMessage("You must be logged in", true);
       return;
@@ -171,19 +172,19 @@ export function ProfileEditModal({
           wallet_type: walletType
         }),
       });
-      
+
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(result.error || 'Failed to save wallet address');
       }
-      
+
       // Update local state via context
       await updateProfile({
         wallet_address: manualWalletAddress,
         wallet_type: walletType
       });
-      
+
       showMessage("Wallet address saved successfully", false);
     } catch (error) {
       console.error("Error saving wallet address:", error);
@@ -236,6 +237,31 @@ export function ProfileEditModal({
               <div className="flex items-center gap-2 mb-4">
                 <User className="h-5 w-5 text-blue-400" />
                 <h3 className="text-sm font-medium">User Information</h3>
+              </div>
+
+              {/* Unique ID */}
+              <div className="mb-4">
+                <Label
+                  htmlFor="uniqueId"
+                  className="text-sm text-gray-400 mb-1 block"
+                >
+                  Unique ID
+                </Label>
+                <div className="flex items-center gap-2 bg-slate-800 p-2 rounded border border-slate-700 text-gray-300">
+                  <FaFingerprint className="h-4 w-4 text-blue-400" />
+                  <span className="font-mono text-sm">{profile?.id || user?.id || "Not available"}</span>
+                  <button
+                    onClick={() => copyToClipboard(profile?.id || user?.id || "")}
+                    className="text-gray-400 hover:text-white ml-auto"
+                    title="Copy ID"
+                  >
+                    {copySuccess ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Email */}
@@ -357,8 +383,8 @@ export function ProfileEditModal({
                         variant="outline"
                         className="bg-blue-900/20 text-blue-400 border-blue-800"
                       >
-                        {profile.wallet_type 
-                          ? profile.wallet_type.charAt(0).toUpperCase() + profile.wallet_type.slice(1) 
+                        {profile.wallet_type
+                          ? profile.wallet_type.charAt(0).toUpperCase() + profile.wallet_type.slice(1)
                           : "Ethereum"}
                       </Badge>
                     </div>
@@ -400,12 +426,12 @@ export function ProfileEditModal({
                               wallet_type: null
                             }),
                           });
-                          
+
                           if (!response.ok) {
                             const result = await response.json();
                             throw new Error(result.error || 'Failed to disconnect wallet');
                           }
-                          
+
                           // Update local state
                           setManualWalletAddress("");
                           await updateProfile({ wallet_address: null, wallet_type: null });
@@ -425,7 +451,7 @@ export function ProfileEditModal({
               ) : (
                 <div className="space-y-4 py-4">
                   <p className="text-gray-400 text-center">No wallet connected</p>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="walletType" className="text-sm text-gray-400 mb-1 block">
@@ -435,8 +461,8 @@ export function ProfileEditModal({
                         <Button
                           type="button"
                           variant={walletType === "ethereum" ? "default" : "outline"}
-                          className={walletType === "ethereum" 
-                            ? "bg-blue-600 hover:bg-blue-700 flex-1" 
+                          className={walletType === "ethereum"
+                            ? "bg-blue-600 hover:bg-blue-700 flex-1"
                             : "bg-slate-800 border-slate-700 hover:bg-slate-700 flex-1"
                           }
                           onClick={() => setWalletType("ethereum")}
@@ -446,8 +472,8 @@ export function ProfileEditModal({
                         <Button
                           type="button"
                           variant={walletType === "solana" ? "default" : "outline"}
-                          className={walletType === "solana" 
-                            ? "bg-blue-600 hover:bg-blue-700 flex-1" 
+                          className={walletType === "solana"
+                            ? "bg-blue-600 hover:bg-blue-700 flex-1"
                             : "bg-slate-800 border-slate-700 hover:bg-slate-700 flex-1"
                           }
                           onClick={() => setWalletType("solana")}
@@ -469,7 +495,7 @@ export function ProfileEditModal({
                         onChange={(e) => setManualWalletAddress(e.target.value)}
                       />
                     </div>
-                    
+
                     <Button
                       variant="outline"
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white"

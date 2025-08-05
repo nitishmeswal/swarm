@@ -5,9 +5,9 @@ import { createClient } from '@/utils/supabase/server';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
+
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     if (sessionError || !session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('owner', session.user.id)
       .order('created_at', { ascending: false });
-    
+
     if (error) {
       console.error('Error fetching user devices:', error);
       return NextResponse.json(
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json(
       { devices: data || [] },
       {
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         },
       }
     );
-    
+
   } catch (error) {
     console.error('Devices GET API error:', error);
     return NextResponse.json(
@@ -51,9 +51,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
+
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     if (sessionError || !session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       })
       .select()
       .single();
-    
+
     if (error) {
       console.error('Error creating device:', error);
       return NextResponse.json(
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json(
       { device: data },
       {
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         },
       }
     );
-    
+
   } catch (error) {
     console.error('Devices POST API error:', error);
     return NextResponse.json(
@@ -115,9 +115,9 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
+
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     if (sessionError || !session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -160,7 +160,7 @@ export async function DELETE(request: NextRequest) {
       .from('devices')
       .delete()
       .eq('id', deviceId);
-    
+
     if (deleteError) {
       console.error('Error deleting device:', deleteError);
       return NextResponse.json(
@@ -168,7 +168,7 @@ export async function DELETE(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json(
       { success: true, message: 'Device deleted successfully' },
       {
@@ -177,7 +177,7 @@ export async function DELETE(request: NextRequest) {
         },
       }
     );
-    
+
   } catch (error) {
     console.error('Devices DELETE API error:', error);
     return NextResponse.json(
@@ -185,4 +185,69 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
+
+// PATCH - Update device status and other fields
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { device_id, status, uptime, last_seen } = body;
+
+    // Validate input
+    if (!device_id) {
+      return NextResponse.json(
+        { error: 'Device ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Build update object
+    const updateData: any = {};
+    if (status) updateData.status = status;
+    if (uptime !== undefined) updateData.uptime = uptime;
+    if (last_seen !== undefined) updateData.last_seen = last_seen;
+
+    const { data, error } = await supabase
+      .from('devices')
+      .update(updateData)
+      .eq('id', device_id)
+      .eq('owner', session.user.id) // Ensure user owns the device
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating device:', error);
+      return NextResponse.json(
+        { error: 'Failed to update device' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      { device: data },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache',
+        },
+      }
+    );
+
+  } catch (error) {
+    console.error('Devices PATCH API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
