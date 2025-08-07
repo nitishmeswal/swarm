@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { NetworkStats } from "@/components/NetworkStats";
 import { NodeControlPanel } from "@/components/NodeControlPanel";
 import { TaskPipeline } from "@/components/TaskPipeline";
@@ -8,9 +8,22 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { HowItWorks } from "@/components/HowItWorks";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageAnalytics } from "@/hooks/useAnalytics";
 
 export default function Dashboard() {
   const { isLoggedIn } = useAuth();
+  const { trackEvent } = usePageAnalytics("Dashboard", {
+    user_logged_in: isLoggedIn,
+  });
+
+  // Track dashboard interactions
+  useEffect(() => {
+    if (isLoggedIn) {
+      trackEvent("dashboard_view", "user_engagement", "logged_in_user");
+    } else {
+      trackEvent("dashboard_view", "user_engagement", "anonymous_user");
+    }
+  }, [isLoggedIn, trackEvent]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,7 +41,7 @@ export default function Dashboard() {
         </div>
 
         {/* Task Pipeline - Show disabled when not logged in */}
-        <div >
+        <div>
           {/* {!isLoggedIn && (
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm rounded-lg z-10 flex items-center justify-center">
               <div className="text-center p-4">

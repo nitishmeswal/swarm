@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState } from "react";
 import {
@@ -11,11 +11,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, Lock, User, Eye, EyeOff, AlertCircle, Key, RefreshCw, CheckCircle } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Key,
+  RefreshCw,
+  CheckCircle,
+} from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
+import { trackLogin, trackSignup, trackError } from "@/lib/analytics";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -25,7 +36,7 @@ interface AuthModalProps {
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const { loginWithGoogle, login, signUp, isLoading } = useAuth();
   const supabase = createClient();
-  
+
   const [activeTab, setActiveTab] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -33,7 +44,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showEmailConfirmBanner, setShowEmailConfirmBanner] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState("");
-  
+
   // Forgot password states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
@@ -45,11 +56,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [isResetPasswordLoading, setIsResetPasswordLoading] = useState(false);
-  
+
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  
+
   // Sign up form state
   const [signupEmail, setSignupEmail] = useState("");
   const [signupUsername, setSignupUsername] = useState("");
@@ -59,16 +70,21 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) return;
-    
+
     setError("");
     setIsSubmitting(true);
-    
+
     try {
       await login(loginEmail, loginPassword);
+      // Track successful login
+      trackLogin("email");
       onClose();
       resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const errorMessage = err instanceof Error ? err.message : "Login failed";
+      setError(errorMessage);
+      // Track login error
+      trackError("login_failed", errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -77,27 +93,30 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!signupEmail || !signupUsername || !signupPassword) return;
-    
+
     if (signupPassword !== confirmPassword) {
       setError("Passwords don't match");
       return;
     }
-    
+
     if (signupPassword.length < 6) {
       setError("Password must be at least 6 characters");
       return;
     }
-    
+
     setError("");
     setIsSubmitting(true);
-    
+
     try {
       await signUp(signupEmail, signupUsername, signupPassword);
-      
+
+      // Track successful signup
+      trackSignup("email");
+
       // Show email confirmation banner
       setConfirmationEmail(signupEmail);
       setShowEmailConfirmBanner(true);
-      
+
       // Don't close modal immediately, show confirmation banner
       resetSignupForm();
     } catch (err) {
@@ -110,13 +129,19 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const handleGoogleLogin = async () => {
     setError("");
     setIsSubmitting(true);
-    
+
     try {
       await loginWithGoogle();
+      // Track successful Google login
+      trackLogin("google");
       onClose();
       resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Google login failed");
+      const errorMessage =
+        err instanceof Error ? err.message : "Google login failed";
+      setError(errorMessage);
+      // Track Google login error
+      trackError("google_login_failed", errorMessage);
       setIsSubmitting(false);
     }
   };
@@ -180,9 +205,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setIsResetPasswordLoading(true);
       setError("");
 
-      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
-        redirectTo: undefined,
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        forgotPasswordEmail,
+        {
+          redirectTo: undefined,
+        }
+      );
 
       if (error) {
         console.error("OTP send error:", error);
@@ -218,12 +246,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       const { error } = await supabase.auth.verifyOtp({
         email: forgotPasswordEmail,
         token: otp,
-        type: 'recovery'
+        type: "recovery",
       });
 
       if (error) {
         console.error("OTP verification error:", error);
-        if (error.message.includes('expired')) {
+        if (error.message.includes("expired")) {
           setError("OTP has expired. Please request a new one.");
         } else {
           setError("Invalid OTP. Please try again.");
@@ -267,7 +295,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setError("");
 
       const { error } = await supabase.auth.updateUser({
-        password: newPassword
+        password: newPassword,
       });
 
       if (error) {
@@ -277,7 +305,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       }
 
       toast.success("Password updated successfully!");
-      
+
       // Reset all states and close modals
       setShowOtpModal(false);
       setShowForgotPassword(false);
@@ -323,8 +351,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <div className="flex items-center gap-2 p-3 bg-green-500/20 border border-green-500/30 rounded-lg">
             <CheckCircle className="h-4 w-4 text-green-400" />
             <div className="flex-1">
-              <p className="text-sm text-green-400 font-medium">Check your email!</p>
-              <p className="text-xs text-green-300">We sent a confirmation email to <strong>{confirmationEmail}</strong>. Please check your inbox and click the confirmation link.</p>
+              <p className="text-sm text-green-400 font-medium">
+                Check your email!
+              </p>
+              <p className="text-xs text-green-300">
+                We sent a confirmation email to{" "}
+                <strong>{confirmationEmail}</strong>. Please check your inbox
+                and click the confirmation link.
+              </p>
             </div>
             <button
               onClick={() => setShowEmailConfirmBanner(false)}
@@ -337,13 +371,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-[#1e3a8a]/30">
-            <TabsTrigger 
-              value="login" 
+            <TabsTrigger
+              value="login"
               className="data-[state=active]:bg-[#0361DA] data-[state=active]:text-white"
             >
               Login
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="signup"
               className="data-[state=active]:bg-[#0361DA] data-[state=active]:text-white"
             >
@@ -354,85 +388,101 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <TabsContent value="login" className="space-y-4">
             {!showForgotPassword ? (
               <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="login-email" className="text-sm font-medium text-gray-300">
-                  Email
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="your@example.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    className="pl-10 bg-[#1e3a8a]/20 border-[#1e3a8a] text-white placeholder-gray-400 focus:border-[#0361DA]"
-                    required
-                    disabled={isSubmitting}
-                  />
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="login-email"
+                    className="text-sm font-medium text-gray-300"
+                  >
+                    Email
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="your@example.com"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      className="pl-10 bg-[#1e3a8a]/20 border-[#1e3a8a] text-white placeholder-gray-400 focus:border-[#0361DA]"
+                      required
+                      disabled={isSubmitting}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="login-password" className="text-sm font-medium text-gray-300">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="login-password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    className="pl-10 pr-10 bg-[#1e3a8a]/20 border-[#1e3a8a] text-white placeholder-gray-400 focus:border-[#0361DA]"
-                    required
-                    disabled={isSubmitting}
-                  />
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="login-password"
+                    className="text-sm font-medium text-gray-300"
+                  >
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="login-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="pl-10 pr-10 bg-[#1e3a8a]/20 border-[#1e3a8a] text-white placeholder-gray-400 focus:border-[#0361DA]"
+                      required
+                      disabled={isSubmitting}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                      disabled={isSubmitting}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-[#0361DA] hover:bg-[#0361DA]/80 text-white"
+                  disabled={isSubmitting || !loginEmail || !loginPassword}
+                >
+                  {isSubmitting ? "Signing in..." : "Sign In"}
+                </Button>
+
+                <div className="text-center">
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                    onClick={handleForgotPasswordClick}
+                    className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
                     disabled={isSubmitting}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    Forgot Password?
                   </button>
                 </div>
-              </div>
-
-              <Button 
-                type="submit" 
-                className="w-full bg-[#0361DA] hover:bg-[#0361DA]/80 text-white"
-                disabled={isSubmitting || !loginEmail || !loginPassword}
-              >
-                {isSubmitting ? "Signing in..." : "Sign In"}
-              </Button>
-              
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={handleForgotPasswordClick}
-                  className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
-                  disabled={isSubmitting}
-                >
-                  Forgot Password?
-                </button>
-              </div>
-            </form>
+              </form>
             ) : (
               // Forgot Password Form
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                   <Key className="h-5 w-5 text-yellow-400" />
-                  <h3 className="text-lg font-medium text-white">Reset Password</h3>
+                  <h3 className="text-lg font-medium text-white">
+                    Reset Password
+                  </h3>
                 </div>
-                
+
                 <p className="text-sm text-gray-400 mb-4">
-                  Enter your email address and we'll send you an OTP to reset your password.
+                  Enter your email address and we'll send you an OTP to reset
+                  your password.
                 </p>
-                
+
                 <div className="space-y-2">
-                  <Label htmlFor="forgot-email" className="text-sm font-medium text-gray-300">
+                  <Label
+                    htmlFor="forgot-email"
+                    className="text-sm font-medium text-gray-300"
+                  >
                     Email Address
                   </Label>
                   <div className="relative">
@@ -449,7 +499,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     />
                   </div>
                 </div>
-                
+
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -466,7 +516,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       "Send OTP"
                     )}
                   </Button>
-                  
+
                   <Button
                     type="button"
                     onClick={handleCloseForgotPassword}
@@ -484,7 +534,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <TabsContent value="signup" className="space-y-4">
             <form onSubmit={handleSignupSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="signup-email" className="text-sm font-medium text-gray-300">
+                <Label
+                  htmlFor="signup-email"
+                  className="text-sm font-medium text-gray-300"
+                >
                   Email
                 </Label>
                 <div className="relative">
@@ -503,7 +556,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signup-username" className="text-sm font-medium text-gray-300">
+                <Label
+                  htmlFor="signup-username"
+                  className="text-sm font-medium text-gray-300"
+                >
                   Username
                 </Label>
                 <div className="relative">
@@ -522,7 +578,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signup-password" className="text-sm font-medium text-gray-300">
+                <Label
+                  htmlFor="signup-password"
+                  className="text-sm font-medium text-gray-300"
+                >
                   Password
                 </Label>
                 <div className="relative">
@@ -543,13 +602,20 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
                     disabled={isSubmitting}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirm-password" className="text-sm font-medium text-gray-300">
+                <Label
+                  htmlFor="confirm-password"
+                  className="text-sm font-medium text-gray-300"
+                >
                   Confirm Password
                 </Label>
                 <div className="relative">
@@ -570,15 +636,25 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
                     disabled={isSubmitting}
                   >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full bg-[#0361DA] hover:bg-[#0361DA]/80 text-white"
-                disabled={isSubmitting || !signupEmail || !signupUsername || !signupPassword || !confirmPassword}
+                disabled={
+                  isSubmitting ||
+                  !signupEmail ||
+                  !signupUsername ||
+                  !signupPassword ||
+                  !confirmPassword
+                }
               >
                 {isSubmitting ? "Creating account..." : "Create Account"}
               </Button>
@@ -606,9 +682,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <FcGoogle className="mr-2 h-4 w-4" />
           {isSubmitting ? "Connecting..." : "Continue with Google"}
         </Button>
-        
+
         {/* OTP Verification Modal */}
-        <Dialog open={showOtpModal} onOpenChange={(open) => !open && setShowOtpModal(false)}>
+        <Dialog
+          open={showOtpModal}
+          onOpenChange={(open) => !open && setShowOtpModal(false)}
+        >
           <DialogContent className="bg-[#161628] border border-[#112544] text-white max-w-md">
             <DialogHeader>
               <DialogTitle className="text-yellow-400 flex items-center gap-2">
@@ -623,7 +702,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 <>
                   <div className="bg-yellow-900/20 p-3 rounded-lg border border-yellow-500/20">
                     <p className="text-sm text-yellow-300">
-                      Enter the OTP sent to <strong>{forgotPasswordEmail}</strong>
+                      Enter the OTP sent to{" "}
+                      <strong>{forgotPasswordEmail}</strong>
                     </p>
                   </div>
 
@@ -706,7 +786,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm text-white">Confirm Password</Label>
+                      <Label className="text-sm text-white">
+                        Confirm Password
+                      </Label>
                       <Input
                         type="password"
                         value={confirmNewPassword}
@@ -722,7 +804,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       type="button"
                       onClick={handleUpdatePassword}
                       className="bg-green-600 hover:bg-green-700 text-white w-full"
-                      disabled={isUpdatingPassword || !newPassword || !confirmNewPassword}
+                      disabled={
+                        isUpdatingPassword ||
+                        !newPassword ||
+                        !confirmNewPassword
+                      }
                     >
                       {isUpdatingPassword ? (
                         <>

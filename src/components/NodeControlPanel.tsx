@@ -56,6 +56,13 @@ import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlan } from "@/contexts/PlanContext";
 import { extractGPUModel } from "@/lib/gpuUtils";
+import {
+  trackNodeAction,
+  trackDeviceRegistration,
+  trackRewardClaim,
+  trackError,
+  trackEvent,
+} from "@/lib/analytics";
 
 interface NodeInfo {
   id: string;
@@ -1027,6 +1034,12 @@ export const NodeControlPanel = () => {
     console.log(`🔄 Switching to device: ${nodeId}`);
     setSelectedNodeId(nodeId);
 
+    // Track device selection
+    const selectedDevice = nodes.find((node) => node.id === nodeId);
+    if (selectedDevice) {
+      trackEvent("device_selected", "device_management", selectedDevice.type);
+    }
+
     // FIX: Sync the newly selected device immediately
     setTimeout(() => {
       syncDeviceUptime(nodeId, false);
@@ -1230,6 +1243,12 @@ export const NodeControlPanel = () => {
       try {
         console.log(`🛑 Stopping node ${selectedNodeId}...`);
 
+        // Track node stop
+        const selectedDevice = nodes.find((node) => node.id === selectedNodeId);
+        if (selectedDevice) {
+          trackNodeAction("stop", selectedDevice.type);
+        }
+
         // Update device status to offline
         await updateDeviceStatus(selectedNodeId, "offline");
 
@@ -1332,6 +1351,12 @@ export const NodeControlPanel = () => {
         // FIX: Step 6 - Proceed with start only after all validations pass
         console.log("✅ All pre-start checks passed, starting node...");
 
+        // Track node start
+        const selectedDevice = nodes.find((node) => node.id === selectedNodeId);
+        if (selectedDevice) {
+          trackNodeAction("start", selectedDevice.type);
+        }
+
         await updateDeviceStatus(selectedNodeId, "busy");
         startDeviceUptime(selectedNodeId);
 
@@ -1378,6 +1403,12 @@ export const NodeControlPanel = () => {
 
     // Register the device in Redux store
     dispatch(registerDevice(hardwareInfo));
+
+    // Track device registration
+    trackDeviceRegistration(
+      hardwareInfo.deviceType || "desktop",
+      hardwareInfo.rewardTier
+    );
 
     // Save the device using API route
     try {
@@ -1522,6 +1553,9 @@ export const NodeControlPanel = () => {
       const result = await claimTaskRewards(finalDbRewards);
 
       if (result) {
+        // Track successful reward claim
+        trackRewardClaim(finalDbRewards);
+
         // After successful claim, reset everything to 0
         const resetSuccess = await resetAllUnclaimedRewards();
         if (resetSuccess) {
