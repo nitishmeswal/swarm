@@ -68,8 +68,8 @@ export const useEarnings = () => {
   };
 
   const claimTaskRewards = async (amount: number) => {
-    if (!user?.id || amount <= 0) {
-      setClaimError("Invalid user or reward amount");
+    if (!user?.id) {
+      setClaimError("Invalid user");
       return null;
     }
 
@@ -78,6 +78,36 @@ export const useEarnings = () => {
     setClaimSuccess(false);
 
     try {
+      // If amount is <= 0, use atomic server-side claim which reads and resets unclaimed_amount itself
+      if (amount <= 0) {
+        const resp = await fetch('/api/claim-rewards', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const result = await resp.json();
+
+        if (!resp.ok || !result?.success) {
+          setClaimError(result?.error || result?.message || 'Failed to claim rewards');
+          return null;
+        }
+
+        // Support different response shapes from edge/local
+        const newTotalEarnings: number = result?.data?.new_total
+          ?? result?.data?.new_total_earnings
+          ?? 0;
+
+        if (typeof newTotalEarnings === 'number' && !Number.isNaN(newTotalEarnings)) {
+          dispatch(updateTotalEarnings(newTotalEarnings));
+        }
+
+        dispatch(resetSessionEarnings());
+        dispatch(clearCompletedTasks());
+        setClaimSuccess(true);
+        return result.data || { new_total: newTotalEarnings };
+      }
+
+      // Legacy path: explicit amount via /api/earnings
       const response = await fetch('/api/earnings', {
         method: "POST",
         headers: {

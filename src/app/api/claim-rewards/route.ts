@@ -27,8 +27,8 @@ export async function POST(request: Request) {
     // If the edge function call fails, use our local API route as fallback
     if (!response.ok) {
       console.error(`Edge function failed with status ${response.status}`);
-
-      // Start a transaction to move unclaimed rewards to earnings
+      // Start a safe sequence to move unclaimed rewards to earnings
+      // 1) Read current unclaimed_reward
       const { data: profile, error: fetchError } = await supabase
         .from('user_profiles')
         .select('unclaimed_reward')
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         }, { status: 500 });
       }
 
-      const unclaimedAmount = profile.unclaimed_reward || 0;
+      const unclaimedAmount = Number(profile?.unclaimed_reward) || 0;
 
       if (unclaimedAmount <= 0) {
         return NextResponse.json({
@@ -52,18 +52,29 @@ export async function POST(request: Request) {
         });
       }
 
-      // Reset unclaimed rewards to 0
-      const { error: updateError } = await supabase
+      // 2) Conditionally reset to 0 only if the amount still matches (prevents double-claim in race)
+      const { data: resetRow, error: conditionalUpdateError } = await supabase
         .from('user_profiles')
         .update({ unclaimed_reward: 0 })
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .eq('unclaimed_reward', unclaimedAmount)
+        .select('unclaimed_reward')
+        .maybeSingle();
 
-      if (updateError) {
-        console.error('Error resetting unclaimed rewards:', updateError);
+      if (conditionalUpdateError) {
+        console.error('Error resetting unclaimed rewards (conditional):', conditionalUpdateError);
         return NextResponse.json({
           success: false,
           error: 'Failed to reset unclaimed rewards'
         }, { status: 500 });
+      }
+
+      // If no row was updated (e.g., someone else already claimed), treat as no rewards to claim
+      if (!resetRow) {
+        return NextResponse.json({
+          success: false,
+          message: 'No rewards to claim'
+        });
       }
 
       // Get current total earnings
@@ -93,14 +104,15 @@ export async function POST(request: Request) {
         }, { status: 500 });
       }
 
-      // Add entry to earnings_history
+      // Upsert into earnings_history (single row per user_id), update timestamp column
       const { error: historyError } = await supabase
         .from('earnings_history')
-        .insert({
+        .upsert({
           user_id: user.id,
           total_amount: newTotalEarnings,
-          created_at: new Date().toISOString()
-        });
+          timestamp: new Date().toISOString(),
+          payout_status: 'pending'
+        }, { onConflict: 'user_id' });
 
       if (historyError) {
         console.error('Error adding earnings history:', historyError);
