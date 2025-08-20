@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 // Task Supabase client configuration for the second app
 const taskSupabaseUrl = process.env.NEXT_PUBLIC_TASK_SUPABASE_URL || '';
 const taskSupabaseAnonKey = process.env.NEXT_PUBLIC_TASK_SUPABASE_ANON_KEY || '';
-const taskSupabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''; // Note: Using server-side only env var
+const taskSupabaseServiceKey = process.env.NEXT_PUBLIC_TASK_SUPABASE_SERVICE_ROLE_KEY || ''; // Note: Using server-side only env var
 
 // Client for regular operations (uses anon key)
 export const taskSupabaseClient = createClient(taskSupabaseUrl, taskSupabaseAnonKey);
