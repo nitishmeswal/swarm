@@ -33,10 +33,10 @@ export async function GET(request: NextRequest) {
       console.error('Session error:', sessionError);
     }
 
-    // Fetch data from our fixed API and leaderboard in parallel
+    // Fetch data from edge function and leaderboard in parallel
     const [edgeFunctionResponse, leaderboardFunctionData] = await Promise.all([
-      // Use our fixed global stats API instead of problematic edge function
-      fetch(`${request.nextUrl.origin}/api/global-stats-fixed`, {
+      // Get global statistics from edge function
+      fetch('https://phpaoasgtqsnwohtevwf.supabase.co/functions/v1/global_statistics_data', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -52,108 +52,13 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Handle edge function response
-    let edgeFunctionData: EdgeFunctionStats = {
-      global_sp: 0,
-      total_users: 0,
-      global_compute_generated: 0
-    };
-
     if (!edgeFunctionResponse.ok) {
       console.error('Edge function error:', edgeFunctionResponse.status, edgeFunctionResponse.statusText);
-      console.log('Falling back to direct database queries...');
-      
-      // Fallback: Calculate stats directly from database
-      try {
-        // Get total earnings
-        const { data: earningsData, error: earningsError } = await supabase
-          .from('earnings_history')
-          .select('total_amount');
-        
-        // Create admin client for bypassing RLS
-        const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-        const adminClient = createAdminClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          {
-            auth: {
-              autoRefreshToken: false,
-              persistSession: false
-            }
-          }
-        );
-
-        if (!earningsError && earningsData) {
-          edgeFunctionData.global_sp = earningsData.reduce((sum, record) => sum + Number(record.total_amount), 0);
-        } else {
-          // Try with admin client
-          const { data: adminEarningsData, error: adminEarningsError } = await adminClient
-            .from('earnings_history')
-            .select('total_amount');
-          
-          if (!adminEarningsError && adminEarningsData) {
-            edgeFunctionData.global_sp = adminEarningsData.reduce((sum, record) => sum + Number(record.total_amount), 0);
-          }
-        }
-        
-        // Get total users
-        const { count: userCount, error: usersError } = await adminClient
-          .from('user_profiles')
-          .select('*', { count: 'exact', head: true });
-        
-        if (!usersError) {
-          edgeFunctionData.total_users = userCount || 0;
-        }
-        
-        // Get global stats for compute calculation
-        const { data: globalStatsData, error: globalStatsError } = await adminClient
-          .from('global_stats')
-          .select('id, total_tasks_completed')
-          .in('id', [
-            'TOTAL_3D_TASKS',
-            'TOTAL_IMAGE_TASKS',
-            'TOTAL_TEXT_TASKS',
-            'TOTAL_VIDEO_TASKS'
-          ]);
-        
-        if (!globalStatsError && globalStatsData) {
-          const COMPUTE_MULTIPLIERS = {
-            text: 0.12,
-            image: 0.4,
-            three_d: 0.8,
-            video: 1.6
-          };
-          
-          globalStatsData.forEach((stat) => {
-            const count = Number(stat.total_tasks_completed) || 0;
-            switch(stat.id) {
-              case 'TOTAL_3D_TASKS':
-                edgeFunctionData.global_compute_generated += count * COMPUTE_MULTIPLIERS.three_d;
-                break;
-              case 'TOTAL_IMAGE_TASKS':
-                edgeFunctionData.global_compute_generated += count * COMPUTE_MULTIPLIERS.image;
-                break;
-              case 'TOTAL_TEXT_TASKS':
-                edgeFunctionData.global_compute_generated += count * COMPUTE_MULTIPLIERS.text;
-                break;
-              case 'TOTAL_VIDEO_TASKS':
-                edgeFunctionData.global_compute_generated += count * COMPUTE_MULTIPLIERS.video;
-                break;
-            }
-          });
+      return NextResponse.json({ error: 'Failed to fetch global statistics' }, { status: 500 });
     }
 
-        console.log('Fallback calculation completed:', edgeFunctionData);
-      } catch (fallbackError) {
-        console.error('Fallback calculation error:', fallbackError);
-      }
-    } else {
-      try {
-        edgeFunctionData = await edgeFunctionResponse.json();
+    const edgeFunctionData: EdgeFunctionStats = await edgeFunctionResponse.json();
     console.log('Debug - Edge function data:', edgeFunctionData);
-      } catch (parseError) {
-        console.error('Error parsing edge function response:', parseError);
-      }
-    }
 
     // Handle leaderboard function error
     if (leaderboardFunctionData.error) {
