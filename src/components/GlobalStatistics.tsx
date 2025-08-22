@@ -106,9 +106,10 @@ export const GlobalStatistics = () => {
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(true);
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [stats, setStats] = useState({
-    globalSp: 0,
     totalUsers: 0,
+    totalEarnings: 0,
     globalComputeGenerated: 0,
+    totalTasks: 0,
   });
 
   // Mock user profile for demonstration
@@ -150,7 +151,7 @@ export const GlobalStatistics = () => {
       const data = await response.json();
 
       setLeaderboard(data.leaderboard || mockLeaderboard);
-      setTotalEarnings(data.stats?.globalSp || mockStats.totalEarnings);
+      setTotalEarnings(data.stats?.totalEarnings || mockStats.totalEarnings);
       setCurrentUserRank(data.currentUserRank || null);
 
       // Also update stats if we got them
@@ -201,7 +202,7 @@ export const GlobalStatistics = () => {
       // Update all state with fresh data
       if (data.stats) {
         setStats(data.stats);
-        setTotalEarnings(data.stats.globalSp);
+        setTotalEarnings(data.stats.totalEarnings);
       }
 
       if (data.leaderboard) {
