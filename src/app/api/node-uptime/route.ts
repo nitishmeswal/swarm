@@ -47,28 +47,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Format completed_tasks as the Edge Function expects
+    const formattedTasks = {
+      three_d: completed_tasks?.three_d || 0,
+      video: completed_tasks?.video || 0,
+      text: completed_tasks?.text || 0,
+      image: completed_tasks?.image || 0
+    };
+
     // Make the external API call server-side
     const response = await fetch(
       'https://phpaoasgtqsnwohtevwf.supabase.co/functions/v1/node_uptime_updation',
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY}`,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           device_id,
           uptime_seconds,
-          completed_tasks: completed_tasks || 0,
+          completed_tasks: formattedTasks  // Send as object, not number
         }),
       }
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('External API error:', response.status, errorText);
+      console.error('External API error:', {
+        status: response.status,
+        error: errorText,
+        sentPayload: {
+          device_id,
+          uptime_seconds,
+          completed_tasks: formattedTasks
+        }
+      });
       return NextResponse.json(
-        { error: 'Failed to update node uptime' },
+        { error: 'Failed to update node uptime', details: errorText },
         { status: response.status }
       );
     }
@@ -88,4 +104,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
