@@ -15,6 +15,13 @@ interface LeaderboardFunctionResult {
   user_rank: LeaderboardEntry | null;
 }
 
+// Interface for edge function response
+interface EdgeFunctionStats {
+  global_sp: number;
+  total_users: number;
+  global_compute_generated: number;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -26,130 +33,74 @@ export async function GET(request: NextRequest) {
       console.error('Session error:', sessionError);
     }
 
-    // Create admin client for bypassing RLS when needed
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-    const adminClient = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
+    // Fetch data from edge function and leaderboard in parallel
+    const [edgeFunctionResponse, leaderboardFunctionData] = await Promise.all([
+      // Get global statistics from edge function
+      fetch('https://phpaoasgtqsnwohtevwf.supabase.co/functions/v1/global_statistics_data', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || ''}`,
+        },
+      }),
 
-    // Calculate global statistics
-    let globalSp = 0;
-    let totalUsers = 0;
-    let globalComputeGenerated = 0;
+      // Use the get_top10_with_user_rank function to get consistent leaderboard data
+      supabase
+        .rpc('get_top10_with_user_rank', {
+          target_user_id: session?.user?.id || null
+        })
+    ]);
 
-    try {
-      // 1. Global SP - Sum of all earnings from earnings_history
-      const { data: earningsData, error: earningsError } = await adminClient
-        .from('earnings_history')
-        .select('total_amount');
-
-      if (!earningsError && earningsData) {
-        globalSp = earningsData.reduce((sum, record) => sum + Number(record.total_amount || 0), 0);
-        console.log('Global SP calculated:', globalSp);
-      }
-
-      // 2. Total Users - Count of user_profiles
-      const { count: userCount, error: usersError } = await adminClient
-        .from('user_profiles')
-        .select('*', { count: 'exact', head: true });
-
-      if (!usersError) {
-        totalUsers = userCount || 0;
-        console.log('Total users:', totalUsers);
-      }
-
-      // 3. Global Compute Generated - Calculate from global_stats
-      const { data: globalStatsData, error: globalStatsError } = await adminClient
-        .from('global_stats')
-        .select('id, total_tasks_completed')
-        .in('id', [
-          'TOTAL_3D_TASKS',
-          'TOTAL_IMAGE_TASKS',
-          'TOTAL_TEXT_TASKS',
-          'TOTAL_VIDEO_TASKS'
-        ]);
-
-      if (!globalStatsError && globalStatsData) {
-        const COMPUTE_MULTIPLIERS = {
-          text: 0.12,
-          image: 0.4,
-          three_d: 0.8,
-          video: 1.6
-        };
-        
-        globalStatsData.forEach((stat) => {
-          const count = Number(stat.total_tasks_completed) || 0;
-          switch(stat.id) {
-            case 'TOTAL_3D_TASKS':
-              globalComputeGenerated += count * COMPUTE_MULTIPLIERS.three_d;
-              break;
-            case 'TOTAL_IMAGE_TASKS':
-              globalComputeGenerated += count * COMPUTE_MULTIPLIERS.image;
-              break;
-            case 'TOTAL_TEXT_TASKS':
-              globalComputeGenerated += count * COMPUTE_MULTIPLIERS.text;
-              break;
-            case 'TOTAL_VIDEO_TASKS':
-              globalComputeGenerated += count * COMPUTE_MULTIPLIERS.video;
-              break;
-          }
-        });
-        console.log('Global compute generated:', globalComputeGenerated);
-      }
-
-    } catch (error) {
-      console.error('Error calculating global statistics:', error);
-      // Continue with fallback values
+    // Handle edge function response
+    if (!edgeFunctionResponse.ok) {
+      console.error('Edge function error:', edgeFunctionResponse.status, edgeFunctionResponse.statusText);
+      return NextResponse.json({ error: 'Failed to fetch global statistics' }, { status: 500 });
     }
 
-    // Fetch leaderboard data
+    const edgeFunctionData: EdgeFunctionStats = await edgeFunctionResponse.json();
+    console.log('Debug - Edge function data:', edgeFunctionData);
+
+    // Handle leaderboard function error
+    if (leaderboardFunctionData.error) {
+      console.error('Error fetching leaderboard from function:', leaderboardFunctionData.error);
+      return NextResponse.json({ error: 'Failed to fetch leaderboard' }, { status: 500 });
+    }
+
+    // Parse the leaderboard data from the function
+    console.log('Debug - leaderboardFunctionData:', leaderboardFunctionData);
+    
     let leaderboard: LeaderboardEntry[] = [];
     let currentUserRank: LeaderboardEntry | null = null;
 
-    try {
-      // Try to use the database function first
-      const leaderboardFunctionData = await supabase
-        .rpc('get_top10_with_user_rank', {
-          target_user_id: session?.user?.id || null
-        });
-
-      if (!leaderboardFunctionData.error && leaderboardFunctionData.data) {
-        // Extract top10 and user_rank from the function result
-        const { top10, user_rank } = leaderboardFunctionData.data as LeaderboardFunctionResult;
-        
-        // Format the top10 leaderboard
-        if (top10 && Array.isArray(top10)) {
-          leaderboard = top10.map((entry: any) => ({
-            user_id: entry.user_id,
-            username: entry.username,
-            total_earnings: Number(entry.total_earnings) || 0,
-            rank: entry.rank,
-            task_count: entry.task_count || 0
-          }));
-        }
-
-        // Set current user rank if available
-        if (user_rank) {
-          currentUserRank = {
-            user_id: user_rank.user_id,
-            username: user_rank.username,
-            total_earnings: Number(user_rank.total_earnings) || 0,
-            rank: user_rank.rank,
-            task_count: user_rank.task_count || 0
-          };
-        }
-      } else {
-        console.log('Function failed, using fallback leaderboard query');
-        throw new Error('Function failed');
+    if (leaderboardFunctionData.data) {
+      // Extract top10 and user_rank from the function result
+      const { top10, user_rank } = leaderboardFunctionData.data as LeaderboardFunctionResult;
+      
+      // Format the top10 leaderboard
+      if (top10 && Array.isArray(top10)) {
+        leaderboard = top10.map((entry: any) => ({
+          user_id: entry.user_id,
+          username: entry.username,
+          total_earnings: Number(entry.total_earnings) || 0,
+          rank: entry.rank,
+          task_count: entry.task_count || 0
+        }));
       }
-    } catch (error) {
+
+      // Set current user rank if available
+      if (user_rank) {
+        currentUserRank = {
+          user_id: user_rank.user_id,
+          username: user_rank.username,
+          total_earnings: Number(user_rank.total_earnings) || 0,
+          rank: user_rank.rank,
+          task_count: user_rank.task_count || 0
+        };
+      }
+    }
+
+    // Fallback: If function fails, use the old method
+    if (!leaderboardFunctionData.data || leaderboard.length === 0) {
       console.log('Fallback: Using manual leaderboard query');
       
       // Get top 10 leaderboard with user names - FALLBACK
@@ -227,29 +178,33 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Prepare the response data
+    // Calculate total tasks based on global compute generated (estimate)
+    const totalTasksCount = Math.round((edgeFunctionData.global_compute_generated || 0) * 10);
+
+    // Prepare the response data using edge function stats
     const responseData = {
       stats: {
-        globalSp: Number(globalSp.toFixed(2)),
-        totalUsers: totalUsers,
-        globalComputeGenerated: Number(globalComputeGenerated.toFixed(2))
+        totalUsers: edgeFunctionData.total_users || 0,
+        totalEarnings: edgeFunctionData.global_sp || 0,
+        globalComputeGenerated: edgeFunctionData.global_compute_generated || 0,
+        totalTasks: totalTasksCount
       },
       leaderboard,
       currentUserRank
     };
 
-    console.log('Global statistics calculated:', {
-      globalSp: responseData.stats.globalSp,
-      totalUsers: responseData.stats.totalUsers,
-      globalComputeGenerated: responseData.stats.globalComputeGenerated,
+    console.log('Debug - Final response data:', {
       leaderboardLength: leaderboard.length,
-      currentUserRank: currentUserRank ? 'Found' : 'Not found'
+      currentUserRank: currentUserRank ? 'Found' : 'Not found',
+      totalUsers: edgeFunctionData.total_users,
+      totalEarnings: edgeFunctionData.global_sp,
+      globalComputeGenerated: edgeFunctionData.global_compute_generated
     });
 
-    // Return the data with caching for performance
+    // Return the data with aggressive caching for memory optimization
     return NextResponse.json(responseData, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600', // Increased cache from 60s to 5min
         'CDN-Cache-Control': 'public, s-maxage=300',
       },
     });
