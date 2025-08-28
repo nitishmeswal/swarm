@@ -13,13 +13,13 @@
 
 # Force HTTPS
 [[redirects]]
-  from = "http://:hostName/:splat"
-  to = "https://:hostName/:splat"
+  from = "http://*/:splat"
+  to = "https://:splat"
   status = 301
   force = true
 
 # Handle Next.js routing
 [[redirects]]
   from = "/*"
-  to = "/.netlify/functions/server"
+  to = "/index.html"
   status = 200
