@@ -22,7 +22,7 @@ export async function GET() {
       .single();
 
     if (error) {
-      console.error('Error fetching unclaimed rewards:', error);
+      // Error fetching unclaimed rewards
       return NextResponse.json({ error: 'Failed to fetch unclaimed rewards' }, { status: 500 });
     }
 
@@ -31,7 +31,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Exception in GET /api/unclaimed-rewards:', error);
+    // Exception in GET /api/unclaimed-rewards
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error('Error updating unclaimed rewards:', error);
+      // Error updating unclaimed rewards
       return NextResponse.json({ error: 'Failed to update unclaimed rewards' }, { status: 500 });
     }
 
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('Exception in POST /api/unclaimed-rewards:', error);
+    // Exception in POST /api/unclaimed-rewards
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -104,7 +104,7 @@ export async function PUT(request: Request) {
       .single();
 
     if (fetchError) {
-      console.error('Error fetching current unclaimed rewards:', fetchError);
+      // Error fetching current unclaimed rewards
       return NextResponse.json({ error: 'Failed to fetch current rewards' }, { status: 500 });
     }
 
@@ -118,7 +118,7 @@ export async function PUT(request: Request) {
       .single();
 
     if (updateError) {
-      console.error('Error updating unclaimed rewards:', updateError);
+      // Error updating unclaimed rewards
       return NextResponse.json({ error: 'Failed to update unclaimed rewards' }, { status: 500 });
     }
 
@@ -128,7 +128,7 @@ export async function PUT(request: Request) {
     });
 
   } catch (error) {
-    console.error('Exception in PUT /api/unclaimed-rewards:', error);
+    // Exception in PUT /api/unclaimed-rewards
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

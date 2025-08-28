@@ -146,7 +146,7 @@ const hasWebGPU = async (): Promise<boolean> => {
       const adapter = await (navigator as { gpu: { requestAdapter: () => Promise<unknown> } }).gpu.requestAdapter();
       return !!adapter;
     } catch (e) {
-      console.error('WebGPU check failed:', e);
+      // WebGPU check failed
       return false;
     }
   }
@@ -167,7 +167,7 @@ const detectWebGLCapabilities = (): { supported: boolean, version: number } => {
     gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext;
     return { supported: !!gl, version: gl ? 1 : 0 };
   } catch (e) {
-    console.error('WebGL detection error:', e);
+    // WebGL detection error
     return { supported: false, version: 0 };
   }
 };
@@ -250,7 +250,7 @@ const getGPUInfo = async (): Promise<string> => {
       }
     }
   } catch (e) {
-    console.error('Error getting GPU info:', e);
+    // Error getting GPU info
   }
 
   // Fallback - make an educated guess based on device type
@@ -288,7 +288,7 @@ const determineRewardTier = async (
 
 // Main function to detect hardware capabilities
 export const detectHardware = async (): Promise<HardwareInfo> => {
-  console.log('Starting hardware tier detection...');
+  // Starting hardware tier detection
 
   try {
     // Get WebGL info first to identify the actual GPU
@@ -297,12 +297,12 @@ export const detectHardware = async (): Promise<HardwareInfo> => {
     const gpuRenderer = debugInfo ? gl?.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unknown';
     const gpuVendor = debugInfo ? gl?.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'Unknown';
 
-    console.log('Detected GPU:', { renderer: gpuRenderer, vendor: gpuVendor });
+    // Detected GPU
 
     // Check if this is a mobile device
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (isMobile) {
-      console.log('Mobile device detected - CPU tier');
+      // Mobile device detected - CPU tier
       // Determine if it's a tablet or mobile phone
       const isTablet = /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent);
       return {
@@ -331,7 +331,7 @@ export const detectHardware = async (): Promise<HardwareInfo> => {
 
     // For integrated GPUs, go straight to CPU tier
     if (isIntegrated) {
-      console.log('Integrated GPU detected - CPU tier');
+      // Integrated GPU detected - CPU tier
       return {
         rewardTier: 'cpu',
         deviceGroup: 'desktop_laptop',
@@ -357,7 +357,7 @@ export const detectHardware = async (): Promise<HardwareInfo> => {
       gpuRenderer?.toLowerCase().includes('vega');
 
     if (isHighEndGPU) {
-      console.log('High-end GPU detected - WebGPU tier');
+      // High-end GPU detected - WebGPU tier
       return {
         rewardTier: 'webgpu',
         deviceGroup: 'desktop_laptop',
@@ -370,7 +370,7 @@ export const detectHardware = async (): Promise<HardwareInfo> => {
 
     // WASM tier for mid-range GPUs
     if (isMidRangeGPU) {
-      console.log('Mid-range GPU detected - WASM tier');
+      // Mid-range GPU detected - WASM tier
       return {
         rewardTier: 'wasm',
         deviceGroup: 'desktop_laptop',
@@ -382,7 +382,7 @@ export const detectHardware = async (): Promise<HardwareInfo> => {
     }
 
     // For other dedicated GPUs, use WebGL tier
-    console.log('Standard dedicated GPU detected - WebGL tier');
+    // Standard dedicated GPU detected - WebGL tier
     return {
       rewardTier: 'webgl',
       deviceGroup: 'desktop_laptop',
@@ -393,7 +393,7 @@ export const detectHardware = async (): Promise<HardwareInfo> => {
     };
 
   } catch (e) {
-    console.error('Hardware detection error:', e);
+    // Hardware detection error
     return {
       rewardTier: 'cpu',
       deviceGroup: 'desktop_laptop',

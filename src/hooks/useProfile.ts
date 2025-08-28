@@ -46,7 +46,7 @@ export const useProfile = () => {
 
         setProfile(userProfile);
       } catch (err) {
-        console.error('Error fetching profile:', err);
+        // Error fetching profile
         setError(err instanceof Error ? err.message : 'Failed to fetch profile');
       } finally {
         setLoading(false);
@@ -77,7 +77,7 @@ export const useProfile = () => {
       
       return true;
     } catch (err) {
-      console.error('Error updating profile:', err);
+      // Error updating profile
       setError(err instanceof Error ? err.message : 'Failed to update profile');
       throw err;
     }

@@ -51,7 +51,7 @@ export const useSimpleEarnings = () => {
       const data: UnclaimedRewardsResponse = await response.json();
       setUnclaimedAmount(data.unclaimed_reward || 0);
     } catch (error) {
-      console.error('Error loading unclaimed rewards:', error);
+      // Error loading unclaimed rewards
       setClaimError('Failed to load unclaimed rewards');
     } finally {
       setIsLoadingUnclaimed(false);
@@ -79,10 +79,10 @@ export const useSimpleEarnings = () => {
       }
       
       const data = await response.json();
-      console.log('Earnings data received:', data);
+      // Earnings data received
       setTotalEarnings(data.totalEarnings || 0);
     } catch (error) {
-      console.error('Error loading total earnings:', error);
+      // Error loading total earnings
       // Don't update state on error to keep previous value
     } finally {
       setIsLoadingTotal(false);
@@ -120,7 +120,7 @@ export const useSimpleEarnings = () => {
       
       return data;
     } catch (error) {
-      console.error('Error claiming rewards:', error);
+      // Error claiming rewards
       setClaimError(error instanceof Error ? error.message : 'Failed to claim rewards');
       throw error;
     } finally {
@@ -134,10 +134,10 @@ export const useSimpleEarnings = () => {
       loadUnclaimedRewards();
       loadTotalEarnings();
       
-      // Set up periodic refresh of unclaimed rewards (every 30 seconds)
+      // FIXED: Reduced from 30s to 5 minutes to cut API calls significantly
       const intervalId = setInterval(() => {
         loadUnclaimedRewards();
-      }, 30000);
+      }, 300000);
       
       return () => clearInterval(intervalId);
     }

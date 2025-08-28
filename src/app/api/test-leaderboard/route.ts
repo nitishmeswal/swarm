@@ -9,20 +9,20 @@ export async function GET(request: NextRequest) {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
     if (sessionError) {
-      console.error('Session error:', sessionError);
+      // Session error
     }
 
-    console.log('Testing get_top10_with_user_rank function...');
-    console.log('Current user ID:', session?.user?.id || 'No user');
+    // Testing get_top10_with_user_rank function
 
     // Test the function with current user ID
     const { data: functionResult, error: functionError } = await supabase
       .rpc('get_top10_with_user_rank', {
         target_user_id: session?.user?.id || null
-      });
+      })
+      .order('total_amount', { ascending: false })
+      .limit(10);
 
     if (functionError) {
-      console.error('Function error:', functionError);
       return NextResponse.json({ 
         error: 'Function call failed', 
         details: functionError,
@@ -30,23 +30,21 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
-    console.log('Function result:', functionResult);
+    // Function result logged
 
     // Also test the fallback query for comparison
     const { data: fallbackData, error: fallbackError } = await supabase
-      .from('earnings_history')
+      .from('user_profiles')
       .select(`
-        user_id,
+        id,
         total_amount,
-        user_profiles!inner(
-          user_name
-        )
+        task_completed
       `)
+      .not('total_amount', 'is', null)
       .order('total_amount', { ascending: false })
       .limit(10);
 
-    console.log('Fallback data:', fallbackData);
-    console.log('Fallback error:', fallbackError);
+    // Fallback data and error logged
 
     return NextResponse.json({
       success: true,
@@ -58,7 +56,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Test leaderboard API error:', error);
+    // Test leaderboard API error
     return NextResponse.json(
       { error: 'Internal server error', details: error },
       { status: 500 }

@@ -15,6 +15,8 @@ import {
 import { VscDebugStart } from "react-icons/vsc";
 import { IoStopOutline } from "react-icons/io5";
 import { InfoTooltip } from "./InfoTooltip";
+import { logWarn, logSecure, logError, logInfo } from '@/lib/logger';
+import { debounce } from '@/utils/debounce';
 import { Button } from "./ui/button";
 import { HardwareScanDialog } from "./HardwareScanDialog";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
@@ -172,9 +174,35 @@ export const NodeControlPanel = () => {
   const [sessionVerified, setSessionVerified] = useState<boolean>(false);
   const [sessionExists, setSessionExists] = useState<boolean>(false);
   const [sessionCheckComplete, setSessionCheckComplete] = useState<boolean>(false);
+  
+  // Ref to prevent duplicate session token generation
+  const sessionTokenGeneratingRef = useRef<boolean>(false);
 
   // Add broadcast channel for cross-tab communication
   const [broadcastChannel, setBroadcastChannel] = useState<BroadcastChannel | null>(null);
+  
+  // Simplified debouncing only - no aggressive rate limiting
+  const debouncedSyncDeviceUptime = useCallback(
+    debounce((deviceId: string, force?: boolean) => {
+      syncDeviceUptime(deviceId, force);
+    }, 2000), // Simple 2-second debounce
+    []
+  );
+
+  const debouncedBroadcastMessage = useCallback(
+    debounce((message: any) => {
+      if (broadcastChannel) {
+        try {
+          broadcastChannel.postMessage(message);
+        } catch (error) {
+          if (error instanceof Error && error.name !== 'InvalidStateError') {
+            // Silent error handling - no logging
+          }
+        }
+      }
+    }, 1000), // Simple 1-second debounce
+    [broadcastChannel]
+  );
 
   // Helper function to get device icon
   const getDeviceIcon = (type: "desktop" | "laptop" | "tablet" | "mobile") => {
@@ -231,7 +259,7 @@ export const NodeControlPanel = () => {
         };
       }
       
-      console.log(`🔍 Checking session status for device: ${deviceId}`);
+      // Checking session status for device
       
       const response = await fetch(`/api/device-session/verify?deviceId=${deviceId}`, {
         method: "GET",
@@ -239,7 +267,7 @@ export const NodeControlPanel = () => {
       });
       
       if (!response.ok) {
-        console.error("Failed to verify device session:", response.status);
+        // Failed to verify device session
         return { 
           hasActiveSession: false, 
           sessionToken: null,
@@ -250,10 +278,7 @@ export const NodeControlPanel = () => {
       
       const data = await response.json();
       
-      console.log(`✅ Device ${deviceId} session check:`, {
-        hasActiveSession: data.hasActiveSession,
-        status: data.status
-      });
+      // Device limit check completed
       
       return {
         hasActiveSession: data.hasActiveSession,
@@ -262,7 +287,7 @@ export const NodeControlPanel = () => {
         deviceStatus: data.status
       };
     } catch (error) {
-      console.error("Error checking device session:", error);
+      // Error checking device session
       return { 
         hasActiveSession: false, 
         sessionToken: null,
@@ -277,7 +302,7 @@ export const NodeControlPanel = () => {
     try {
       if (!deviceId || !sessionToken) return false;
       
-      console.log(`🔐 Verifying session ownership for device: ${deviceId}`);
+      // Verifying session ownership for device
       
       const response = await fetch(`/api/device-session/verify`, {
         method: "POST",
@@ -286,16 +311,16 @@ export const NodeControlPanel = () => {
       });
       
       if (!response.ok) {
-        console.error("Failed to verify session ownership:", response.status);
+        // Failed to verify session ownership
         return false;
       }
       
       const data = await response.json();
-      console.log(`✅ Session ownership verification result:`, data.isSessionValid);
+      // Session ownership verification completed
       
       return data.isSessionValid;
     } catch (error) {
-      console.error("Error verifying session ownership:", error);
+      // Error verifying session ownership
       return false;
     }
   };
@@ -319,7 +344,7 @@ export const NodeControlPanel = () => {
         payload.session_token = sessionToken;
         payload.session_created_at = new Date().toISOString();
         
-        console.log(`🔑 Generated new session token for device ${deviceId}`);
+        // Generated new session token for device
       }
       
       // For offline status, clear the session token
@@ -337,17 +362,17 @@ export const NodeControlPanel = () => {
       });
 
       if (!response.ok) {
-        console.error("Failed to update device status:", response.status);
+        // Failed to update device status
         return { success: false, sessionToken: null };
       }
 
-      console.log(`✅ Device ${deviceId} status updated to ${status}`);
+      // Device status updated
       return { 
         success: true, 
         sessionToken: payload.session_token || null 
       };
     } catch (error) {
-      console.error("Error updating device status:", error);
+      // Error updating device status
       return { success: false, sessionToken: null };
     }
   };
@@ -363,7 +388,7 @@ export const NodeControlPanel = () => {
     }
 
     try {
-      console.log(`🗑️ Deleting device: ${deviceId}`);
+      // Deleting device
 
       const response = await fetch(`/api/devices?id=${deviceId}`, {
         method: "DELETE",
@@ -373,11 +398,7 @@ export const NodeControlPanel = () => {
       });
 
       if (!response.ok) {
-        console.error(
-          "Error deleting device:",
-          response.status,
-          response.statusText
-        );
+        // Error deleting device
         return false;
       } else {
         // Remove the node from the list
@@ -398,23 +419,20 @@ export const NodeControlPanel = () => {
           }
         }
 
-        console.log(`✅ Device ${deviceId} deleted successfully`);
+        // Device deleted successfully
         return true;
       }
     } catch (err) {
-      console.error("Exception while deleting device:", err);
+      // Exception while deleting device
       return false;
     }
   };
 
-  // FIX: Enhanced device limit checking
-  const checkDeviceLimit = useCallback(() => {
-    const exceeded = !canAddDevice(nodes.length);
-    console.log(
-      `📱 Device limit check - Current: ${nodes.length}, Limit: ${planDetails.deviceLimit}, Exceeded: ${exceeded}`
-    );
-    return exceeded;
-  }, [nodes.length, canAddDevice, planDetails.deviceLimit]);
+  // FIX: Device limit checking function
+  const checkDeviceLimit = useCallback((): boolean => {
+    if (!planDetails?.deviceLimit) return false;
+    return nodes.length >= planDetails.deviceLimit;
+  }, [nodes.length, planDetails?.deviceLimit]);
 
   // FIX: CRITICAL - Enhanced uptime limit checking with server validation
   const checkUptimeLimit = useCallback(
@@ -425,7 +443,7 @@ export const NodeControlPanel = () => {
 
       if (validateWithServer) {
         // FIX: Get server-validated uptime
-        console.log("📡 Validating uptime with server...");
+        // Validating uptime with server
         currentUptime = await validateCurrentUptime(selectedNodeId);
       } else {
         currentUptime = getCurrentUptime(selectedNodeId);
@@ -449,7 +467,7 @@ export const NodeControlPanel = () => {
 
     try {
       setIsLoadingUnclaimedRewards(true);
-      console.log("💰 Fetching unclaimed rewards from server...");
+      // Fetching unclaimed rewards from server
 
       const response = await fetch("/api/unclaimed-rewards", {
         method: "GET",
@@ -467,12 +485,12 @@ export const NodeControlPanel = () => {
         dispatch(resetSessionEarnings());
         setLastSavedSessionEarnings(0);
 
-        console.log(`✅ Loaded unclaimed rewards from DB: ${dbRewards} SP`);
+        // Loaded unclaimed rewards from DB
       } else {
-        console.error("❌ Failed to fetch unclaimed rewards:", response.status);
+        // Failed to fetch unclaimed rewards
       }
     } catch (error) {
-      console.error("❌ Error fetching unclaimed rewards:", error);
+      // Error fetching unclaimed rewards
     } finally {
       setIsLoadingUnclaimedRewards(false);
     }
@@ -484,14 +502,14 @@ export const NodeControlPanel = () => {
 
     // Prevent concurrent saves unless forced
     if (isSavingToDb && !forceSkipConcurrencyCheck) {
-      console.log("Skipping save - already saving to DB");
+      // Skipping save - already saving to DB
       return false;
     }
 
     // Prevent rapid auto-saves (minimum 10 seconds between auto-saves)
     const now = Date.now();
     if (!forceSkipConcurrencyCheck && now - lastAutoSaveRef.current < 10000) {
-      console.log("Skipping auto-save - too frequent");
+      // Skipping auto-save - too frequent
       return false;
     }
 
@@ -511,9 +529,7 @@ export const NodeControlPanel = () => {
       });
 
       if (response.ok) {
-        console.log(
-          `✅ Saved session earnings to DB: ${currentSessionEarnings} (new total: ${newDbTotal})`
-        );
+        // Saved session earnings to DB
 
         // Update local state to reflect the save
         setDbUnclaimedRewards(newDbTotal);
@@ -525,14 +541,11 @@ export const NodeControlPanel = () => {
 
         return true;
       } else {
-        console.error(
-          "❌ Failed to save session earnings to DB:",
-          response.status
-        );
+        // Failed to save session earnings to DB
         return false;
       }
     } catch (error) {
-      console.error("❌ Error saving session earnings to DB:", error);
+      // Error saving session earnings to DB
       return false;
     } finally {
       setIsSavingToDb(false);
@@ -543,7 +556,7 @@ export const NodeControlPanel = () => {
   const startUptimeMonitoring = useCallback(() => {
     if (!selectedNodeId || !isDeviceRunning(selectedNodeId)) return null;
 
-    console.log("🚨 Starting real-time uptime monitoring for auto-stop...");
+    // Starting real-time uptime monitoring for auto-stop
 
     const monitoringInterval = setInterval(async () => {
       try {
@@ -553,9 +566,7 @@ export const NodeControlPanel = () => {
 
         // FIX: Immediate auto-stop when limit is reached
         if (currentUptime >= maxUptime && !autoStopInProgressRef.current) {
-          console.log(
-            "🚨 UPTIME LIMIT EXCEEDED - IMMEDIATE AUTO-STOP TRIGGERED"
-          );
+          // UPTIME LIMIT EXCEEDED - IMMEDIATE AUTO-STOP TRIGGERED
 
           autoStopInProgressRef.current = true;
           setIsStopping(true);
@@ -563,15 +574,10 @@ export const NodeControlPanel = () => {
           try {
             // Save session earnings before stopping
             if (sessionEarnings > 0) {
-              console.log(
-                "🛑 Auto-stop: Saving session earnings to DB:",
-                sessionEarnings
-              );
+              // Auto-stop: Saving session earnings to DB
               const saveSuccess = await saveSessionEarningsToDb(true);
               if (!saveSuccess) {
-                console.error(
-                  "❌ Failed to save session earnings before auto-stopping node"
-                );
+                // Failed to save session earnings before auto-stopping node
               }
             }
 
@@ -582,14 +588,9 @@ export const NodeControlPanel = () => {
             const result = await stopDeviceUptime(selectedNodeId);
 
             if (result.success) {
-              console.log(
-                "✅ Node auto-stopped and uptime updated successfully"
-              );
+              // Node auto-stopped and uptime updated successfully
             } else {
-              console.error(
-                "❌ Failed to update uptime during auto-stop:",
-                result.error
-              );
+              // Failed to update uptime during auto-stop
             }
 
             // Stop Redux state and tasks
@@ -597,11 +598,9 @@ export const NodeControlPanel = () => {
             dispatch(resetTasks());
 
             setShowUptimeLimitDialog(true);
-            console.log(
-              `🚫 Auto-stop completed. Final uptime: ${currentUptime}s exceeded limit: ${maxUptime}s`
-            );
+            // Auto-stop completed
           } catch (error) {
-            console.error("❌ Error during auto-stop:", error);
+            // Error during auto-stop
           } finally {
             setIsStopping(false);
             autoStopInProgressRef.current = false;
@@ -614,22 +613,18 @@ export const NodeControlPanel = () => {
 
         // FIX: Early warning system
         if (remainingTime <= 60 && remainingTime > 0) {
-          console.warn(
-            `🚨 WARNING: Only ${remainingTime} seconds remaining before auto-stop!`
-          );
+          // WARNING: Approaching auto-stop time
         }
 
         // FIX: Sync with server when approaching limit (within 2 minutes or 95% of limit)
         if (remainingTime <= 120 || currentUptime >= maxUptime * 0.95) {
-          console.log(
-            "⚠️ Approaching uptime limit - syncing with server for accuracy..."
-          );
+          // Approaching uptime limit - syncing with server
           await syncDeviceUptime(selectedNodeId, true);
         }
       } catch (error) {
-        console.error("❌ Error in uptime monitoring:", error);
+        // Error in uptime monitoring
       }
-    }, 5000); // Check every 5 seconds for immediate response
+    }, 30000); // FIXED: Reduced from 5s to 30s to cut API calls by 6x
 
     return monitoringInterval;
   }, [
@@ -729,13 +724,7 @@ export const NodeControlPanel = () => {
   }, [
     selectedNodeId,
     node.isActive,
-    isDeviceRunning,
-    checkUptimeLimit,
-    startUptimeMonitoring,
-    sessionEarnings,
-    saveSessionEarningsToDb,
-    updateDeviceStatus,
-    stopDeviceUptime,
+    sessionEarnings
   ]);
 
   // FIX: Enhanced periodic validation for running devices (backup monitoring)
@@ -819,13 +808,7 @@ export const NodeControlPanel = () => {
     };
   }, [
     selectedNodeId,
-    isDeviceRunning,
-    getCurrentUptime,
-    getMaxUptime,
-    sessionEarnings,
-    saveSessionEarningsToDb,
-    updateDeviceStatus,
-    stopDeviceUptime,
+    sessionEarnings
   ]);
 
   // FIX: Enhanced unclaimed rewards management with comprehensive state clearing
@@ -1116,7 +1099,7 @@ export const NodeControlPanel = () => {
   // FIX: Enhanced earnings loading with migration check
   useEffect(() => {
     if (user?.id && isMounted) {
-      console.log("💰 Loading user earnings and unclaimed rewards...");
+      // Loading user earnings and unclaimed rewards
       loadTotalEarnings();
       fetchUnclaimedRewards();
     }
@@ -1139,13 +1122,13 @@ export const NodeControlPanel = () => {
   useEffect(() => {
     if (!user?.id || sessionEarnings <= 0 || !node.isActive) return;
 
-    // FIX: More frequent auto-save for running nodes (every 45 seconds instead of 60)
+    // FIX: Reduced auto-save frequency to 2 minutes for cost optimization
     const autoSaveInterval = setInterval(() => {
       if (node.isActive || isDeviceRunning(selectedNodeId)) {
         const timeSinceLastSave = Date.now() - lastAutoSaveRef.current;
 
         // FIX: Only auto-save if enough time has passed and not currently saving
-        if (timeSinceLastSave >= 45000 && !isSavingToDb) {
+        if (timeSinceLastSave >= 120000 && !isSavingToDb) {
           console.log(
             "🔄 Auto-save interval triggered - Session earnings:",
             sessionEarnings
@@ -1499,7 +1482,7 @@ export const NodeControlPanel = () => {
     updateDisplayUptime();
 
     // Update every second
-    const interval = setInterval(updateDisplayUptime, 1000);
+    const interval = setInterval(updateDisplayUptime, 10000); // FIXED: Reduced to 10s for cost optimization
 
     return () => clearInterval(interval);
   }, [selectedNodeId, getCurrentUptime]);
@@ -1540,6 +1523,9 @@ export const NodeControlPanel = () => {
   // FIX: Enhanced device initialization with proper server sync, migration, and session verification
   useEffect(() => {
     if (!user?.id || hasFetchedDevices) return;
+
+    // CRITICAL: Prevent race conditions with immediate state update
+    setHasFetchedDevices(true);
 
     const fetchUserDevices = async () => {
       setIsLoadingDevices(true);
@@ -1968,13 +1954,7 @@ export const NodeControlPanel = () => {
   }, [
     selectedNodeId,
     node.isActive,
-    isDeviceRunning,
-    checkUptimeLimit,
-    startUptimeMonitoring,
-    sessionEarnings,
-    saveSessionEarningsToDb,
-    updateDeviceStatus,
-    stopDeviceUptime,
+    sessionEarnings
   ]);
 
   // FIX: Enhanced periodic validation for running devices (backup monitoring)
@@ -2058,13 +2038,7 @@ export const NodeControlPanel = () => {
     };
   }, [
     selectedNodeId,
-    isDeviceRunning,
-    getCurrentUptime,
-    getMaxUptime,
-    sessionEarnings,
-    saveSessionEarningsToDb,
-    updateDeviceStatus,
-    stopDeviceUptime,
+    sessionEarnings
   ]);
 
   // FIX: ENHANCED toggle node status with pre-validation, server sync, session management, and broadcast channel
@@ -2208,12 +2182,18 @@ export const NodeControlPanel = () => {
       // Also check with broadcast channel for immediate feedback
       if (broadcastChannel) {
         // Query all tabs for active sessions
-        broadcastChannel.postMessage({
-          action: 'verify_sessions'
-        });
-        
-        // Small delay to allow responses to come in (improved UX)
-        await new Promise(resolve => setTimeout(resolve, 200));
+        try {
+          broadcastChannel.postMessage({
+            action: 'verify_sessions'
+          });
+          
+          // Small delay to allow responses to come in (improved UX)
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (error) {
+          if (error instanceof Error && error.name !== 'InvalidStateError') {
+            logError('BroadcastChannel error during session verification:', error);
+          }
+        }
       }
 
       // START LOGIC - CRITICAL FIXES for uptime validation
@@ -2221,7 +2201,7 @@ export const NodeControlPanel = () => {
 
       try {
         // FIX: Step 1 - Force sync with server to get latest uptime BEFORE starting
-        console.log("🚀 Starting node - syncing with server first...");
+        logInfo("🚀 Starting node - syncing with server first...");
         setSyncingDeviceId(selectedNodeId);
 
         await syncDeviceUptime(selectedNodeId, true); // Force sync
@@ -2236,7 +2216,7 @@ export const NodeControlPanel = () => {
         );
         const maxUptime = getMaxUptime();
 
-        console.log(
+        logInfo(
           `📊 Pre-start validation - Server uptime: ${serverValidatedUptime}s, Max: ${maxUptime}s`
         );
 
@@ -2263,13 +2243,22 @@ export const NodeControlPanel = () => {
         }
 
         // FIX: Step 6 - Create a new session token and update device status
+        // CRITICAL: Prevent duplicate token generation with ref guard
+        if (sessionTokenGeneratingRef.current) {
+          logWarn("Session token generation already in progress, skipping");
+          setIsStarting(false);
+          return;
+        }
+        
+        sessionTokenGeneratingRef.current = true;
         const sessionToken = generateSessionToken();
-        console.log(`🔑 Generated new session token for device ${selectedNodeId}`);
+        logSecure(`Generated new session token for device ${selectedNodeId}`);
         
         // Update device with new session token
         const updateResult = await updateDeviceStatus(selectedNodeId, "busy", true);
         
         if (!updateResult.success) {
+          sessionTokenGeneratingRef.current = false; // Reset on failure
           setIsStarting(false);
           alert("Failed to start node. Could not create session.");
           return;
@@ -2302,7 +2291,7 @@ export const NodeControlPanel = () => {
          }
 
         // FIX: Step 7 - Proceed with start only after all validations pass
-        console.log("✅ All pre-start checks passed, starting node...");
+        logInfo("✅ All pre-start checks passed, starting node...");
 
         // Track node start
         const selectedDevice = nodes.find((node) => node.id === selectedNodeId);
@@ -2316,12 +2305,14 @@ export const NodeControlPanel = () => {
         setTimeout(() => {
           dispatch(startNode());
           setIsStarting(false);
-          console.log("🟢 Node started successfully with session token");
+          sessionTokenGeneratingRef.current = false; // Reset after successful start
+          logInfo("🟢 Node started successfully with session token");
         }, 2000);
       } catch (error) {
-        console.error("❌ Error starting node:", error);
+        logError("❌ Error starting node:", error);
         setIsStarting(false);
         setSyncingDeviceId(null);
+        sessionTokenGeneratingRef.current = false; // Reset on error
 
         // FIX: Show user-friendly error message
         alert(
@@ -2771,9 +2762,16 @@ export const NodeControlPanel = () => {
      if (broadcastChannel) {
        setTimeout(() => {
          // Just query for existing sessions, don't force sync
-         broadcastChannel.postMessage({
-           action: 'verify_sessions'
-         });
+         try {
+           broadcastChannel.postMessage({
+             action: 'verify_sessions'
+           });
+         } catch (error) {
+           // Channel might be closed, ignore silently
+           if (error instanceof Error && error.name !== 'InvalidStateError') {
+             console.error('BroadcastChannel error:', error);
+           }
+         }
        }, 1000);
      }
    }, [selectedNodeId, broadcastChannel, isMounted]);

@@ -42,23 +42,13 @@ export function Header({
     try {
       await logout();
     } catch (error) {
-      console.error("Header logout error:", error);
+      // Silent error handling
       // Force page refresh if logout fails
       window.location.href = '/';
     }
   };
 
-  // Log auth state for debugging
-  useEffect(() => {
-    console.log("🔑 Header auth state:", { 
-      isLoggedIn, 
-      userId: user?.id,
-      userEmail: user?.email,
-      displayName,
-      hasProfile: !!profile,
-      isLoading
-    });
-  }, [user, profile, isLoading, isLoggedIn, displayName]);
+  // Auth state tracking (logging disabled for security), isLoggedIn, displayName);
 
   // Effect to handle window resize for responsive design
   useEffect(() => {

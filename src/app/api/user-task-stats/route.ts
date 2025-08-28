@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (profileError) {
-      console.error('Error fetching user task stats:', profileError);
+      // Error fetching user task stats
       return NextResponse.json(
         { error: 'Failed to fetch user task statistics' },
         { status: 500 }
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Exception in user-task-stats API:', error);
+    // Exception in user-task-stats API
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

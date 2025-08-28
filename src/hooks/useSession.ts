@@ -70,10 +70,10 @@ export const useSession = () => {
         wallet_type: walletType,
       });
 
-      console.log(`✅ ${walletType} wallet connected:`, walletAddress);
+      // Wallet connected
       return walletAddress;
     } catch (error) {
-      console.error(`❌ ${walletType} wallet connection failed:`, error);
+      // Wallet connection failed
       throw error;
     }
   };
@@ -96,9 +96,9 @@ export const useSession = () => {
         wallet_type: null,
       });
 
-      console.log("✅ Wallet disconnected successfully");
+      // Wallet disconnected
     } catch (error) {
-      console.error("❌ Wallet disconnection failed:", error);
+      // Wallet disconnection failed
       throw error;
     }
   };

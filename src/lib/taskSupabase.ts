@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import { logError, logInfo } from './logger';
 
 // Task Supabase client configuration for the second app
-const taskSupabaseUrl = process.env.NEXT_PUBLIC_TASK_SUPABASE_URL || '';
+const taskSupabaseUrl = process.env.NEXT_PUBLIC_TASK_SUPABASE_URL! || '';
 const taskSupabaseAnonKey = process.env.NEXT_PUBLIC_TASK_SUPABASE_ANON_KEY || '';
 const taskSupabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''; // Note: Using server-side only env var
 
@@ -43,14 +44,14 @@ export async function getUserPlanFromTaskSupabase(email: string): Promise<string
         .maybeSingle(); // Use maybeSingle() instead of single()
   
       if (error) {
-        console.error('Error fetching user plan from task Supabase:', error);
+        logError('Error fetching user plan from task Supabase:', error);
         return null;
       }
   
       // If no user found, return 'free' as default
       return data?.plan || 'free';
     } catch (error) {
-      console.error('Error in getUserPlanFromTaskSupabase:', error);
+      logError('Error in getUserPlanFromTaskSupabase:', error);
       return null;
     }
   }
@@ -65,13 +66,13 @@ export async function getUnifiedUserByEmail(email: string, adminAccess: boolean 
       .single();
 
     if (error) {
-      console.error('Error fetching unified user:', error);
+      logError('Error fetching unified user:', error);
       return null;
     }
 
     return data;
   } catch (error) {
-    console.error('Error in getUnifiedUserByEmail:', error);
+    logError('Error in getUnifiedUserByEmail:', error);
     return null;
   }
 }
@@ -83,7 +84,7 @@ export async function syncPlanToUserProfile(userId: string, email: string) {
     const plan = await getUserPlanFromTaskSupabase(email);
     
     if (!plan) {
-      console.log('No plan found in task Supabase for user:', email);
+      logInfo('No plan found in task Supabase for user:', email);
       return { success: false, error: 'No plan found' };
     }
 
@@ -92,7 +93,7 @@ export async function syncPlanToUserProfile(userId: string, email: string) {
     // For now, we'll return the plan to be handled by the calling function
     return { success: true, plan };
   } catch (error) {
-    console.error('Error in syncPlanToUserProfile:', error);
+    logError('Error in syncPlanToUserProfile:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }

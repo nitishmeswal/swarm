@@ -8,6 +8,7 @@ import { PlanProvider } from "@/contexts/PlanContext";
 import { AuthDebugger } from "@/components/AuthDebugger";
 import { AnalyticsProvider } from "@/components/analytics/AnalyticsProvider";
 import { GA_MEASUREMENT_ID } from "@/lib/analytics";
+import "@/lib/logger"; // Initialize production logger
 
 const inter = Inter({ subsets: ["latin"] });
 

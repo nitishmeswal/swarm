@@ -158,15 +158,12 @@ export const formatUptimeShort = (seconds: number): string => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
+// Production-safe logger - no console access
 export const logger = {
   log: (message: string, data?: unknown) => {
-    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-      console.log(`[SwarmNode] ${message}`, data || '');
-    }
+    // Disabled for production safety
   },
   error: (message: string, error?: unknown) => {
-    if (typeof window !== 'undefined') {
-      console.error(`[SwarmNode] ${message}`, error || '');
-    }
+    // Error logging disabled - use proper error handling
   }
 };

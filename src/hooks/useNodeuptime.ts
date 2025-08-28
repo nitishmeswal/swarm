@@ -71,7 +71,7 @@ export const useNodeUptime = () => {
 
       // NEW: Check if data is too old (stale)
       if (device.lastSyncTime && isDataStale(device.lastSyncTime)) {
-        console.log(`Stale data detected for device ${deviceId}, will sync with server`);
+        // Stale data detected - will sync with server
         return false;
       }
     }
@@ -104,15 +104,15 @@ export const useNodeUptime = () => {
             });
 
             setDeviceUptimes(uptimeMap);
-            console.log('✅ Loaded valid uptime data from localStorage');
+            // Uptime data loaded from localStorage
           } else {
             // Clear invalid/stale data
             localStorage.removeItem(STORAGE_KEY);
-            console.log('🗑️ Cleared stale/invalid uptime data from localStorage');
+            // Cleared stale uptime data
           }
         }
       } catch (error) {
-        console.error('Failed to load device uptimes from storage:', error);
+        // Failed to load device uptimes from storage
         // Clear corrupted data
         localStorage.removeItem(STORAGE_KEY);
       }
@@ -126,7 +126,7 @@ export const useNodeUptime = () => {
         const dataToSave = Object.fromEntries(uptimeMap);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
       } catch (error) {
-        console.error('Failed to save device uptimes to storage:', error);
+        // Failed to save device uptimes to storage
       }
     }
   }, []);
@@ -148,7 +148,7 @@ export const useNodeUptime = () => {
         };
         newMap.set(deviceId, deviceUptime);
         saveToStorage(newMap);
-        console.log(`🔧 Initialized device ${deviceId} with uptime: ${initialUptime}s`);
+        // Initialized device with uptime
       }
       return newMap;
     });
@@ -174,7 +174,7 @@ export const useNodeUptime = () => {
         deviceUptime.isRunning = true;
         newMap.set(deviceId, deviceUptime);
         saveToStorage(newMap);
-        console.log(`▶️ Started tracking uptime for device ${deviceId}, base uptime: ${deviceUptime.serverUptime}s`);
+        // Started tracking uptime for device
       }
 
       return newMap;
@@ -228,7 +228,7 @@ export const useNodeUptime = () => {
       const now = Date.now();
       const sessionDuration = Math.floor((now - deviceUptime.sessionStartTime) / 1000);
 
-      console.log(`🛑 Stopping device ${deviceId}, session duration: ${sessionDuration}s`);
+      // Stopping device session
 
       // Update server with final uptime and completed tasks from global state
       const response = await fetch('/api/node-uptime', {
@@ -249,7 +249,7 @@ export const useNodeUptime = () => {
         // Update user profile with completed tasks count
         if (Object.values(completedTasksForStats).some(count => count > 0)) {
           try {
-            console.log('Updating profile with completed tasks:', completedTasksForStats);
+            // Updating profile with completed tasks
 
             const profileResponse = await fetch('/api/profile', {
               method: 'PATCH',
@@ -262,12 +262,12 @@ export const useNodeUptime = () => {
             });
 
             if (profileResponse.ok) {
-              console.log('Profile task_completed updated successfully');
+              // Profile task_completed updated successfully
             } else {
-              console.error('Failed to update profile task_completed');
+              // Failed to update profile task_completed
             }
           } catch (profileError) {
-            console.error('Error updating profile task_completed:', profileError);
+            // Error updating profile task_completed
           }
         }
 
@@ -284,7 +284,7 @@ export const useNodeUptime = () => {
             device.lastSyncTime = now; // NEW: Update sync time
             newMap.set(deviceId, device);
             saveToStorage(newMap);
-            console.log(`✅ Updated device ${deviceId} total uptime to: ${result.data!.new_uptime}s`);
+            // Updated device total uptime
           }
 
           return newMap;
@@ -298,7 +298,7 @@ export const useNodeUptime = () => {
         throw new Error(result.error || 'Failed to update uptime');
       }
     } catch (error) {
-      console.error('Error updating device uptime:', error);
+      // Error updating device uptime
 
       // Even if server update fails, stop local tracking
       setDeviceUptimes(prev => {
@@ -356,7 +356,7 @@ export const useNodeUptime = () => {
 
     // Prevent multiple simultaneous syncs for the same device
     if (syncingDevices.has(deviceId)) {
-      console.log(`Sync already in progress for device ${deviceId}`);
+      // Sync already in progress for device
       return;
     }
 
@@ -366,7 +366,7 @@ export const useNodeUptime = () => {
     if (!forceSync && device && device.lastSyncTime) {
       const timeSinceSync = Date.now() - device.lastSyncTime;
       if (timeSinceSync < SYNC_THRESHOLD && !isDataStale(device.lastSyncTime)) {
-        console.log(`Skipping sync for device ${deviceId} - recently synced (${Math.floor(timeSinceSync / 1000)}s ago)`);
+        // Skipping sync - recently synced
         return;
       }
     }
@@ -374,8 +374,7 @@ export const useNodeUptime = () => {
     setSyncingDevices(prev => new Set(prev).add(deviceId));
 
     try {
-      console.log(`🔄 Syncing device ${deviceId} with server...`);
-
+      // Sync with server logic here
       const response = await fetch(`/api/devices/${deviceId}`, {
         method: 'GET',
         headers: {
@@ -384,25 +383,22 @@ export const useNodeUptime = () => {
       });
 
       if (!response.ok) {
-        console.error('Error fetching device uptime:', response.status, response.statusText);
-        return;
+        throw new Error('Failed to sync with server');
       }
 
       const { device: serverDevice } = await response.json();
+      const serverUptime = Number(serverDevice?.uptime) || 0;
+      const now = Date.now();
 
-      if (serverDevice) {
-        const serverUptime = Number(serverDevice.uptime) || 0;
-        const now = Date.now();
-
-        console.log(`📡 Server uptime for device ${deviceId}: ${serverUptime}s`);
-
+      // Server uptime received
+      if (serverUptime >= 0) {
         setDeviceUptimes(prev => {
           const newMap = new Map(prev);
           const localDevice = newMap.get(deviceId);
 
           if (localDevice && !localDevice.isRunning) {
             // Only sync if device is not currently running to avoid conflicts
-            console.log(`⬇️ Syncing device ${deviceId}: ${localDevice.totalUptime}s → ${serverUptime}s`);
+            // Syncing device uptime
             localDevice.totalUptime = serverUptime;
             localDevice.serverUptime = serverUptime;
             localDevice.lastSyncTime = now;
@@ -414,7 +410,7 @@ export const useNodeUptime = () => {
             localDevice.lastSyncTime = now;
             newMap.set(deviceId, localDevice);
             saveToStorage(newMap);
-            console.log(`🔄 Updated server base uptime for running device ${deviceId}: ${serverUptime}s`);
+            // Updated server base uptime for running device
           } else if (!localDevice) {
             // Initialize new device with server uptime
             const deviceUptime: DeviceUptime = {
@@ -427,14 +423,14 @@ export const useNodeUptime = () => {
             };
             newMap.set(deviceId, deviceUptime);
             saveToStorage(newMap);
-            console.log(`🆕 Initialized device ${deviceId} with server uptime: ${serverUptime}s`);
+            // Initialized device with server uptime
           }
 
           return newMap;
         });
       }
     } catch (error) {
-      console.error('Error syncing device uptime:', error);
+      // Error syncing device uptime
     } finally {
       setSyncingDevices(prev => {
         const newSet = new Set(prev);
@@ -463,9 +459,9 @@ export const useNodeUptime = () => {
       }
     };
 
-    // Sync immediately on mount, then every 10 minutes
+    // FIXED: Reduced from 10 minutes to 30 minutes
     syncAllDevices();
-    const periodicSyncInterval = setInterval(syncAllDevices, 10 * 60 * 1000);
+    const periodicSyncInterval = setInterval(syncAllDevices, 30 * 60 * 1000);
 
     return () => clearInterval(periodicSyncInterval);
   }, [user?.id, deviceUptimes, syncingDevices, syncDeviceUptime]);
@@ -482,7 +478,7 @@ export const useNodeUptime = () => {
   // NEW: Validate current uptime with server
   const validateCurrentUptime = useCallback(async (deviceId: string): Promise<number> => {
     try {
-      console.log(`📡 Validating uptime with server for device: ${deviceId}`);
+      // Validating uptime with server
 
       const response = await fetch(`/api/devices/${deviceId}`, {
         method: 'GET',
@@ -492,17 +488,17 @@ export const useNodeUptime = () => {
       });
 
       if (!response.ok) {
-        console.error('Failed to validate uptime with server:', response.status);
+        // Failed to validate uptime with server
         return getCurrentUptime(deviceId); // Fallback to local uptime
       }
 
       const { device: serverDevice } = await response.json();
       const serverUptime = Number(serverDevice?.uptime) || 0;
 
-      console.log(`✅ Server validated uptime for ${deviceId}: ${serverUptime}s`);
+      // Server validated uptime
       return serverUptime;
     } catch (error) {
-      console.error('Error validating uptime with server:', error);
+      // Error validating uptime with server
       return getCurrentUptime(deviceId); // Fallback to local uptime
     }
   }, [getCurrentUptime]);
@@ -521,7 +517,7 @@ export const useNodeUptime = () => {
         device.isRunning = false;
         newMap.set(deviceId, device);
         saveToStorage(newMap);
-        console.log(`🔄 Reset uptime for device ${deviceId}`);
+        // Reset uptime for device
       }
 
       return newMap;

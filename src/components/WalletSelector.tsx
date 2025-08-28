@@ -26,19 +26,9 @@ export const WalletSelector = ({ onClose }: WalletSelectorProps) => {
     if (session.walletType) {
       setCurrentWalletType(session.walletType);
     }
-  }, [session.walletType]);
+  }, [session]);
 
-  // Debug log to check session state
-  useEffect(() => {
-    console.log("WalletSelector - Current session state:", {
-      userId: session.userId,
-      email: session.email,
-      walletAddress: session.walletAddress,
-      walletType: session.walletType,
-      isLoggedIn,
-      hasWallet,
-    });
-  }, [session, isLoggedIn, hasWallet]);
+  // Session state tracking (logging disabled), isLoggedIn, hasWallet);
 
   const handleWalletClick = () => {
     setShowWalletModal(true);

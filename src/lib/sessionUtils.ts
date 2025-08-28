@@ -17,7 +17,7 @@ export async function validateSession(): Promise<SessionValidationResult> {
     const { data: { session }, error } = await supabase.auth.getSession();
 
     if (error) {
-      console.error('❌ Session validation error:', error);
+      // Session validation error
       return {
         isValid: false,
         session: null,
@@ -38,13 +38,13 @@ export async function validateSession(): Promise<SessionValidationResult> {
     // Check if session is expired
     const now = Math.floor(Date.now() / 1000);
     if (session.expires_at && session.expires_at < now) {
-      console.log('⚠️ Session expired, attempting refresh');
+      // Session expired, attempting refresh
       
       // Try to refresh the session
       const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
       
       if (refreshError || !refreshData.session) {
-        console.error('❌ Session refresh failed:', refreshError);
+        // Session refresh failed
         return {
           isValid: false,
           session: null,
@@ -66,7 +66,7 @@ export async function validateSession(): Promise<SessionValidationResult> {
       user: session.user
     };
   } catch (error) {
-    console.error('❌ Unexpected error in session validation:', error);
+    // Unexpected error in session validation
     return {
       isValid: false,
       session: null,
@@ -95,7 +95,7 @@ export async function getSessionInfo(): Promise<{ session: Session | null; user:
     const { data: { session }, error } = await supabase.auth.getSession();
     
     if (error) {
-      console.error('❌ Error getting session:', error);
+      // Error getting session
       return { session: null, user: null };
     }
     
@@ -104,7 +104,7 @@ export async function getSessionInfo(): Promise<{ session: Session | null; user:
       user: session?.user || null
     };
   } catch (error) {
-    console.error('❌ Unexpected error getting session:', error);
+    // Unexpected error getting session
     return { session: null, user: null };
   }
 }
@@ -133,9 +133,9 @@ export async function clearSession(): Promise<void> {
       keysToRemove.forEach(key => localStorage.removeItem(key));
     }
     
-    console.log('✅ Session cleared successfully');
+    // Session cleared successfully
   } catch (error) {
-    console.error('❌ Error clearing session:', error);
+    // Error clearing session
   }
 }
 
