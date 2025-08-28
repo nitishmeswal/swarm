@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   // Netlify specific configuration
-  output: 'standalone',
+  output: 'export',
   images: {
     unoptimized: true,
     domains: ['localhost'],
