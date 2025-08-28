@@ -171,7 +171,19 @@ export const NodeControlPanel = () => {
   
   // FIX: Add session management state
   const [deviceSessionToken, setDeviceSessionToken] = useState<string | null>(null);
-  const [sessionVerified, setSessionVerified] = useState<boolean>(false);
+  
+  // FIX: Initialize sessionVerified based on whether this tab owns the session
+  const [sessionVerified, setSessionVerified] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    
+    const currentTabId = sessionStorage.getItem('tab_id');
+    const sessionOwnerTabId = localStorage.getItem('session_owner_tab_id');
+    const storedToken = localStorage.getItem('device_session_token');
+    
+    // If this tab owns the session and has a token, initialize as verified
+    return !!(currentTabId && sessionOwnerTabId === currentTabId && storedToken);
+  });
+  
   const [sessionExists, setSessionExists] = useState<boolean>(false);
   const [sessionCheckComplete, setSessionCheckComplete] = useState<boolean>(false);
   
