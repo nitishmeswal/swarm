@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Redirect to home page after successful authentication
-  return NextResponse.redirect(`${origin}/`);
+  // Redirect to main site after successful authentication
+  return NextResponse.redirect(origin);
 }
 
 // Helper function to generate a referral code

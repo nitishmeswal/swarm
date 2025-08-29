@@ -385,10 +385,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const loginWithGoogle = async () => {
-    console.log("🔗 Google login attempt");
-    console.log("🌐 Current origin:", window.location.origin);
-    console.log("🔗 Redirect URL:", `${window.location.origin}/auth/callback`);
-    
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -403,13 +399,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       if (error) {
-        console.error("❌ Google login error:", error);
+        logError("❌ Google login error:", error);
         throw error;
       }
 
-      console.log("✅ Google OAuth started:", data);
+      logInfo("✅ Google OAuth started:", data);
     } catch (error) {
-      console.error("❌ Google login error:", error);
+      logError("❌ Google login error:", error);
       throw error;
     }
   };
