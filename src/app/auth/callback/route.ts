@@ -76,9 +76,8 @@ export async function GET(request: NextRequest) {
   }
 
   // Redirect to production domain after successful authentication
-  const redirectUrl = process.env.NODE_ENV === 'production' 
-    ? 'https://swarm.neurolov.ai/' 
-    : `${origin}/`;
+  // Force redirect to production domain
+  const redirectUrl = 'https://swarm.neurolov.ai/';
     
   console.log("🔄 Redirecting to:", redirectUrl);
   return NextResponse.redirect(redirectUrl);

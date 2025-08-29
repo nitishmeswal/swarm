@@ -21,9 +21,16 @@
 # Auth callback handling for OAuth PKCE flow - enhanced for Netlify
 [[redirects]]
   from = "/auth/callback"
-  to = "/auth/callback"
+  to = "/.netlify/functions/___netlify-handler"
   status = 200
-  force = false
+  force = true
+  
+# Fallback for auth callback with query parameters
+[[redirects]]
+  from = "/auth/callback/*"
+  to = "/.netlify/functions/___netlify-handler"
+  status = 200
+  force = true
 
 [[headers]]
   for = "/auth/callback"
