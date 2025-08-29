@@ -1,29 +1,22 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import {
-  Wallet,
-  TrendingUp,
-  Calendar,
-  ArrowUpRight,
-  Bug,
-  Check,
-  Loader2,
-  HelpCircle,
-  Clock,
-  ExternalLink,
-  Activity,
-} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { InfoTooltip } from "./InfoTooltip";
-import { Button } from "./ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  CalendarDays, 
+  TrendingUp, 
+  Award, 
+  Clock, 
+  Loader2, 
+  ExternalLink, 
+  Check,
+  Wallet
+} from "lucide-react";
+import ErrorBoundary, { EarningsFallback } from './ErrorBoundary';
 import {
   LineChart,
   Line,
@@ -81,7 +74,7 @@ interface StreakData {
   hasCheckedInToday: boolean;
 }
 
-export const EarningsDashboard = () => {
+const EarningsDashboard = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>("daily");
   const [chartPeriod, setChartPeriod] = useState<TimeRange>("daily");
   const [debugMode, setDebugMode] = useState<boolean>(false);
@@ -184,17 +177,24 @@ export const EarningsDashboard = () => {
     }
   };
 
-  // Effects
+  // Consolidated effect to prevent race conditions
   useEffect(() => {
     if (user?.id) {
-      fetchEarningsData();
-      fetchTransactions();
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (user?.id) {
-      fetchChartData();
+      // Initialize all data in sequence to prevent race conditions
+      const initializeData = async () => {
+        try {
+          await Promise.all([
+            fetchEarningsData(),
+            fetchTransactions(),
+            fetchChartData()
+          ]);
+        } catch (error) {
+          console.error("Error initializing earnings data:", error);
+          // Don't throw - let component render with default states
+        }
+      };
+      
+      initializeData();
     }
   }, [user?.id, chartPeriod]);
 
@@ -481,7 +481,7 @@ export const EarningsDashboard = () => {
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center gap-1">
                 <span className="text-sm text-[#515194]">Monthly Expected</span>
-                <InfoTooltip content="Projected monthly earnings based on your recent performance" />
+                <span className="text-xs text-gray-400 ml-1" title="Projected monthly earnings based on your recent performance">ⓘ</span>
               </div>
               <span className="text-xl font-bold text-white break-words">
                 {calculateMonthlyExpectedEarnings().toLocaleString(undefined, {
@@ -640,7 +640,7 @@ export const EarningsDashboard = () => {
             <div className="flex items-center">
               <h3 className="text-lg font-medium">Daily Rewards</h3>
               <div className="ml-2 mt-2">
-                <InfoTooltip content="Check in daily to earn rewards! Rewards increase with consecutive days." />
+                <span className="text-xs text-gray-400 ml-1" title="Check in daily to earn rewards! Rewards increase with consecutive days.">ⓘ</span>
               </div>
             </div>
           </div>
@@ -760,7 +760,7 @@ export const EarningsDashboard = () => {
                     </span>
                     <span className="text-xs text-[#515194] mt-1">
                       {tx.earning_type === "task"
-                        ? `Task completed${tx.task_count ? ` (${tx.task_count} tasks)` : ''}`
+                        ? "Task completed"
                         : tx.earning_type === "referral"
                           ? "Referral reward"
                           : tx.earning_type === "other"
@@ -886,3 +886,13 @@ const DailyRewardCard = ({
     </div>
   );
 };
+
+export default function EarningsDashboardWithErrorBoundary() {
+  return (
+    <ErrorBoundary fallback={EarningsFallback}>
+      <EarningsDashboard />
+    </ErrorBoundary>
+  );
+}
+
+export { EarningsDashboard };
