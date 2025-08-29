@@ -8,7 +8,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { getSupabaseClient } from "@/utils/supabase/singleton";
+import { createClient } from '@/utils/supabase/client';
 import { logError, logInfo, logWarn } from "@/lib/logger";
 import {
   User as SupabaseUser,
@@ -75,8 +75,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   
-  // Get supabase instance only once
-  const supabase = React.useMemo(() => getSupabaseClient(), []);
+  // Get supabase instance only once - use direct createClient to avoid singleton issues
+  const supabase = React.useMemo(() => createClient(), []);
 
   // Refs to prevent race conditions and memory leaks
   const isMountedRef = useRef(true);

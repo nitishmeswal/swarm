@@ -53,7 +53,11 @@ export async function middleware(request: NextRequest) {
     // If authenticated user tries to access auth pages, redirect to home
     if (session && (pathname === '/auth/callback' || pathname === '/auth/error')) {
       console.log(`🔄 Authenticated user redirected from ${pathname}`);
-      return NextResponse.redirect(new URL('/', request.url));
+      // Use proper production domain for redirect
+      const redirectUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://swarm.neurolov.ai/' 
+        : new URL('/', request.url).toString();
+      return NextResponse.redirect(redirectUrl);
     }
 
     // Add session info to headers for debugging (optional)
@@ -79,7 +83,8 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      * - api routes (API endpoints)
+     * - auth/callback (let it process OAuth first)
      */
-    '/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
