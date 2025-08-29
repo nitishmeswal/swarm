@@ -75,8 +75,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Redirect to home page after successful authentication
-  return NextResponse.redirect(`${origin}/`);
+  // Redirect to production domain after successful authentication
+  const redirectUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://swarm.neurolov.ai/' 
+    : `${origin}/`;
+    
+  console.log("🔄 Redirecting to:", redirectUrl);
+  return NextResponse.redirect(redirectUrl);
 }
 
 // Helper function to generate a referral code
