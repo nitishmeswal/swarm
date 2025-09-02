@@ -1345,7 +1345,16 @@ export const NodeControlPanel = () => {
             if (sessionCheck.hasActiveSession !== sessionExists) {
               console.log(`🔄 Updating session status from server: active=${sessionCheck.hasActiveSession}`);
               setSessionExists(sessionCheck.hasActiveSession);
-              setSessionVerified(false);  // Default to false until we verify ownership
+              
+              // CRITICAL FIX: Only reset sessionVerified if we don't own this session
+              const currentTabId = getTabId();
+              const sessionOwnerTabId = localStorage.getItem("session_owner_tab_id");
+              const storedToken = localStorage.getItem("device_session_token");
+              
+              // Keep verification true if this tab still owns the session
+              if (!(currentTabId && sessionOwnerTabId === currentTabId && storedToken)) {
+                setSessionVerified(false);  // Only reset if we don't own it
+              }
             }
           }
         } catch (error) {

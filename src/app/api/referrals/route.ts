@@ -6,16 +6,16 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
+    const userId = user.id;
 
     // Fetch data in parallel for better performance
     const [
@@ -44,12 +44,11 @@ export async function GET(request: NextRequest) {
         .eq('claimed', false)
         .order('reward_timestamp', { ascending: false }),
       
-      // Get total referral earnings from earnings table
+      // Get total referral earnings from earnings_history table
       supabase
-        .from('earnings')
-        .select('amount')
-        .eq('user_id', userId)
-        .eq('earning_type', 'referral'),
+        .from('earnings_history')
+        .select('total_amount')
+        .eq('user_id', userId),
       
       // Get referrals count for stats
       supabase
@@ -79,7 +78,7 @@ export async function GET(request: NextRequest) {
       .reduce((sum, reward) => sum + Number(reward.reward_amount), 0);
     
     const totalClaimedRewards = (referralEarnings || [])
-      .reduce((sum, earning) => sum + Number(earning.amount), 0);
+      .reduce((sum, earning) => sum + Number(earning.total_amount), 0);
     
     const totalReferralEarnings = pendingRewards + totalClaimedRewards;
 
@@ -116,9 +115,9 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -146,7 +145,7 @@ export async function POST(request: NextRequest) {
         referrals!inner(referrer_id)
       `)
       .eq('id', reward_id)
-      .eq('referrals.referrer_id', session.user.id)
+      .eq('referrals.referrer_id', user.id)
       .eq('claimed', false)
       .single();
 
@@ -163,7 +162,7 @@ export async function POST(request: NextRequest) {
     // Use a transaction to ensure data consistency
     const { data, error } = await supabase.rpc('claim_referral_reward', {
       p_reward_id: reward_id,
-      p_user_id: session.user.id,
+      p_user_id: user.id,
       p_reward_amount: rewardAmount
     });
 
@@ -192,7 +191,7 @@ export async function POST(request: NextRequest) {
         const { error: earningsError } = await supabase
           .from('earnings')
           .insert({
-            user_id: session.user.id,
+            user_id: user.id,
             amount: rewardAmount,
             earning_type: 'referral'
           });

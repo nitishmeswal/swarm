@@ -6,13 +6,11 @@ export async function GET() {
     const supabase = await createClient();
     
     // Get the current user
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
+    if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const user = session.user;
 
     // Fetch unclaimed rewards for the user
     const { data: profile, error } = await supabase
@@ -41,13 +39,12 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     
     // Get the current user
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
+    if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = session.user;
     const { amount } = await request.json();
 
     if (typeof amount !== 'number' || amount < 0) {
@@ -83,13 +80,12 @@ export async function PUT(request: Request) {
     const supabase = await createClient();
     
     // Get the current user
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
+    if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = session.user;
     const { increment_amount } = await request.json();
 
     if (typeof increment_amount !== 'number') {
