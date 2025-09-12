@@ -244,30 +244,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Add reward to user's earnings using the existing earnings API
+    // 3. Add reward to user's earnings directly to the earnings table
     try {
-      const earningsResponse = await fetch(`${request.nextUrl.origin}/api/earnings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': request.headers.get('Authorization') || '',
-          'Cookie': request.headers.get('Cookie') || ''
-        },
-        body: JSON.stringify({
-          reward_type: 'other',
+      const { error: earningsError } = await supabase
+        .from('earnings')
+        .insert({
+          user_id: userId,
           amount: rewardAmount,
-          user_id: userId
-        })
-      });
+          earning_type: 'other', // This identifies it as daily check-in
+          transaction_hash: null,
+          task_count: null,
+          created_at: new Date().toISOString()
+        });
 
-      if (!earningsResponse.ok) {
-        const errorText = await earningsResponse.text();
-        console.error('Failed to add earnings:', errorText);
+      if (earningsError) {
+        console.error('Failed to add earnings record:', earningsError);
         // Don't fail the whole request, but log the error
-        console.error('Warning: Check-in recorded but earnings not added');
+        console.error('Warning: Check-in recorded but earnings record not added');
+      } else {
+        console.log(`Successfully added daily check-in earnings: ${rewardAmount} SP`);
       }
     } catch (earningsError) {
-      console.error('Error calling earnings API:', earningsError);
+      console.error('Error adding earnings record:', earningsError);
       // Don't fail the whole request
     }
 

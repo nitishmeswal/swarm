@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useGlobalSession } from "@/contexts/GlobalSessionMonitor";
 import {
   Clock,
   Laptop,
@@ -15,10 +16,13 @@ import {
 import { VscDebugStart } from "react-icons/vsc";
 import { IoStopOutline } from "react-icons/io5";
 import { InfoTooltip } from "./InfoTooltip";
-import { logWarn, logSecure, logError, logInfo } from '@/lib/logger';
-import { debounce } from '@/utils/debounce';
 import { Button } from "./ui/button";
 import { HardwareScanDialog } from "./HardwareScanDialog";
+import { logWarn, logSecure, logError, logInfo } from '@/lib/logger';
+import { debounce } from '@/utils/debounce';
+import { optimizedFetch, getApiStats } from '@/lib/apiOptimization';
+import { deviceWebSocket } from '@/lib/websocketManager';
+import { useAuth } from "@/contexts/AuthContext";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
 import {
   registerDevice,
@@ -55,7 +59,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createClient } from "@/utils/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { usePlan } from "@/contexts/PlanContext";
 import { extractGPUModel } from "@/lib/gpuUtils";
 import {
@@ -134,6 +137,7 @@ export const NodeControlPanel = () => {
   } = useNodeUptime();
 
   const { processReferralRewards } = useReferrals();
+  const { sessionStatus, updateSessionStatus, isInAppNavigation } = useGlobalSession();
 
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
@@ -257,25 +261,25 @@ export const NodeControlPanel = () => {
   // Check if device has an active session elsewhere
   const checkDeviceSession = async (deviceId: string): Promise<{
     hasActiveSession: boolean;
-    sessionToken: string | null;
-    sessionCreatedAt: string | null;
-    deviceStatus: string;
+    sessionToken?: string;
+    ownedByCurrentTab?: boolean;
   }> => {
+    if (!user?.id || !deviceId) {
+      return { hasActiveSession: false };
+    }
+    
     try {
-      if (!deviceId) {
-        return { 
-          hasActiveSession: false, 
-          sessionToken: null,
-          sessionCreatedAt: null,
-          deviceStatus: "offline" 
-        };
-      }
       
       // Checking session status for device
       
-      const response = await fetch(`/api/device-session/verify?deviceId=${deviceId}`, {
+      const response = await optimizedFetch(`/api/device-session/verify?deviceId=${deviceId}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" }
+      }, {
+        enableDeduplication: true,
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 2
       });
       
       if (!response.ok) {
@@ -739,89 +743,8 @@ export const NodeControlPanel = () => {
     sessionEarnings
   ]);
 
-  // FIX: Enhanced periodic validation for running devices (backup monitoring)
-  useEffect(() => {
-    if (!selectedNodeId || !isDeviceRunning(selectedNodeId)) return;
-
-    console.log(
-      "⏱️ Starting backup periodic uptime validation for running device..."
-    );
-
-    // FIX: More frequent validation for running devices
-    const validateUptime = setInterval(async () => {
-      try {
-        const currentUptime = getCurrentUptime(selectedNodeId);
-        const maxUptime = getMaxUptime();
-        const remainingTime = maxUptime - currentUptime;
-
-        console.log(
-          `⏱️ Backup check - Uptime: ${currentUptime}s, Remaining: ${remainingTime}s`
-        );
-
-        // FIX: Emergency stop if somehow the main monitoring missed it
-        if (currentUptime >= maxUptime && !autoStopInProgressRef.current) {
-          console.log(
-            "🚨 EMERGENCY STOP - Uptime limit exceeded in backup check"
-          );
-
-          autoStopInProgressRef.current = true;
-          setIsStopping(true);
-
-          try {
-            // Save session earnings before stopping
-            if (sessionEarnings > 0) {
-              console.log(
-                "🛑 Emergency stop: Saving session earnings to DB:",
-                sessionEarnings
-              );
-              const saveSuccess = await saveSessionEarningsToDb(true);
-              if (!saveSuccess) {
-                console.error(
-                  "❌ Failed to save session earnings before emergency stop"
-                );
-              }
-            }
-
-            // Update device status to offline
-            await updateDeviceStatus(selectedNodeId, "offline");
-
-            // Stop uptime tracking and update server
-            const result = await stopDeviceUptime(selectedNodeId);
-
-            if (result.success) {
-              console.log("✅ Emergency stop completed successfully");
-            } else {
-              console.error(
-                "❌ Failed to update uptime during emergency stop:",
-                result.error
-              );
-            }
-
-            // Stop Redux state and tasks
-            dispatch(stopNode());
-            dispatch(resetTasks());
-
-            setShowUptimeLimitDialog(true);
-          } catch (error) {
-            console.error("❌ Error during emergency stop:", error);
-          } finally {
-            setIsStopping(false);
-            autoStopInProgressRef.current = false;
-          }
-        }
-      } catch (error) {
-        console.error("Error in backup uptime validation:", error);
-      }
-    }, 30000); // Every 30 seconds as backup
-
-    return () => {
-      clearInterval(validateUptime);
-      console.log("⏱️ Stopped backup periodic uptime validation");
-    };
-  }, [
-    selectedNodeId,
-    sessionEarnings
-  ]);
+  // REMOVED: Duplicate backup monitoring interval to fix resource leak
+  // The main monitoring interval above already handles uptime limit checking
 
   // FIX: Enhanced unclaimed rewards management with comprehensive state clearing
   const resetAllUnclaimedRewards = async () => {
@@ -936,12 +859,10 @@ export const NodeControlPanel = () => {
                    dispatch(stopNode());
                    dispatch(resetTasks());
                    
-                   // Only show an alert if this wasn't due to a session recovery
-                   if (!recovered) {
-                     setTimeout(() => {
-                       alert("Your node session was started in another tab or browser.");
-                     }, 500);
-                   }
+                   // FIXED: Remove intrusive alerts for session changes during in-app navigation
+                  if (!recovered) {
+                    console.log("🔄 Node session was started in another tab or browser.");
+                  }
                  }
                }
              }
@@ -1134,13 +1055,13 @@ export const NodeControlPanel = () => {
   useEffect(() => {
     if (!user?.id || sessionEarnings <= 0 || !node.isActive) return;
 
-    // FIX: Reduced auto-save frequency to 2 minutes for cost optimization
+    // CRITICAL FIX: Reduced auto-save frequency to 5 minutes for resource optimization
     const autoSaveInterval = setInterval(() => {
       if (node.isActive || isDeviceRunning(selectedNodeId)) {
         const timeSinceLastSave = Date.now() - lastAutoSaveRef.current;
 
-        // FIX: Only auto-save if enough time has passed and not currently saving
-        if (timeSinceLastSave >= 120000 && !isSavingToDb) {
+        // CRITICAL FIX: Only auto-save if enough time has passed and not currently saving
+        if (timeSinceLastSave >= 300000 && !isSavingToDb) { // 5 minutes instead of 2 minutes
           console.log(
             "🔄 Auto-save interval triggered - Session earnings:",
             sessionEarnings
@@ -1148,7 +1069,7 @@ export const NodeControlPanel = () => {
           saveSessionEarningsToDb(false);
         }
       }
-    }, 45000); // FIX: Reduced from 60s to 45s for better safety
+    }, 300000); // CRITICAL FIX: 5 minutes instead of 45 seconds - Reduces API calls by 6.7x
 
     return () => {
       clearInterval(autoSaveInterval);
@@ -1168,88 +1089,55 @@ export const NodeControlPanel = () => {
     }
   }, [claimSuccess, resetClaimState]);
 
-  // FIX: Enhanced page unload handling with better error recovery and session management
+  // FIX: Enhanced page unload handling - DISABLE all navigation alerts for in-app routing
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      // Check if node is running and prevent tab close with a confirmation dialog
-      if (node.isActive || (selectedNodeId && isDeviceRunning(selectedNodeId))) {
-        // Standard way to show a confirmation dialog when closing the tab
-        const message = "WARNING: Node is currently running. Closing this tab will stop the node and may result in lost earnings. Please stop the node properly before closing.";
-        event.preventDefault();
-        event.returnValue = message; // Legacy for older browsers
-        return message; // Modern browsers
-      }
-
-      // First handle session earnings
+      // CRITICAL FIX: COMPLETELY DISABLE navigation alerts
+      // Let nodes run in background during navigation
+      
+      // NEVER prevent navigation - no event.preventDefault() calls
+      // Only save earnings silently without blocking ANY navigation
       if (sessionEarnings > 0) {
         try {
-          // FIX: Use both sendBeacon AND fetch for redundancy
           const newDbTotal = dbUnclaimedRewards + sessionEarnings;
           const data = JSON.stringify({ amount: newDbTotal });
-
-          // Primary method: sendBeacon
           const blob = new Blob([data], { type: "application/json" });
-          const beaconSent = navigator.sendBeacon(
-            "/api/unclaimed-rewards",
-            blob
-          );
-
-          console.log(
-            `📤 Page unload: Beacon sent: ${beaconSent}, Session earnings: ${sessionEarnings}`
-          );
-
-          // FIX: Fallback method if beacon fails
-          if (!beaconSent) {
-            try {
-              fetch("/api/unclaimed-rewards", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: data,
-                keepalive: true,
-              });
-              console.log("📤 Fallback fetch completed");
-            } catch (fetchError) {
-              console.error("❌ Both beacon and fetch failed:", fetchError);
-            }
-          }
+          navigator.sendBeacon("/api/unclaimed-rewards", blob);
         } catch (error) {
-          console.error("❌ Error in beforeunload handler:", error);
+          console.error("❌ Error saving earnings:", error);
         }
       }
       
-      // Only clear session if this tab owns the session
+      // Session cleanup for tab closing only
       if (selectedNodeId && sessionVerified && sessionExists) {
         try {
-          // Create a cleanup payload
           const cleanupData = JSON.stringify({
             deviceId: selectedNodeId,
             sessionToken: deviceSessionToken
           });
-          
-          // Use sendBeacon for reliable cleanup
           const blob = new Blob([cleanupData], { type: "application/json" });
           navigator.sendBeacon("/api/device-session/cleanup", blob);
           
-                     // Also send final broadcast to other tabs before we go
-           if (broadcastChannel) {
-             try {
-               broadcastChannel.postMessage({
-                 action: 'device_inactive',
-                 deviceId: selectedNodeId,
-                 final: true,
-                 tabClosing: true,
-                 timestamp: Date.now()
-               });
-             } catch (broadcastError) {
-               // Ignore errors during page unload
-             }
-           }
-          
-          console.log(`🧹 Session cleanup request sent for device ${selectedNodeId}`);
+          if (broadcastChannel) {
+            try {
+              broadcastChannel.postMessage({
+                action: 'device_inactive',
+                deviceId: selectedNodeId,
+                final: true,
+                tabClosing: true,
+                timestamp: Date.now()
+              });
+            } catch (broadcastError) {
+              // Ignore errors during page unload
+            }
+          }
         } catch (error) {
           console.error("❌ Error in session cleanup:", error);
         }
       }
+      
+      // NEVER return a message - allow all navigation
+      return undefined;
     };
 
     // NEW: Handle tab close/unload event to reset device status
@@ -1320,8 +1208,8 @@ export const NodeControlPanel = () => {
                 dispatch(stopNode());
                 dispatch(resetTasks());
                 
-                // Alert the user
-                alert("Your node session was stopped in another tab or browser.");
+                // FIXED: Remove alert for in-app navigation - only log to console
+                console.log("🛑 Node session was stopped in another tab or browser.");
               }
             } else if (isValid && sessionVerified) {
                              // We still own the session, broadcast to other tabs
@@ -1502,8 +1390,8 @@ export const NodeControlPanel = () => {
     // Update immediately
     updateDisplayUptime();
 
-    // Update every second
-    const interval = setInterval(updateDisplayUptime, 10000); // FIXED: Reduced to 10s for cost optimization
+    // CRITICAL FIX: Update every 1 second for smooth uptime display
+    const interval = setInterval(updateDisplayUptime, 1000); // Update every 1 second for smooth timer
 
     return () => clearInterval(interval);
   }, [selectedNodeId, getCurrentUptime]);
@@ -1762,12 +1650,10 @@ export const NodeControlPanel = () => {
   const handleNodeSelect = async (nodeId: string) => {
     if (nodeId === selectedNodeId) return;
     
-    // Check if current node is running and warn user about device change
-    if (node.isActive || isDeviceRunning(selectedNodeId)) {
-      const confirmChange = confirm("You are about to change devices while a node is running. This will stop the current node. Do you want to continue?");
-      if (!confirmChange) {
-        return;
-      }
+    // FIXED: Allow device switching for viewing without intrusive alerts
+    // Only stop if actually trying to start a different device while one is running
+    if ((node.isActive || isDeviceRunning(selectedNodeId)) && nodeId !== selectedNodeId) {
+      console.log(`🔄 Switching device view from ${selectedNodeId} to ${nodeId}`);
       
       // Stop the current node before switching
       console.log(`🛑 Stopping current node before device switch: ${selectedNodeId}`);

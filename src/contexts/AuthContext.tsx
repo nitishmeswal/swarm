@@ -269,18 +269,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
           clearTimeout(authStateChangeTimeoutRef.current);
         }
         
-        // Debounce auth state changes to prevent rapid updates
+        // CRITICAL FIX: Aggressive debounce to prevent token proliferation
         authStateChangeTimeoutRef.current = setTimeout(async () => {
           if (!isMountedRef.current) return;
           
           // Handle different auth events
           switch (event) {
             case 'SIGNED_IN':
-            case 'TOKEN_REFRESHED':
+              // Only handle SIGNED_IN, ignore TOKEN_REFRESHED to prevent loops
               if (session) {
                 // Check if this is a new session to avoid duplicate processing
                 const currentSessionId = session.access_token;
                 if (lastSessionIdRef.current === currentSessionId) {
+                  logInfo('🔄 Duplicate session detected, skipping processing');
                   return;
                 }
                 lastSessionIdRef.current = currentSessionId;
@@ -311,7 +312,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
           
           setIsLoading(false);
-        }, 300); // 300ms debounce
+        }, 2000); // CRITICAL FIX: 2-second debounce to prevent token spam
       }
     );
     

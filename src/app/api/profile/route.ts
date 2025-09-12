@@ -125,10 +125,12 @@ export async function POST(request: NextRequest) {
       return result;
     };
 
+    const user = session.user;
+
     const newProfileData = {
-      id: session.user.id,
-      email: session.user.email,
-      user_name: profileData.user_name || session.user.email?.split('@')[0],
+      id: user.id,
+      email: user.email,
+      user_name: profileData.user_name || user.email?.split('@')[0],
       joined_at: new Date().toISOString(),
       referral_code: generateReferralCode(),
       freedom_ai_credits: 10000,

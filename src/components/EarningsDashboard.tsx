@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { optimizedFetch } from "@/lib/apiOptimization";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -113,11 +114,21 @@ const EarningsDashboard = () => {
       setIsLoadingEarnings(true);
 
       // Fetch total earnings
-      const earningsRes = await fetch("/api/earnings");
+      const earningsRes = await optimizedFetch("/api/earnings", {}, {
+        enableDeduplication: true,
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 2
+      });
       const earningsData = await earningsRes.json();
 
       // Fetch unclaimed balance (SP)
-      const unclaimedRes = await fetch("/api/unclaimed-rewards");
+      const unclaimedRes = await optimizedFetch("/api/unclaimed-rewards", {}, {
+        enableDeduplication: true,
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 2
+      });
       const unclaimedData = await unclaimedRes.json();
 
       setEarningsData({
@@ -138,7 +149,12 @@ const EarningsDashboard = () => {
 
     try {
       setIsLoadingChart(true);
-      const res = await fetch(`/api/earnings/chart?range=${chartPeriod}`);
+      const res = await optimizedFetch(`/api/earnings/chart?range=${chartPeriod}`, {}, {
+        enableDeduplication: true,
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 2
+      });
       const data = await res.json();
 
       if (data.chartData) {
@@ -164,7 +180,12 @@ const EarningsDashboard = () => {
 
     try {
       setIsLoadingTransactions(true);
-      const res = await fetch("/api/earnings/transactions?limit=10");
+      const res = await optimizedFetch("/api/earnings/transactions?limit=10", {}, {
+        enableDeduplication: true,
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 2
+      });
       const data = await res.json();
 
       if (data.transactions) {
@@ -177,26 +198,31 @@ const EarningsDashboard = () => {
     }
   };
 
-  // Consolidated effect to prevent race conditions
+  // CRITICAL FIX: Split effects to prevent unnecessary API calls
   useEffect(() => {
     if (user?.id) {
-      // Initialize all data in sequence to prevent race conditions
+      // Initialize earnings and transactions only once
       const initializeData = async () => {
         try {
           await Promise.all([
             fetchEarningsData(),
             fetchTransactions(),
-            fetchChartData()
           ]);
         } catch (error) {
           console.error("Error initializing earnings data:", error);
-          // Don't throw - let component render with default states
         }
       };
       
       initializeData();
     }
-  }, [user?.id, chartPeriod]);
+  }, [user?.id]); // CRITICAL FIX: Only trigger on user change, not chartPeriod
+
+  // CRITICAL FIX: Separate effect for chart data to prevent double API calls
+  useEffect(() => {
+    if (user?.id) {
+      fetchChartData();
+    }
+  }, [user?.id, chartPeriod]); // CRITICAL FIX: Only chart data refetches on period change
 
   const handleTimeRangeChange = (value: string) => {
     setTimeRange(value as TimeRange);
@@ -229,11 +255,16 @@ const EarningsDashboard = () => {
 
     setCheckInLoading(true);
     try {
-      const response = await fetch("/api/daily-checkins", {
+      const response = await optimizedFetch("/api/daily-checkins", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+      }, {
+        enableDeduplication: false, // Don't deduplicate POST requests
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 2
       });
 
       if (response.ok) {
@@ -272,11 +303,16 @@ const EarningsDashboard = () => {
   const fetchTaskStats = async () => {
     try {
       setIsLoadingTaskStats(true);
-      const response = await fetch("/api/user-task-stats", {
+      const response = await optimizedFetch("/api/user-task-stats", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
+      }, {
+        enableDeduplication: true,
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 2
       });
 
       if (response.ok) {
@@ -298,11 +334,16 @@ const EarningsDashboard = () => {
   const fetchStreakData = async () => {
     try {
       setIsLoadingStreak(true);
-      const response = await fetch("/api/daily-checkins", {
+      const response = await optimizedFetch("/api/daily-checkins", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
+      }, {
+        enableDeduplication: true,
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 2
       });
 
       if (response.ok) {

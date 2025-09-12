@@ -88,8 +88,25 @@ export async function PUT(request: Request) {
 
     const { increment_amount } = await request.json();
 
-    if (typeof increment_amount !== 'number') {
-      return NextResponse.json({ error: 'Invalid increment amount' }, { status: 400 });
+    // SECURITY: Validate increment amount (per-task limits, not total claim limits)
+    if (typeof increment_amount !== 'number' || increment_amount < 0 || !Number.isInteger(increment_amount)) {
+      return NextResponse.json({ 
+        error: 'Invalid increment amount. Must be a positive integer.' 
+      }, { status: 400 });
+    }
+
+    // SECURITY: Block obvious exploitation attempts (but allow legitimate task rewards)
+    if (increment_amount > 1000) {
+      console.warn(`🚨 SECURITY ALERT: Suspicious SP increment attempt`, {
+        userId: user.id,
+        attemptedAmount: increment_amount,
+        timestamp: new Date().toISOString(),
+        userAgent: request.headers.get('user-agent')
+      });
+      
+      return NextResponse.json({ 
+        error: 'Invalid increment amount. Maximum 1000 SP per task completion.' 
+      }, { status: 400 });
     }
 
     // First fetch current unclaimed rewards, then increment

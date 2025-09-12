@@ -4,6 +4,8 @@ import { createClient } from '@/utils/supabase/client';
 import { useAppDispatch, useAppSelector } from '@/lib/store';
 import { selectCompletedTasksForStats, resetCompletedTasksForStats } from '@/lib/store/slices/taskSlice';
 import { selectNode } from '@/lib/store/slices/nodeSlice';
+import { optimizedFetch, getApiStats } from '@/lib/apiOptimization';
+import { deviceWebSocket } from '@/lib/websocketManager';
 
 interface CompletedTasks {
   three_d: number;
@@ -187,8 +189,8 @@ export const useNodeUptime = () => {
 
     intervalRef.current = setInterval(() => {
       const currentTime = Date.now();
-      // Only save every 60 seconds to avoid excessive writes
-      if (currentTime - lastSaveRef.current > 60000) {
+      // CRITICAL FIX: Only save every 5 minutes to reduce API load
+      if (currentTime - lastSaveRef.current > 300000) { // 5 minutes instead of 60 seconds
         setDeviceUptimes(current => {
           const updated = new Map(current);
           const device = updated.get(deviceId);
@@ -205,7 +207,7 @@ export const useNodeUptime = () => {
           return updated;
         });
       }
-    }, 10000); // Check every 10 seconds
+    }, 60000); // CRITICAL FIX: Check every 60 seconds instead of 10
   }, [saveToStorage]);
 
   // IMPROVED: Stop with better error handling and server sync
@@ -231,7 +233,7 @@ export const useNodeUptime = () => {
       // Stopping device session
 
       // Update server with final uptime and completed tasks from global state
-      const response = await fetch('/api/node-uptime', {
+      const response = await optimizedFetch('/api/node-uptime', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -241,6 +243,11 @@ export const useNodeUptime = () => {
           uptime_seconds: sessionDuration,
           completed_tasks: completedTasksForStats
         })
+      }, {
+        enableDeduplication: true,
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 3
       });
 
       const result: NodeUptimeResponse = await response.json();
@@ -251,7 +258,7 @@ export const useNodeUptime = () => {
           try {
             // Updating profile with completed tasks
 
-            const profileResponse = await fetch('/api/profile', {
+            const profileResponse = await optimizedFetch('/api/profile', {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',
@@ -259,6 +266,11 @@ export const useNodeUptime = () => {
               body: JSON.stringify({
                 completed_tasks: completedTasksForStats
               })
+            }, {
+              enableDeduplication: true,
+              enableCircuitBreaker: true,
+              enableRetry: true,
+              maxRetries: 2
             });
 
             if (profileResponse.ok) {
@@ -375,11 +387,16 @@ export const useNodeUptime = () => {
 
     try {
       // Sync with server logic here
-      const response = await fetch(`/api/devices/${deviceId}`, {
+      const response = await optimizedFetch(`/api/devices/${deviceId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+      }, {
+        enableDeduplication: true,
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 2
       });
 
       if (!response.ok) {
@@ -480,11 +497,16 @@ export const useNodeUptime = () => {
     try {
       // Validating uptime with server
 
-      const response = await fetch(`/api/devices/${deviceId}`, {
+      const response = await optimizedFetch(`/api/devices/${deviceId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+      }, {
+        enableDeduplication: true,
+        enableCircuitBreaker: true,
+        enableRetry: true,
+        maxRetries: 2
       });
 
       if (!response.ok) {

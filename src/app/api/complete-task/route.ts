@@ -21,8 +21,27 @@ export async function POST(request: Request) {
       multiplier
     } = await request.json();
 
-    if (typeof increment_amount !== 'number') {
-      return NextResponse.json({ error: 'Invalid increment amount' }, { status: 400 });
+    // SECURITY: Validate task completion amount (realistic per-task limits)
+    if (typeof increment_amount !== 'number' || increment_amount < 0 || !Number.isInteger(increment_amount)) {
+      return NextResponse.json({ 
+        error: 'Invalid task reward amount. Must be a positive integer.' 
+      }, { status: 400 });
+    }
+
+    // SECURITY: Block exploitation (normal tasks give 5-30 SP, allow up to 100 for special tasks)
+    if (increment_amount > 100) {
+      console.warn(`🚨 SECURITY ALERT: Suspicious task completion SP attempt`, {
+        userId: user.id,
+        attemptedAmount: increment_amount,
+        taskId: task_id,
+        taskType: task_type,
+        timestamp: new Date().toISOString(),
+        userAgent: request.headers.get('user-agent')
+      });
+      
+      return NextResponse.json({ 
+        error: 'Invalid task reward amount. Maximum 100 SP per single task completion.' 
+      }, { status: 400 });
     }
 
     // Call the Supabase edge function with server-side auth
