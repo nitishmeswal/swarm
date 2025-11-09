@@ -29,7 +29,6 @@ export const useSession = () => {
   useEffect(() => {
     const user = authService.getUser();
     if (user) {
-      console.log('🔍 useSession Loading User:', user);
       setSessionData({
         userId: user.id,
         email: user.email,

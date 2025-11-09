@@ -92,16 +92,6 @@ export function Sidebar({
   const normalizedPlan = currentPlan?.toLowerCase() || 'free';
   const isPremium = normalizedPlan !== 'free';
 
-  // 🔍 DEBUG: Log plan info
-  React.useEffect(() => {
-    console.log('🔍 Sidebar Plan Debug:', {
-      'currentPlan from usePlan': currentPlan,
-      'normalizedPlan': normalizedPlan,
-      'isPremium': isPremium,
-      'planLoading': planLoading
-    });
-  }, [currentPlan, normalizedPlan, isPremium, planLoading]);
-
   return (
     <>
       {/* Mobile overlay */}

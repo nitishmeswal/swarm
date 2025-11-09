@@ -15,6 +15,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   signup: (credentials: SignupCredentials) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -27,16 +28,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Load user from localStorage on mount
   useEffect(() => {
-    const storedUser = authService.getUser();
-    const isAuth = authService.isAuthenticated();
+    const loadUser = async () => {
+      const storedUser = authService.getUser();
+      const isAuth = authService.isAuthenticated();
+      
+      if (isAuth) {
+        if (storedUser) {
+          setUser(storedUser);
+        } else {
+          // Has token but no user data (e.g., Google OAuth callback)
+          // Fetch user profile from backend
+          try {
+            const profile = await authService.getProfile();
+            setUser(profile);
+          } catch (error) {
+            console.error('Failed to load user profile:', error);
+            // Token might be invalid, clear it
+            authService.logout();
+          }
+        }
+      }
+      
+      setIsLoading(false);
+    };
     
-    if (isAuth && storedUser) {
-      setUser(storedUser);
-      // Don't auto-refresh on mount to avoid excessive API calls
-      // User data will be refreshed on login/signup
-    }
-    
-    setIsLoading(false);
+    loadUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
@@ -98,6 +114,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Google login function
+  const loginWithGoogle = useCallback(async () => {
+    try {
+      await authService.loginWithGoogle();
+      // User will be redirected to Google, no need to set loading state
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Google login failed';
+      toast.error(message);
+      throw error;
+    }
+  }, []);
+
   // Logout function
   const logout = useCallback(() => {
     authService.logout();
@@ -111,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user && authService.isAuthenticated(),
     login,
     signup,
+    loginWithGoogle,
     logout,
     refreshUser,
   };

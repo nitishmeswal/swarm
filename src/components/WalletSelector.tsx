@@ -18,21 +18,12 @@ export const WalletSelector = ({ onClose }: WalletSelectorProps) => {
   const [currentWalletType, setCurrentWalletType] = useState<WalletType | null>(
     null
   );
-  const [forceUpdate, setForceUpdate] = useState(0);
 
   // Check if user is logged in and has a wallet - Use AuthContext OR user profile
   const isLoggedIn = !!user;
   // 🔥 FORCE CHECK: Look for wallet_address in user object
   const walletAddress = (user as any)?.wallet_address || (user as any)?.walletAddress || session.walletAddress;
   const hasWallet = !!walletAddress;
-
-  // Re-check wallet every 2 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setForceUpdate(prev => prev + 1);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Update current wallet type when session changes
   useEffect(() => {

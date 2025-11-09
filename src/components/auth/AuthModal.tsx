@@ -39,7 +39,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const { login: authLogin, signup: authSignup, isLoading: authLoading } = useAuth();
+  const { login: authLogin, signup: authSignup, loginWithGoogle, isLoading: authLoading } = useAuth();
 
   const [activeTab, setActiveTab] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
@@ -166,9 +166,19 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   };
 
   const handleGoogleLogin = async () => {
-    setError("");
-    toast.info("Google login not yet implemented");
-    // TODO: Implement Google OAuth with backend
+    try {
+      setError("");
+      setIsSubmitting(true);
+      await loginWithGoogle();
+      // User will be redirected to Google OAuth
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Google login failed";
+      setError(message);
+      toast.error(message);
+      trackError("google_login_error", message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const resetForm = () => {

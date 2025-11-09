@@ -23,7 +23,7 @@
     "@reduxjs/toolkit": "^1.9.7",
     "@solana/web3.js": "^1.87.6",
     "@supabase/ssr": "^0.0.10",
-    "@supabase/supabase-js": "^2.38.4",
+    "@supabase/supabase-js": "^2.80.0",
     "autoprefixer": "^10.4.16",
     "axios": "^1.12.2",
     "class-variance-authority": "^0.7.0",

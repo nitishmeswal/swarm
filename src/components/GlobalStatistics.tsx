@@ -127,13 +127,6 @@ export const GlobalStatistics = () => {
       setIsRefreshing(true);
       setIsLeaderboardLoading(true);
 
-      // 🔍 DEBUG: Check if user is logged in and token exists
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      console.log('🔍 User logged in:', !!user);
-      console.log('🔍 User ID:', user?.id);
-      console.log('🔍 Token exists:', !!token);
-      console.log('🔍 Token preview:', token ? token.substring(0, 20) + '...' : 'none');
-
       // Use /global-stats (unified endpoint) and /earnings/leaderboard
       const [statsResponse, leaderboardResponse] = await Promise.all([
         apiClient.get('/global-stats'),
@@ -181,10 +174,6 @@ export const GlobalStatistics = () => {
           }
         }
       }
-
-      console.log("✅ Global stats refreshed:", statsData);
-      console.log("✅ Leaderboard data:", leaderboardData);
-      console.log("✅ Current user rank:", currentUserRank);
     } catch (error) {
       console.error("Error refreshing data:", error);
     } finally {

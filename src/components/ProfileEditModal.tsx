@@ -302,14 +302,6 @@ export function ProfileEditModal({
                   <Calendar className="h-4 w-4 text-blue-400" />
                   <span>
                     {(() => {
-                      // Debug: Check all possible date fields
-                      console.log('🔍 Member Since Debug:', {
-                        created_at: user?.created_at,
-                        createdAt: (user as any)?.createdAt,
-                        joined_at: (user as any)?.joined_at,
-                        full_user: user
-                      });
-                      
                       const dateStr = user?.created_at || (user as any)?.createdAt || (user as any)?.joined_at;
                       
                       if (dateStr) {
@@ -319,7 +311,7 @@ export function ProfileEditModal({
                           day: 'numeric'
                         });
                       }
-                      return "Not available - check backend response";
+                      return "Not available";
                     })()}
                   </span>
                 </div>

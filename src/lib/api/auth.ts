@@ -78,6 +78,46 @@ class AuthService {
   }
 
   /**
+   * Initiate Google OAuth login
+   */
+  async loginWithGoogle(): Promise<void> {
+    try {
+      // Get Google OAuth URL from backend
+      const { data } = await apiClient.get<{ success: boolean; data: { url: string } }>(
+        '/auth/google'
+      );
+      
+      // Redirect to Google OAuth
+      if (data.data.url) {
+        window.location.href = data.data.url;
+      }
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  /**
+   * Handle Google OAuth callback
+   */
+  async handleGoogleCallback(code: string): Promise<AuthResponse> {
+    try {
+      const { data } = await apiClient.post<{ success: boolean; data: AuthResponse }>(
+        '/auth/google/callback',
+        { code }
+      );
+      
+      // Store token and user in localStorage
+      if (data.data.token) {
+        this.storeAuth(data.data.token, data.data.user);
+      }
+      
+      return data.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  /**
    * Get current authenticated user's profile
    */
   async getProfile(): Promise<User> {
@@ -134,7 +174,7 @@ class AuthService {
    */
   isAuthenticated(): boolean {
     if (typeof window === 'undefined') return false;
-    return !!localStorage.getItem('token');
+    return !!this.getToken(); // Use getToken() to check both localStorage and cookies
   }
 
   /**
@@ -158,7 +198,36 @@ class AuthService {
    */
   getToken(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('token');
+    
+    // Check localStorage first
+    const localToken = localStorage.getItem('token');
+    if (localToken) return localToken;
+    
+    // Check cookies (for Google OAuth)
+    const cookieToken = this.getTokenFromCookie();
+    if (cookieToken) {
+      // Store in localStorage for future use
+      localStorage.setItem('token', cookieToken);
+      return cookieToken;
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Get token from cookie
+   */
+  private getTokenFromCookie(): string | null {
+    if (typeof document === 'undefined') return null;
+    
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'auth_token' || name === 'token') {
+        return value;
+      }
+    }
+    return null;
   }
 
   /**

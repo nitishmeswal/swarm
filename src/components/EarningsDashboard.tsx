@@ -120,13 +120,11 @@ const EarningsDashboard = () => {
   // API functions - Fetch earnings data
   const fetchEarningsData = async () => {
     if (!user?.id) {
-      console.log('⚠️ No user ID, skipping earnings fetch');
       return;
     }
 
     try {
       setIsLoadingEarnings(true);
-      console.log('🔍 Fetching earnings data for user:', user.id);
 
       // Fetch both stats and earnings
       const [stats, earnings] = await Promise.all([
@@ -140,21 +138,12 @@ const EarningsDashboard = () => {
         })
       ]);
       
-      console.log('📊 Stats Response:', stats);
-      console.log('💰 Earnings Response:', earnings);
-      
       // Use stats if available, fallback to earnings or user data
       const totalBalance = stats?.totalBalance ?? earnings?.total_balance ?? user.total_balance ?? 0;
       const unclaimedReward = stats?.unclaimedReward ?? earnings?.total_unclaimed_reward ?? 0;
       const tasksCompleted = stats?.totalTasksCompleted ?? earnings?.total_tasks ?? 0;
       const todayEarnings = stats?.todayEarnings ?? 0;
       const avgPerTask = stats?.averageEarningsPerTask ?? 0;
-      
-      console.log('🔍 Task count sources:', {
-        fromStats: stats?.totalTasksCompleted,
-        fromEarnings: earnings?.total_tasks,
-        final: tasksCompleted
-      });
       
       setEarningsData({
         totalEarnings: totalBalance,
@@ -164,12 +153,6 @@ const EarningsDashboard = () => {
       });
       setUnclaimedRewards(unclaimedReward);
       setTaskCompleted(tasksCompleted);
-      
-      console.log('✅ Earnings data set:', {
-        totalBalance,
-        unclaimedReward,
-        tasksCompleted
-      });
     } catch (error) {
       console.error("❌ Error fetching earnings data:", error);
       // Set default values on error
@@ -189,18 +172,14 @@ const EarningsDashboard = () => {
   // Fetch categorized chart data
   const fetchChartData = async () => {
     if (!user?.id) {
-      console.log('⚠️ No user ID, skipping chart fetch');
       return;
     }
 
     try {
       setIsLoadingChart(true);
-      console.log('📊 Fetching chart data, period:', chartPeriod);
       
       const limit = chartPeriod === 'daily' ? 30 : chartPeriod === 'monthly' ? 12 : 3;
       const data = await earningsService.getChartData(chartPeriod as 'daily' | 'monthly' | 'yearly', limit);
-      
-      console.log('📊 Chart data received:', data?.length || 0, 'points');
       setChartData(data || []);
     } catch (error) {
       console.error("❌ Error fetching chart data:", error);
@@ -214,48 +193,32 @@ const EarningsDashboard = () => {
 
   const fetchTransactions = async () => {
     if (!user?.id) {
-      console.log('⚠️ No user ID, skipping transactions fetch');
       return;
     }
 
     try {
       setIsLoadingTransactions(true);
-      console.log('💳 Fetching transactions...');
       
       const data = await earningsService.getTransactions(10);
-      console.log('💳 Transactions received:', data);
 
       if (data && Array.isArray(data)) {
         // Convert API format to component format
         const formattedTransactions: Transaction[] = data.map((tx: any, index: number) => {
-          console.log(`📅 Transaction ${index}:`, {
-            id: tx.id,
-            created_at: tx.created_at,
-            timestamp: tx.timestamp,
-            date: tx.date,
-            amount: tx.amount
-          });
-          
           return {
             id: tx.id || `tx-${index}`,
             amount: tx.amount || 0,
-            // Try multiple timestamp fields
-            created_at: tx.created_at || tx.timestamp || tx.date || tx.createdAt || '',
-            earning_type: tx.type || tx.earning_type || tx.earningType || 'reward',
-            transaction_hash: tx.hash || tx.transaction_hash || tx.transactionHash || '',
-            totalAmount: tx.totalAmount || tx.total_amount || tx.amount || 0,
+            created_at: tx.timestamp || tx.created_at || tx.date || '',
+            earning_type: tx.type || tx.earning_type || 'reward',
+            transaction_hash: tx.hash || tx.transaction_hash || '',
+            totalAmount: tx.amount || 0,
           };
         });
         
-        console.log('✅ Formatted', formattedTransactions.length, 'transactions');
-        console.log('📅 First transaction timestamp:', formattedTransactions[0]?.created_at);
         setTransactions(formattedTransactions);
       } else {
-        console.log('⚠️ No transaction data or invalid format');
         setTransactions([]);
       }
     } catch (error) {
-      console.error("❌ Error fetching transactions:", error);
       setTransactions([]);
     } finally {
       setIsLoadingTransactions(false);
@@ -316,12 +279,8 @@ const EarningsDashboard = () => {
       // Show success message
       toast.success(`Daily check-in successful! 🎉 Streak: ${result.streak} days | Reward: ${result.reward} SP claimed!`);
       
-      // Refresh all data
-      await Promise.all([
-        fetchStreakData(),
-        fetchEarningsData(),
-        fetchTransactions()
-      ]);
+      // Only refresh streak data to avoid rate limit (earnings will update on next page load)
+      await fetchStreakData();
     } catch (error) {
       console.error("Error during check-in:", error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to check in';
@@ -358,16 +317,12 @@ const EarningsDashboard = () => {
   // Fetch streak data from API
   const fetchStreakData = async () => {
     if (!user?.id) {
-      console.log('⚠️ No user ID, skipping streak fetch');
       return;
     }
 
     try {
       setIsLoadingStreak(true);
-      console.log('🔥 Fetching streak data...');
-      
       const data = await earningsService.getStreakData();
-      console.log('✅ Streak data received:', data);
       setStreakData(data);
     } catch (error) {
       console.error("❌ Error fetching streak data:", error);

@@ -200,7 +200,6 @@ class EarningsService {
       const { data } = await apiClient.get<{ success: boolean; data: TaskStats }>(
         '/earnings/stats'
       );
-      console.log('📊 Raw API Response from /earnings/stats:', data);
       return data.data;
     } catch (error) {
       console.error('❌ Failed to fetch earnings stats:', error);
