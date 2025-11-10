@@ -17,6 +17,8 @@ const RATE_LIMITS = {
   '/api/complete-task': { requests: 20, windowMs: 60000 }, // 20 requests per minute  
   '/api/claim-rewards': { requests: 5, windowMs: 60000 }, // 5 requests per minute
   '/api/referrals': { requests: 15, windowMs: 60000 }, // 15 requests per minute
+  '/api/auth/login': { requests: 100, windowMs: 60000 }, // ✅ 100 login attempts per minute (testing)
+  '/api/auth/signup': { requests: 100, windowMs: 60000 }, // ✅ 100 signup attempts per minute (testing)
   default: { requests: 30, windowMs: 60000 } // 30 requests per minute for other APIs
 };
 
@@ -29,7 +31,7 @@ export function rateLimit(request: NextRequest): NextResponse | null {
   const pathname = new URL(request.url).pathname;
   
   // Get rate limit config for this endpoint
-  const config = RATE_LIMITS[pathname] || RATE_LIMITS.default;
+  const config = (RATE_LIMITS as Record<string, { requests: number; windowMs: number }>)[pathname] || RATE_LIMITS.default;
   const key = `${clientIP}:${pathname}`;
   
   const now = Date.now();

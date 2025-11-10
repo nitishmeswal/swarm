@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTierByName, freeSubscriptionTier, SubscriptionTier } from "@/types/subscriptionTiers";
 import apiClient from "@/lib/api/client";
+import { requestDeduplicator } from "@/lib/utils/requestDeduplicator";
 
 interface PlanContextType {
   currentPlan: string;
@@ -52,24 +53,34 @@ export function PlanProvider({ children }: PlanProviderProps) {
     }
 
     setIsLoading(true);
-    try {
-      // ✅ FIX: Fetch real subscription from backend using apiClient
-      const response = await apiClient.get('/subscriptions/current');
-      
-      const planName = response.data.data?.plan_name || 'free';
-      setCurrentPlan(planName);
-      setPlanDetails(getTierByName(planName));
-      setLastSynced(new Date());
-      setError(null);
-    } catch (err) {
-      console.error('Plan fetch error:', err);
-      // Fallback to free plan if endpoint not implemented yet
-      setError(null);
-      setCurrentPlan('free');
-      setPlanDetails(freeSubscriptionTier);
-    } finally {
-      setIsLoading(false);
-    }
+    
+    // ✅ CRITICAL FIX: Deduplicate plan fetches to prevent 429 errors
+    return requestDeduplicator.deduplicate(
+      `subscription-${user.id}`,
+      async () => {
+        try {
+          // ✅ FIX: Fetch real subscription from backend using apiClient
+          const response = await apiClient.get('/subscriptions/current');
+          
+          const planName = response.data.data?.plan_name || 'free';
+          setCurrentPlan(planName);
+          setPlanDetails(getTierByName(planName));
+          setLastSynced(new Date());
+          setError(null);
+          return planName;
+        } catch (err) {
+          console.error('Plan fetch error:', err);
+          // Fallback to free plan if endpoint not implemented yet
+          setError(null);
+          setCurrentPlan('free');
+          setPlanDetails(freeSubscriptionTier);
+          return 'free';
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      { cacheTTL: 30000 } // Cache for 30 seconds (longer than devices)
+    );
   };
 
   const syncPlan = async () => {

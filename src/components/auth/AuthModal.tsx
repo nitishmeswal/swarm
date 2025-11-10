@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,8 +104,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       await authLogin({ email: loginEmail.trim(), password: loginPassword });
       // Track successful login
       trackLogin("email");
+      // ✅ Don't call resetForm() here - handleClose will do it when modal closes
       onClose();
-      resetForm();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Login failed";
       setError(errorMessage);
@@ -155,9 +156,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       // Track successful signup
       trackSignup("email");
 
-      // Close modal on successful signup
+      // ✅ Don't call resetForm() here - handleClose will do it when modal closes
       onClose();
-      resetForm();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
@@ -213,9 +213,15 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setOtpVerified(false);
   };
 
-  const handleClose = () => {
-    resetForm();
-    onClose();
+  const handleClose = (open: boolean) => {
+    // ✅ FIX: Only reset form when modal is actually closing (user clicks X or outside)
+    // Don't reset on internal state changes that trigger onOpenChange
+    if (!open) {
+      // Modal is closing - reset form
+      resetForm();
+      onClose();
+    }
+    // If open is true, dialog is opening - do nothing
   };
 
   // Forgot password functions
@@ -332,6 +338,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <DialogTitle className="text-2xl font-bold text-center text-white">
             Welcome to Swarm
           </DialogTitle>
+          <DialogDescription className="text-center text-gray-400">
+            Sign in to your account or create a new one
+          </DialogDescription>
         </DialogHeader>
 
         {error && (
@@ -689,6 +698,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 <Key className="w-5 h-5" />
                 {otpVerified ? "Set New Password" : "Verify OTP"}
               </DialogTitle>
+              <DialogDescription className="text-gray-400">
+                {otpVerified ? "Create a new password for your account" : "Enter the verification code sent to your email"}
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">

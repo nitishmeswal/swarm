@@ -29,6 +29,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Load user from localStorage on mount
   useEffect(() => {
     const loadUser = async () => {
+      // Check if user explicitly logged out
+      const isLoggedOut = sessionStorage.getItem('loggedOut');
+      if (isLoggedOut) {
+        // Clear the flag and stay logged out
+        sessionStorage.removeItem('loggedOut');
+        setIsLoading(false);
+        return;
+      }
+      
       const storedUser = authService.getUser();
       const isAuth = authService.isAuthenticated();
       
@@ -72,7 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       const updatedUser = await authService.getProfile();
-      console.log('🔄 AuthContext refreshUser - Updated user:', updatedUser);
       setUser(updatedUser);
     } catch (error) {
       console.error('❌ Failed to refresh user:', error);

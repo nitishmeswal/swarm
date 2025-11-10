@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/lib/toast";
 import { usePlan } from "@/contexts/PlanContext";
+import { requestDeduplicator } from "@/lib/utils/requestDeduplicator";
+import { actionThrottler } from "@/lib/utils/actionThrottler";
 import { useAppDispatch, useAppSelector } from "@/lib/store";
 import { registerDevice, startNode, stopNode, selectCurrentUptime, selectNode } from "@/lib/store/slices/nodeSlice";
 import { generateTasks, startProcessingTasks } from "@/lib/store/slices/taskSlice";
@@ -56,55 +58,75 @@ export const useNodeController = () => {
 
   const fetchDevices = useCallback(async () => {
     if (!user?.id) return;
-    try {
-      setIsLoadingDevices(true);
-      const devices = await deviceService.getDevices();
-      const mappedDevices = devices.map((d: any) => {
-        const hasActiveSession = d.sessionToken !== null && d.sessionToken !== undefined;
-        const deviceStatus = hasActiveSession ? "online" : "offline";
-        
-        const tier = d.reward_tier || d.rewardTier || d.hardware_tier || "cpu";
-        
-        return {
-          id: d.id,
-          device_name: d.deviceName || d.device_name || "Unnamed Device",
-          hardware_tier: tier,
-          gpu_model: d.gpuModel || d.gpu_model || "Unknown GPU",
-          status: deviceStatus,
-          uptime: d.uptime || 0,
-          device_type: d.deviceType || d.device_type || "desktop",
-        };
-      });
-      setNodes(mappedDevices);
-      if (mappedDevices.length > 0 && !selectedNodeId) {
-        setSelectedNodeId(mappedDevices[0].id);
-      }
-    } catch (error) {
-      // Error handled silently
-    } finally {
-      setIsLoadingDevices(false);
-    }
+    
+    // ✅ CRITICAL FIX: Request deduplication - prevents multiple simultaneous calls
+    return requestDeduplicator.deduplicate(
+      `devices-${user.id}`,
+      async () => {
+        try {
+          setIsLoadingDevices(true);
+          const devices = await deviceService.getDevices();
+          const mappedDevices = devices.map((d: any) => {
+            const hasActiveSession = d.sessionToken !== null && d.sessionToken !== undefined;
+            const deviceStatus = hasActiveSession ? "online" : "offline";
+            
+            const tier = d.reward_tier || d.rewardTier || d.hardware_tier || "cpu";
+            
+            return {
+              id: d.id,
+              device_name: d.deviceName || d.device_name || "Unnamed Device",
+              hardware_tier: tier,
+              gpu_model: d.gpuModel || d.gpu_model || "Unknown GPU",
+              status: deviceStatus,
+              uptime: d.uptime || 0,
+              device_type: d.deviceType || d.device_type || "desktop",
+            };
+          });
+          setNodes(mappedDevices);
+          if (mappedDevices.length > 0 && !selectedNodeId) {
+            setSelectedNodeId(mappedDevices[0].id);
+          }
+          return mappedDevices;
+        } catch (error) {
+          // Error handled silently
+          throw error;
+        } finally {
+          setIsLoadingDevices(false);
+        }
+      },
+      { cacheTTL: 10000 } // ✅ Increased to 10s to handle 30 req/min limit
+    );
   }, [user?.id, selectedNodeId]);
 
   const fetchEarnings = useCallback(async () => {
     if (!user?.id) return;
-    try {
-      const earnings = await earningsService.getEarnings();
-      
-      if (earnings && typeof earnings === 'object') {
-        const balance = earnings.total_balance || 0;
-        const unclaimed = earnings.total_unclaimed_reward || 0;
-        
-        setTotalEarnings(balance);
-        setUnclaimedRewards(unclaimed);
-      } else {
-        setTotalEarnings(0);
-        setUnclaimedRewards(0);
-      }
-    } catch (error) {
-      setTotalEarnings(0);
-      setUnclaimedRewards(0);
-    }
+    
+    // ✅ CRITICAL FIX: Deduplicate earnings fetches to prevent 429 errors
+    return requestDeduplicator.deduplicate(
+      `earnings-${user.id}`,
+      async () => {
+        try {
+          const earnings = await earningsService.getEarnings();
+          
+          if (earnings && typeof earnings === 'object') {
+            const balance = earnings.total_balance || 0;
+            const unclaimed = earnings.total_unclaimed_reward || 0;
+            
+            setTotalEarnings(balance);
+            setUnclaimedRewards(unclaimed);
+          } else {
+            setTotalEarnings(0);
+            setUnclaimedRewards(0);
+          }
+          return earnings;
+        } catch (error) {
+          setTotalEarnings(0);
+          setUnclaimedRewards(0);
+          throw error;
+        }
+      },
+      { cacheTTL: 10000 } // Cache for 10 seconds
+    );
   }, [user?.id]);
 
   const syncUptimeToBackend = async () => {
@@ -169,6 +191,14 @@ export const useNodeController = () => {
   const toggleNodeStatus = async () => {
     if (!selectedNodeId || !selectedNode) return;
 
+    // ✅ CRITICAL FIX: Throttle rapid clicks (2-second cooldown)
+    const throttleKey = `toggle-${selectedNodeId}`;
+    if (!actionThrottler.canExecute(throttleKey, 2000)) {
+      const remaining = actionThrottler.getRemainingCooldown(throttleKey, 2000);
+      toast.info(`Please wait ${Math.ceil(remaining / 1000)}s before clicking again`);
+      return;
+    }
+
     // 🔥 MULTI-DEVICE FIX: Check if we're stopping THIS device or starting a different one
     const isStoppingCurrentDevice = isNodeActive && runningDeviceId === selectedNodeId;
     const isStartingDifferentDevice = isNodeActive && runningDeviceId !== selectedNodeId;
@@ -194,23 +224,21 @@ export const useNodeController = () => {
         const { resetTasks } = await import('@/lib/store/slices/taskSlice');
         dispatch(resetTasks());
 
-        // 3. Final uptime sync to backend before stopping
-        const finalRemaining = Math.max(0, remainingUptime - currentUptime);
-        try {
-          await nodeControlService.syncUptime(selectedNodeId, finalRemaining);
-        } catch (err) {
-          // Error handled silently
-        }
-
-        // 4. ✅ CRITICAL: Stop node in Redux FIRST (prevents warmup from starting tasks)
+        // 3. ✅ CRITICAL: Stop node in Redux FIRST (prevents warmup from starting tasks)
         dispatch(stopNode());
         
-        // 5. Stop task engine (prevents more tasks from processing)
+        // 4. Stop task engine (prevents more tasks from processing)
         const { stopTaskEngine } = await import('@/lib/store/taskEngine');
         stopTaskEngine();
         
-        // 6. Stop session with DB cleanup validation
-        await nodeControlService.stopSession(selectedNodeId, sessionToken);
+        // 5. ✅ OPTIMIZATION: Run final sync and session stop in parallel
+        const finalRemaining = Math.max(0, remainingUptime - currentUptime);
+        await Promise.allSettled([
+          nodeControlService.syncUptime(selectedNodeId, finalRemaining),
+          nodeControlService.stopSession(selectedNodeId, sessionToken),
+        ]);
+        
+        // 6. Clear local state
         setSessionToken(null);
         setRemainingUptime(0);
         
@@ -218,7 +246,8 @@ export const useNodeController = () => {
         SessionManager.clearSession(selectedNodeId);
         setRunningDeviceId(null); // Clear running device ID
         
-        // 7. Refresh devices to confirm session cleared
+        // 7. ✅ OPTIMIZATION: Invalidate cache and fetch devices once
+        requestDeduplicator.invalidate(`devices-${user?.id}`);
         await fetchDevices();
       } catch (error) {
         // Error handled silently

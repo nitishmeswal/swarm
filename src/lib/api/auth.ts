@@ -160,12 +160,45 @@ class AuthService {
 
   /**
    * Log out current user
+   * Comprehensive cleanup to prevent auto re-login
    */
   logout(): void {
     if (typeof window !== 'undefined') {
+      // 1. Clear all localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      
+      // 2. Clear all sessionStorage
+      sessionStorage.clear();
+      
+      // 3. Clear all auth cookies
+      this.clearAllCookies();
+      
+      // 4. Set logout flag to prevent auto-login
+      sessionStorage.setItem('loggedOut', 'true');
+      
+      // 5. Redirect to home
       window.location.href = '/';
+    }
+  }
+  
+  /**
+   * Clear all cookies (especially auth tokens)
+   */
+  private clearAllCookies(): void {
+    if (typeof document === 'undefined') return;
+    
+    // Get all cookies and clear them
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const eqPos = cookie.indexOf('=');
+      const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
+      
+      // Clear cookie for all possible paths
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
     }
   }
 
