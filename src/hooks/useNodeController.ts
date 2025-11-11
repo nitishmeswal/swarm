@@ -129,10 +129,12 @@ export const useNodeController = () => {
     );
   }, [user?.id]);
 
+  // ✅ FIXED: Sync remaining uptime to backend (backend countdown system)
   const syncUptimeToBackend = async () => {
     if (!selectedNodeId || !isNodeActive) return;
     
-    // ✅ FIXED: Calculate remaining time correctly
+    // Calculate remaining time: start_remaining - elapsed_in_session
+    // Backend will update: devices.uptime = timeRemaining
     const timeRemaining = Math.max(0, remainingUptime - currentUptime);
     
     try {
@@ -140,7 +142,7 @@ export const useNodeController = () => {
       // 🔒 Update SessionManager timestamp (keep-alive)
       SessionManager.updateSessionTimestamp(selectedNodeId);
     } catch (error) {
-      // Error handled silently
+      console.warn('⚠️ Uptime sync failed:', error);
     }
   };
 
@@ -199,7 +201,7 @@ export const useNodeController = () => {
       return;
     }
 
-    // 🔥 MULTI-DEVICE FIX: Check if we're stopping THIS device or starting a different one
+    // MULTI-DEVICE FIX: Check if we're stopping THIS device or starting a different one
     const isStoppingCurrentDevice = isNodeActive && runningDeviceId === selectedNodeId;
     const isStartingDifferentDevice = isNodeActive && runningDeviceId !== selectedNodeId;
 
@@ -231,12 +233,22 @@ export const useNodeController = () => {
         const { stopTaskEngine } = await import('@/lib/store/taskEngine');
         stopTaskEngine();
         
-        // 5. ✅ OPTIMIZATION: Run final sync and session stop in parallel
+        // 5. ✅ CRITICAL: Always sync uptime BEFORE stopping session
         const finalRemaining = Math.max(0, remainingUptime - currentUptime);
-        await Promise.allSettled([
-          nodeControlService.syncUptime(selectedNodeId, finalRemaining),
-          nodeControlService.stopSession(selectedNodeId, sessionToken),
-        ]);
+        
+        // First sync uptime to ensure backend has latest value
+        try {
+          await nodeControlService.syncUptime(selectedNodeId, finalRemaining);
+        } catch (error) {
+          console.error('❌ Failed to sync final uptime:', error);
+        }
+        
+        // Then stop session
+        try {
+          await nodeControlService.stopSession(selectedNodeId, sessionToken);
+        } catch (error) {
+          console.error('❌ Failed to stop session:', error);
+        }
         
         // 6. Clear local state
         setSessionToken(null);
@@ -281,24 +293,24 @@ export const useNodeController = () => {
         const planName = planDetails?.name || 'free';
         const limits = getPlanLimits(planName);
         
-        // 1. Get remaining time from DB (countdown approach)
+        // ✅ SINGLE SOURCE OF TRUTH: Fetch fresh uptime from backend
+        await fetchDevices(); // Refresh to get latest backend state
         const device = nodes.find(n => n.id === selectedNodeId);
         let dbRemainingTime = device?.uptime || limits.maxUptime;
         
-        // CRITICAL FIX: If uptime > maxUptime, it means backend was accumulating (bug)
-        // Reset to full allowance and sync to backend
+        // Validate backend uptime is within plan limits
         if (dbRemainingTime > limits.maxUptime) {
+          console.warn(`⚠️ Backend uptime (${dbRemainingTime}s) exceeds plan limit (${limits.maxUptime}s). Resetting.`);
           dbRemainingTime = limits.maxUptime;
           
-          // Sync corrected value to backend immediately
           try {
             await nodeControlService.syncUptime(selectedNodeId, limits.maxUptime);
           } catch (err) {
-            // Error handled silently
+            console.error('Failed to reset uptime:', err);
           }
         }
         
-        // 2. Check if time remaining
+        // Check if time remaining
         if (dbRemainingTime <= 0) {
           const formatTime = (sec: number) => {
             const h = Math.floor(sec / 3600);

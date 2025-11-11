@@ -13,8 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mail, Lock, User, Eye, EyeOff, Key, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
-// TODO: Replace with Express.js backend API
 import { toast } from "sonner";
+import apiClient from "@/lib/api/client";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -169,25 +169,37 @@ export function LoginModal({
       return;
     }
 
+    // ✅ Simple rate limiting: 5 attempts per hour
+    const rateLimitKey = `otp_attempts_${forgotPasswordEmail}`;
+    const attempts = JSON.parse(localStorage.getItem(rateLimitKey) || '[]');
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+    
+    // Remove attempts older than 1 hour
+    const recentAttempts = attempts.filter((time: number) => now - time < oneHour);
+    
+    if (recentAttempts.length >= 5) {
+      setError("Rate limit exceeded. Please wait before trying again.");
+      return;
+    }
+
     try {
       setIsResetPasswordLoading(true);
       setError("");
 
-      // TODO: Replace with Express.js backend API
-      console.log('Password reset disabled - implement Express.js backend');
-      const error = new Error('Backend disabled');
-
-      if (error) {
-        console.error("OTP send error:", error);
-        setError(`Failed to send OTP: ${error.message}`);
-        return;
-      }
+      // Send OTP via Express backend
+      await apiClient.post('/auth/reset-password/send-otp', { email: forgotPasswordEmail });
+      
+      // ✅ Track successful attempt
+      recentAttempts.push(now);
+      localStorage.setItem(rateLimitKey, JSON.stringify(recentAttempts));
 
       toast.success("OTP sent to your email!");
       setShowOtpModal(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("OTP send error:", error);
-      setError("Failed to send OTP");
+      const message = error.response?.data?.message || "Failed to send OTP";
+      setError(message);
     } finally {
       setIsResetPasswordLoading(false);
     }
@@ -208,25 +220,22 @@ export function LoginModal({
       setIsVerifyingOtp(true);
       setError("");
 
-      // TODO: Replace with Express.js backend API
-      console.log('OTP verification disabled - implement Express.js backend');
-      const error = new Error('Backend disabled');
-
-      if (error) {
-        console.error("OTP verification error:", error);
-        if (error.message.includes('expired')) {
-          setError("OTP has expired. Please request a new one.");
-        } else {
-          setError("Invalid OTP. Please try again.");
-        }
-        return;
-      }
+      // Verify OTP via Express backend (NEW TWO-STEP ENDPOINT)
+      await apiClient.post('/auth/verify-otp', { 
+        email: forgotPasswordEmail, 
+        otp 
+      });
 
       toast.success("OTP verified successfully!");
       setOtpVerified(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("OTP verification error:", error);
-      setError("Invalid OTP. Please try again.");
+      const message = error.response?.data?.message || "";
+      if (message.includes('expired')) {
+        setError("OTP has expired. Please request a new one.");
+      } else {
+        setError("Invalid OTP. Please try again.");
+      }
     } finally {
       setIsVerifyingOtp(false);
     }
@@ -257,15 +266,11 @@ export function LoginModal({
       setIsUpdatingPassword(true);
       setError("");
 
-      // TODO: Replace with Express.js backend API
-      console.log('Password update disabled - implement Express.js backend');
-      const error = new Error('Backend disabled');
-
-      if (error) {
-        console.error("Password update error:", error);
-        setError(`Failed to update password: ${error.message}`);
-        return;
-      }
+      // Update password via Express backend (NEW TWO-STEP ENDPOINT)
+      await apiClient.post('/auth/set-new-password', { 
+        email: forgotPasswordEmail,
+        new_password: newPassword 
+      });
 
       toast.success("Password updated successfully!");
       
@@ -274,9 +279,10 @@ export function LoginModal({
       setShowForgotPassword(false);
       resetForgotPasswordStates();
       setActiveTab("login");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Password update error:", error);
-      setError("Failed to update password");
+      const message = error.response?.data?.message || "Failed to update password";
+      setError(message);
     } finally {
       setIsUpdatingPassword(false);
     }

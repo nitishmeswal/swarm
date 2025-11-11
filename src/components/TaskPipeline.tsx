@@ -436,15 +436,15 @@ export const TaskPipeline = () => {
                       <p className="text-xs text-white/55 mt-1">
                         {elapsed}s / {completionTime}s • {remaining}s remaining
                       </p>
-                      <div className="w-full h-2 bg-[#1A1A4C] rounded-full overflow-hidden mt-2 relative">
+                      <div className="w-full h-2.5 bg-[#1A1A4C] rounded-full overflow-visible mt-2 relative">
                         <div
-                          className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-300 ease-out relative"
+                          className="h-full bg-gradient-to-r from-[#06115D] via-[#0361DA] to-[#20A5EF] rounded-full transition-all duration-300 ease-out relative"
                           style={{ width: `${Math.round(progress)}%` }}
                         >
                           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
                         </div>
-                        <div className="absolute top-0 right-2 text-[10px] text-white/70 font-medium">
-                          {Math.round(progress)}%
+                        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-[10px] font-semibold pointer-events-none">
+                          <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{Math.round(progress)}%</span>
                         </div>
                       </div>
                     </div>

@@ -316,11 +316,29 @@ const Settings: React.FC = () => {
       return;
     }
 
+    // ✅ Simple rate limiting: 5 attempts per hour
+    const rateLimitKey = `otp_attempts_${email}`;
+    const attempts = JSON.parse(localStorage.getItem(rateLimitKey) || '[]');
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+    
+    // Remove attempts older than 1 hour
+    const recentAttempts = attempts.filter((time: number) => now - time < oneHour);
+    
+    if (recentAttempts.length >= 5) {
+      toast.error("Rate limit exceeded. Please wait before trying again.");
+      return;
+    }
+
     try {
       setIsResetPasswordLoading(true);
 
       // Send OTP via Express backend
       await apiClient.post('/auth/reset-password/send-otp', { email });
+      
+      // ✅ Track successful attempt
+      recentAttempts.push(now);
+      localStorage.setItem(rateLimitKey, JSON.stringify(recentAttempts));
 
       toast.success(t("otp_sent"));
       setShowOtpModal(true);
@@ -367,8 +385,8 @@ const Settings: React.FC = () => {
     try {
       setIsVerifyingOtp(true);
 
-      // Verify OTP via Express backend
-      await apiClient.post('/auth/reset-password/verify-otp', { 
+      // Verify OTP via Express backend (NEW TWO-STEP ENDPOINT)
+      await apiClient.post('/auth/verify-otp', { 
         email: otpEmail || email, 
         otp 
       });
@@ -419,11 +437,10 @@ const Settings: React.FC = () => {
     try {
       setIsUpdatingPassword(true);
 
-      // Update password via Express backend
-      await apiClient.post('/auth/reset-password/update', { 
+      // Update password via Express backend (NEW TWO-STEP ENDPOINT)
+      await apiClient.post('/auth/set-new-password', { 
         email: otpEmail || email,
-        otp,
-        newPassword 
+        new_password: newPassword 
       });
 
       toast.success(t("password_updated"));

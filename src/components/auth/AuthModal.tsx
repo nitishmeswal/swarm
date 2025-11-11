@@ -26,6 +26,7 @@ import {
 import { FcGoogle } from "react-icons/fc";
 import { toast } from "sonner";
 import { trackLogin, trackSignup, trackError } from "@/lib/analytics";
+import apiClient from "@/lib/api/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   validateLoginForm, 
@@ -242,16 +243,37 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       return;
     }
 
+    // ✅ Simple rate limiting: 5 attempts per hour
+    const rateLimitKey = `otp_attempts_${forgotPasswordEmail}`;
+    const attempts = JSON.parse(localStorage.getItem(rateLimitKey) || '[]');
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+    
+    // Remove attempts older than 1 hour
+    const recentAttempts = attempts.filter((time: number) => now - time < oneHour);
+    
+    if (recentAttempts.length >= 5) {
+      setError("Rate limit exceeded. Please wait before trying again.");
+      return;
+    }
+
     try {
       setIsResetPasswordLoading(true);
       setError("");
 
-      // TODO: Implement password reset with backend
-      toast.info("Password reset not yet implemented");
-      return;
-    } catch (error) {
+      // Send OTP via Express backend
+      await apiClient.post('/auth/reset-password/send-otp', { email: forgotPasswordEmail });
+      
+      // ✅ Track successful attempt
+      recentAttempts.push(now);
+      localStorage.setItem(rateLimitKey, JSON.stringify(recentAttempts));
+
+      toast.success("OTP sent to your email!");
+      setShowOtpModal(true);
+    } catch (error: any) {
       console.error("OTP send error:", error);
-      setError("Failed to send OTP");
+      const message = error.response?.data?.message || "Failed to send OTP";
+      setError(message);
     } finally {
       setIsResetPasswordLoading(false);
     }
@@ -272,12 +294,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setIsVerifyingOtp(true);
       setError("");
 
-      // TODO: Implement OTP verification with backend
-      toast.info("OTP verification not yet implemented");
-      return;
-    } catch (error) {
+      // Verify OTP via Express backend (NEW TWO-STEP ENDPOINT)
+      await apiClient.post('/auth/verify-otp', { 
+        email: forgotPasswordEmail, 
+        otp 
+      });
+
+      toast.success("OTP verified successfully!");
+      setOtpVerified(true);
+    } catch (error: any) {
       console.error("OTP verification error:", error);
-      setError("Invalid OTP. Please try again.");
+      const message = error.response?.data?.message || "";
+      if (message.includes('expired')) {
+        setError("OTP has expired. Please request a new one.");
+      } else {
+        setError("Invalid OTP. Please try again.");
+      }
     } finally {
       setIsVerifyingOtp(false);
     }
@@ -308,12 +340,23 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setIsUpdatingPassword(true);
       setError("");
 
-      // TODO: Implement password update with backend
-      toast.info("Password update not yet implemented");
-      return;
-    } catch (error) {
+      // Update password via Express backend (NEW TWO-STEP ENDPOINT)
+      await apiClient.post('/auth/set-new-password', { 
+        email: forgotPasswordEmail,
+        new_password: newPassword 
+      });
+
+      toast.success("Password updated successfully!");
+      
+      // Reset all states and close modals
+      setShowOtpModal(false);
+      setShowForgotPassword(false);
+      resetForgotPasswordStates();
+      setActiveTab("login");
+    } catch (error: any) {
       console.error("Password update error:", error);
-      setError("Failed to update password");
+      const message = error.response?.data?.message || "Failed to update password";
+      setError(message);
     } finally {
       setIsUpdatingPassword(false);
     }

@@ -79,21 +79,26 @@ export const NodeControlPanel = () => {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
     
+    // ✅ CLEAR STALE DATA: Remove localStorage for old device to prevent stale uptime
+    if (selectedNodeId) {
+      localStorage.removeItem(`device_session_${selectedNodeId}`);
+    }
+    
     // Now switch to the new device
     setSelectedNodeId(newDeviceId);
   };
 
-  // ✅ FIXED: Calculate total accumulated uptime from DB (works even when node is offline)
+  // ✅ SINGLE SOURCE OF TRUTH: Backend uptime calculation
   const planMaxUptime = planDetails?.maxUptime || 14400;
   
-  // Get DB uptime from selected node (backend value)
+  // Backend stores REMAINING time (countdown)
   const dbUptimeRemaining = selectedNode?.uptime || planMaxUptime;
   
-  // Calculate accumulated uptime: maxUptime - DB remaining
-  // If node is active, add current session time
+  // Calculate ACCUMULATED time (count up for display)
+  // Formula: accumulated = maxUptime - backend_remaining + current_session_elapsed
   const totalAccumulatedUptime = isNodeActive 
-    ? planMaxUptime - (remainingUptime - localUptime)  // Active: use live countdown
-    : planMaxUptime - dbUptimeRemaining;                // Offline: use DB value
+    ? planMaxUptime - dbUptimeRemaining + localUptime  // Active: base + current session
+    : planMaxUptime - dbUptimeRemaining;                // Offline: just base from DB
 
   // ✅ FIXED: Smooth uptime ticker every second
   React.useEffect(() => {
@@ -430,7 +435,7 @@ export const NodeControlPanel = () => {
                   {isMounted ? formatUptime(Math.max(0, totalAccumulatedUptime)) : "0h 0m 0s"}
                 </div>
                 <div className="text-xs text-white/50">
-                  Remaining: {isMounted ? formatUptime(Math.max(0, isNodeActive ? (remainingUptime - localUptime) : dbUptimeRemaining)) : "0h 0m 0s"}
+                  Remaining: {isMounted ? formatUptime(Math.max(0, dbUptimeRemaining - (isNodeActive ? localUptime : 0))) : "0h 0m 0s"}
                 </div>
               </div>
             </div>
