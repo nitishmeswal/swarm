@@ -5,6 +5,9 @@
 
 import apiClient, { getErrorMessage } from './client';
 
+// ✅ CRITICAL: Valid subscription plan values (must match backend ENUM)
+export type SubscriptionPlan = 'free' | 'basic' | 'ultimate' | 'enterprise';
+
 export interface User {
   id: string;
   email: string;
@@ -15,7 +18,7 @@ export interface User {
   referralCode?: string;
   wallet_address?: string;
   wallet_type?: string;
-  plan?: string;  // ✅ ADD SUBSCRIPTION PLAN
+  plan: SubscriptionPlan;  // ✅ CRITICAL: Backend returns this field (maps from subscription_plan column)
 }
 
 export interface AuthResponse {

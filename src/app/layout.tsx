@@ -12,6 +12,7 @@ import { GA_MEASUREMENT_ID } from "@/lib/analytics";
 import "@/lib/logger"; // Initialize production logger
 import { Toaster } from 'sonner';
 import { ReferralPopupHandler } from "@/components/ReferralPopupHandler";
+import { OAuthCallbackHandler } from "@/components/OAuthCallbackHandler";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,6 +31,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={inter.className}>
         <Toaster position="top-right" />
+        <OAuthCallbackHandler />
         <ReduxProvider>
           <AuthProvider>
             <PlanProvider>

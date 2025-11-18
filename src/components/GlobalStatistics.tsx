@@ -120,14 +120,25 @@ export const GlobalStatistics = () => {
 
   const userProfile = user;
 
-  // ✅ OLD FUNCTIONS REMOVED - Now using unified handleRefresh with apiClient
+  /**
+   * ✅ RANK DISPLAY LOGIC (Updated for backend v2)
+   * 
+   * Backend now returns current_user rank in /global-stats response:
+   * - statsData.current_user.rank (numeric, e.g., 1241)
+   * - This eliminates the need for a separate /earnings/my-rank call
+   * 
+   * Fallback order:
+   * 1. Get rank from global-stats.current_user (primary)
+   * 2. Check if user is in top 100 leaderboard (secondary)
+   * 3. Show "N/A" if neither available
+   */
 
   const handleRefresh = useCallback(async () => {
     try {
       setIsRefreshing(true);
       setIsLeaderboardLoading(true);
 
-      // Use /global-stats (unified endpoint) and /earnings/leaderboard
+      // ✅ OPTIMIZED: Use /global-stats (includes current_user rank) and /earnings/leaderboard
       const [statsResponse, leaderboardResponse] = await Promise.all([
         apiClient.get('/global-stats'),
         apiClient.get('/earnings/leaderboard?limit=100')
@@ -145,42 +156,47 @@ export const GlobalStatistics = () => {
       });
       setTotalEarnings(statsData.global_sp || 0);
 
-      // Update leaderboard
+      // ✅ PRIMARY: Get rank from global-stats (backend now includes current_user)
+      if (statsData.current_user && user) {
+        setCurrentUserRank({
+          user_id: statsData.current_user.user_id || user.id,
+          username: statsData.current_user.username || user.username || 'You',
+          total_earnings: statsData.current_user.total_earnings || user.total_balance || 0,
+          rank: statsData.current_user.rank,
+        });
+      } else if (user) {
+        // ✅ FALLBACK: Check if user is in top 100 leaderboard
+        const leaderboardArray = Array.isArray(leaderboardData) 
+          ? leaderboardData 
+          : leaderboardData.top_10 || [];
+        
+        const userInLeaderboard = leaderboardArray.find((entry: any) => entry.user_id === user.id);
+        if (userInLeaderboard) {
+          setCurrentUserRank({
+            user_id: userInLeaderboard.user_id,
+            username: userInLeaderboard.username,
+            total_earnings: userInLeaderboard.total_earnings,
+            rank: userInLeaderboard.rank,
+          });
+        }
+        // If not in global-stats and not in leaderboard, rank will show N/A
+      }
+
+      // Update leaderboard display
       if (leaderboardData) {
         const leaderboardArray = Array.isArray(leaderboardData) 
           ? leaderboardData 
           : leaderboardData.top_10 || [];
         
         setLeaderboard(leaderboardArray);
-        
-        // Set current user rank from leaderboard response
-        if (leaderboardData.current_user && user) {
-          setCurrentUserRank({
-            user_id: leaderboardData.current_user.user_id || user.id,
-            username: leaderboardData.current_user.username || user.username || 'You',
-            total_earnings: leaderboardData.current_user.total_earnings || user.total_balance || 0,
-            rank: leaderboardData.current_user.rank,
-          });
-        } else if (user) {
-          // Check if user is in top 10
-          const userInTop10 = leaderboardArray.find((entry: any) => entry.user_id === user.id);
-          if (userInTop10) {
-            setCurrentUserRank({
-              user_id: userInTop10.user_id,
-              username: userInTop10.username,
-              total_earnings: userInTop10.total_earnings,
-              rank: userInTop10.rank,
-            });
-          }
-        }
       }
     } catch (error) {
-      console.error("Error refreshing data:", error);
+      // Error handled silently
     } finally {
       setIsRefreshing(false);
       setIsLeaderboardLoading(false);
     }
-  }, []);
+  }, [user]);
 
   // Load initial data on component mount
   useEffect(() => {
@@ -189,7 +205,7 @@ export const GlobalStatistics = () => {
         // Use the optimized refresh function for initial load
         await handleRefresh();
       } catch (error) {
-        console.error("Error during initial data load:", error);
+        // Error handled silently
       }
     };
 
@@ -439,6 +455,7 @@ export const GlobalStatistics = () => {
             </div>
             <div className="flex flex-col">
               <span className="text-sm text-slate-400">Your rank</span>
+              {/* ✅ Display rank as number (e.g., "1,241" not "#1,241") */}
               <span className="text-xl font-bold text-white">
                 {currentUserRank ? (
                   <>

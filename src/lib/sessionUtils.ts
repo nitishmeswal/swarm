@@ -9,7 +9,6 @@ export interface SessionValidationResult {
 
 export async function validateSession(): Promise<SessionValidationResult> {
   // TODO: Replace with Express.js backend API
-  console.log('Session validation disabled - implement Express.js backend');
   return {
     isValid: false,
     session: null,
@@ -30,7 +29,6 @@ export async function getSessionInfo(): Promise<{ session: any | null; user: any
 
 export async function clearSession(): Promise<void> {
   // TODO: Replace with Express.js backend API
-  console.log('Session clear disabled - implement Express.js backend');
 }
 
 export function createDebouncedSessionValidator(delay: number = 100) {

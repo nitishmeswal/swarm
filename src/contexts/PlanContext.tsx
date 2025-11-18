@@ -5,9 +5,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getTierByName, freeSubscriptionTier, SubscriptionTier } from "@/types/subscriptionTiers";
 import apiClient from "@/lib/api/client";
 import { requestDeduplicator } from "@/lib/utils/requestDeduplicator";
+import { SubscriptionPlan } from "@/lib/api/auth";
 
 interface PlanContextType {
-  currentPlan: string;
+  currentPlan: SubscriptionPlan;  // ✅ CRITICAL: Type-safe plan value
   planDetails: SubscriptionTier;
   isLoading: boolean;
   error: string | null;
@@ -34,16 +35,21 @@ interface PlanProviderProps {
   children: React.ReactNode;
 }
 
+// ✅ CRITICAL: Validate plan value matches backend ENUM
+const isValidPlan = (plan: string): plan is SubscriptionPlan => {
+  return ['free', 'basic', 'ultimate', 'enterprise'].includes(plan.toLowerCase());
+};
+
 export function PlanProvider({ children }: PlanProviderProps) {
   const { user } = useAuth(); // ✅ FIX: Use real auth
-  const [currentPlan, setCurrentPlan] = useState<string>("free");
+  const [currentPlan, setCurrentPlan] = useState<SubscriptionPlan>("free");
   const [planDetails, setPlanDetails] = useState<SubscriptionTier>(freeSubscriptionTier);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
 
-  // Plan hierarchy for restriction checking
-  const planHierarchy = ["free", "basic", "pro", "elite"];
+  // ✅ CRITICAL: Plan hierarchy for restriction checking (matches backend ENUM)
+  const planHierarchy: SubscriptionPlan[] = ["free", "basic", "ultimate", "enterprise"];
 
   const fetchInitialPlan = async () => {
     if (!user?.id) {
@@ -62,12 +68,24 @@ export function PlanProvider({ children }: PlanProviderProps) {
           // ✅ FIX: Fetch real subscription from backend using apiClient
           const response = await apiClient.get('/subscriptions/current');
           
+          // ✅ CRITICAL: Backend returns plan_name field (lowercase)
           const planName = response.data.data?.plan_name || 'free';
-          setCurrentPlan(planName);
-          setPlanDetails(getTierByName(planName));
+          const normalizedPlan = planName.toLowerCase();
+          
+          // ✅ CRITICAL: Validate plan value before setting
+          if (!isValidPlan(normalizedPlan)) {
+            console.warn(`Invalid plan "${planName}" received from backend, defaulting to free`);
+            setCurrentPlan('free');
+            setPlanDetails(freeSubscriptionTier);
+            setError(null);
+            return 'free';
+          }
+          
+          setCurrentPlan(normalizedPlan);
+          setPlanDetails(getTierByName(normalizedPlan));
           setLastSynced(new Date());
           setError(null);
-          return planName;
+          return normalizedPlan;
         } catch (err) {
           console.error('Plan fetch error:', err);
           // Fallback to free plan if endpoint not implemented yet
@@ -131,8 +149,16 @@ export function PlanProvider({ children }: PlanProviderProps) {
 
   // Check if current plan meets the requirement for a feature
   const checkPlanRestriction = (requiredPlan: string): { allowed: boolean; message?: string } => {
-    const currentIndex = planHierarchy.indexOf(currentPlan.toLowerCase());
-    const requiredIndex = planHierarchy.indexOf(requiredPlan.toLowerCase());
+    const normalizedRequired = requiredPlan.toLowerCase();
+    const normalizedCurrent = currentPlan.toLowerCase();
+    
+    // ✅ CRITICAL: Validate both plans are valid before comparison
+    if (!isValidPlan(normalizedRequired) || !isValidPlan(normalizedCurrent)) {
+      return { allowed: false, message: "Invalid plan configuration" };
+    }
+    
+    const currentIndex = planHierarchy.indexOf(normalizedCurrent as SubscriptionPlan);
+    const requiredIndex = planHierarchy.indexOf(normalizedRequired as SubscriptionPlan);
 
     if (currentIndex === -1 || requiredIndex === -1) {
       return { allowed: false, message: "Invalid plan configuration" };

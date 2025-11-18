@@ -10,7 +10,7 @@
  */
 
 export async function createClient() {
-  console.warn('⚠️ WARNING: Using deprecated Supabase stub. Migrate to new API services in @/lib/api');
+  // ✅ SECURITY: Deprecation warning removed for production
   
   // Return a minimal mock to prevent crashes
   return {

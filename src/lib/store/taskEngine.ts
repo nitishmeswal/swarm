@@ -4,12 +4,13 @@ import { updateUptime } from './slices/nodeSlice';
 import { addReward } from './slices/earningsSlice';
 import { TASK_CONFIG, generateTaskId, logger } from './config';
 import { ProxyTask, RewardTransaction } from './types';
+import { SubscriptionPlan } from '@/lib/api/auth';  // ✅ CRITICAL: Import type for consistency
 
 class TaskProcessingEngine {
   private intervalId: NodeJS.Timeout | null = null;
   private dispatch: AppDispatch;
   private isRunning = false;
-  private currentPlan: 'free' | 'basic' | 'ultimate' | 'enterprise' = 'free';
+  private currentPlan: SubscriptionPlan = 'free';  // ✅ CRITICAL: Use imported type
   private taskTimers: Map<string, NodeJS.Timeout> = new Map(); // ✅ Individual timers for each task
 
   constructor(dispatch: AppDispatch) {
@@ -20,7 +21,7 @@ class TaskProcessingEngine {
   setPlan(plan: string) {
     const planLower = plan.toLowerCase();
     if (planLower in TASK_CONFIG.GENERATION) {
-      this.currentPlan = planLower as 'free' | 'basic' | 'ultimate' | 'enterprise';
+      this.currentPlan = planLower as SubscriptionPlan;  // ✅ CRITICAL: Use imported type
       
       // Restart engine with new interval if running
       if (this.isRunning) {

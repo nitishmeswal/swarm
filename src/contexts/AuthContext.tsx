@@ -62,6 +62,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     
     loadUser();
+
+    // Listen for auth updates from OAuth callback
+    const handleAuthUpdate = () => {
+      const storedUser = authService.getUser();
+      if (storedUser) {
+        setUser(storedUser);
+      }
+    };
+
+    window.addEventListener('auth-updated', handleAuthUpdate);
+    return () => window.removeEventListener('auth-updated', handleAuthUpdate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 

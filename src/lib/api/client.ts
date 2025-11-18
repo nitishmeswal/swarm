@@ -49,15 +49,8 @@ apiClient.interceptors.response.use(
       }
     }
     
-    // Handle 403 Forbidden
-    if (error.response?.status === 403) {
-      console.error('Access denied:', error.response.data);
-    }
-    
-    // Handle 500 Server Error
-    if (error.response?.status === 500) {
-      console.error('Server error:', error.response.data);
-    }
+    // ✅ SECURITY: Error details not logged to prevent data exposure
+    // 403 Forbidden and 500 Server Error handled silently
     
     return Promise.reject(error);
   }

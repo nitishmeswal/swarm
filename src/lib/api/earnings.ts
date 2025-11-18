@@ -202,7 +202,7 @@ class EarningsService {
       );
       return data.data;
     } catch (error) {
-      console.error('❌ Failed to fetch earnings stats:', error);
+      // ✅ SECURITY: No error details logged in production
       throw new Error(getErrorMessage(error));
     }
   }

@@ -325,6 +325,7 @@ export function ProfileEditModal({
                 >
                   Subscription Plan
                 </Label>
+                {/* ✅ CRITICAL: user.plan comes from backend auth endpoints (maps from subscription_plan column) */}
                 <div className="flex items-center gap-2 bg-slate-800 p-2 rounded border border-slate-700 text-gray-300">
                   <CreditCard className="h-4 w-4 text-blue-400" />
                   <div className="flex items-center gap-2">
